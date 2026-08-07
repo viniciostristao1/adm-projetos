@@ -116,17 +116,21 @@ class _CaixaNotaState extends State<_CaixaNota> {
   }
 
   void _mudou(String novoTexto) {
-    final corrigido = maiusculaAposItem(novoTexto);
-    if (corrigido != novoTexto) {
-      _ctrl.value = TextEditingValue(
-        text: corrigido,
-        selection: TextSelection.collapsed(offset: corrigido.length),
-      );
-    }
-    widget.nota.texto = corrigido;
+    widget.nota.texto = novoTexto;
     _debounce?.cancel();
-    _debounce =
-        Timer(const Duration(milliseconds: 400), Storage.instance.salvar);
+    _debounce = Timer(const Duration(milliseconds: 700), () {
+      // Aplica a maiúscula pós-"N- " e salva DEPOIS de pausar a digitação.
+      // Fazer isso durante a digitação quebrava a voz na primeira palavra.
+      final corrigido = maiusculaAposItem(_ctrl.text);
+      if (corrigido != _ctrl.text) {
+        _ctrl.value = TextEditingValue(
+          text: corrigido,
+          selection: TextSelection.collapsed(offset: corrigido.length),
+        );
+        widget.nota.texto = corrigido;
+      }
+      Storage.instance.salvar();
+    });
   }
 
   /// Botão de lista numerada: "enter + próximo número" (fica após o último).

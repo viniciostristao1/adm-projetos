@@ -11,23 +11,60 @@ void main() {
 }
 
 class AdmProjetosApp extends StatelessWidget {
-  const AdmProjetosApp({super.key});
-
   static const _bordaCard = Color(0x1A0B1220);
+
+  static const _appbarClaro = AppBarTheme(
+    backgroundColor: Color(0xFFFFFFFF),
+    foregroundColor: Color(0xFF1E3A8A),
+    surfaceTintColor: Colors.transparent,
+    scrolledUnderElevation: 0,
+    elevation: 0,
+    centerTitle: false,
+    titleTextStyle: TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.2,
+      color: Color(0xFF1E3A8A),
+    ),
+  );
+
+  static const _appbarEscuro = AppBarTheme(
+    backgroundColor: Color(0xFF0B1220),
+    foregroundColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
+    scrolledUnderElevation: 0,
+    elevation: 0,
+    centerTitle: false,
+    titleTextStyle: TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.2,
+      color: Colors.white,
+    ),
+  );
+
+  static const _appbarBege = AppBarTheme(
+    backgroundColor: Color(0xFFEADCC5),
+    foregroundColor: Color(0xFF4A2A0E),
+    surfaceTintColor: Colors.transparent,
+    scrolledUnderElevation: 0,
+    elevation: 0,
+    centerTitle: false,
+    titleTextStyle: TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.2,
+      color: Color(0xFF4A2A0E),
+    ),
+  );
+
+  const AdmProjetosApp({super.key});
 
   ThemeData _temaBase(ThemeData t) => t.copyWith(
         inputDecorationTheme: InputDecorationTheme(
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
           fillColor: const Color(0xFF0B1220).withValues(alpha: 0.03),
-        ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: false,
-          titleTextStyle: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-          ),
         ),
         cardTheme: CardThemeData(
           elevation: 0,
@@ -59,13 +96,14 @@ class AdmProjetosApp extends StatelessWidget {
       );
 
   ThemeData _temaClaro() => _temaBase(ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E3A8A)),
-        extensions: const [AppCores.luz],
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: AppCores.luz.fab,
-          foregroundColor: AppCores.luz.fabIcone,
-        ),
-      ));
+      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E3A8A)),
+      extensions: const [AppCores.luz],
+      appBarTheme: _appbarClaro,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: AppCores.luz.fab,
+        foregroundColor: AppCores.luz.fabIcone,
+      ),
+    ));
 
   ThemeData _temaEscuro() => _temaBase(ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -73,6 +111,7 @@ class AdmProjetosApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
         extensions: const [AppCores.escuro],
+        appBarTheme: _appbarEscuro,
         floatingActionButtonTheme: FloatingActionButtonThemeData(
           backgroundColor: AppCores.escuro.fab,
           foregroundColor: AppCores.escuro.fabIcone,
@@ -92,6 +131,7 @@ class AdmProjetosApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6D4C2F)),
         scaffoldBackgroundColor: const Color(0xFFEDE1CF),
         extensions: const [AppCores.bege],
+        appBarTheme: _appbarBege,
         floatingActionButtonTheme: FloatingActionButtonThemeData(
           backgroundColor: AppCores.bege.fab,
           foregroundColor: AppCores.bege.fabIcone,
