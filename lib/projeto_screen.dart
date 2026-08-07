@@ -136,6 +136,12 @@ class _CaixaNotaState extends State<_CaixaNota> {
     });
   }
 
+  /// Limpa TODO o conteúdo da caixinha de uma vez.
+  void _limpar() {
+    _ctrl.clear();
+    _mudou('');
+  }
+
   /// Botão de lista numerada: "enter + próximo número" (fica após o último).
   void _proximoItem() {
     final linha = '${proximoNumeroLista(_ctrl.text)}- ';
@@ -178,6 +184,11 @@ class _CaixaNotaState extends State<_CaixaNota> {
                     icone: Icons.edit_outlined,
                     tooltip: 'Editar',
                     onTap: _foco.requestFocus,
+                  ),
+                  _BotaoMini(
+                    icone: Icons.cleaning_services,
+                    tooltip: 'Limpar conteúdo',
+                    onTap: _limpar,
                   ),
                   _BotaoMini(
                     icone: Icons.delete_outline,
