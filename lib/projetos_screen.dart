@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'caixa3d.dart';
 import 'cores.dart';
 import 'editor.dart';
 import 'models.dart';
@@ -131,9 +132,16 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
               itemBuilder: (_, i) {
                 final p = _projetos[i];
                 final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
-                return Card(
-                  color: app.projetoCard,
-                  child: ListTile(
+                return Caixa3D(
+                  cor: app.projetoCard,
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    elevation: 0,
+                    color: app.projetoCard,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: ListTile(
                     leading: Icon(Icons.folder_outlined, color: app.projetoTxt),
                     title: TituloDestacado(
                       p.nome,
@@ -172,7 +180,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                       if (mounted) setState(() {});
                     },
                   ),
-                );
+                ),
+              );
               },
             ),
     );

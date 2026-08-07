@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'caixa3d.dart';
 import 'cores.dart';
 import 'editor.dart';
 import 'models.dart';
@@ -119,9 +120,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
   void _mudou(String novoTexto) {
     widget.nota.texto = novoTexto;
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 700), () {
-      // Aplica a maiúscula pós-"N- " e salva DEPOIS de pausar a digitação.
-      // Fazer isso durante a digitação quebrava a voz na primeira palavra.
+    // Espera 2s de pausa para aplicar a maiúscula pós-"N- " e salvar.
+    // Menos que isso cortava a digitação por voz (ela envia o texto em
+    // partes com pequenas pausas).
+    _debounce = Timer(const Duration(seconds: 2), () {
       final corrigido = maiusculaAposItem(_ctrl.text);
       if (corrigido != _ctrl.text) {
         _ctrl.value = TextEditingValue(
@@ -151,24 +153,13 @@ class _CaixaNotaState extends State<_CaixaNota> {
   @override
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
-      child: Ink(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [app.notaInicio, app.notaFim],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: app.notaBorda),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
+    return Caixa3D(
+      cor: app.notaInicio,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 4, 0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -222,8 +213,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 

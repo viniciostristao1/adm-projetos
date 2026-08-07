@@ -34,10 +34,11 @@ class AppCores extends ThemeExtension<AppCores> {
     fabIcone: Colors.white,
   );
 
-  /// Tema escuro: cartões do projeto e o botão "+" em âmbar.
+  /// Tema escuro: cartões do projeto e o botão "+" em âmbar. A caixinha de
+  /// texto é um tom único e achatado (sem degrade).
   static const AppCores escuro = AppCores(
-    notaInicio: Color(0xFF1B2A45),
-    notaFim: Color(0xFF121B2E),
+    notaInicio: Color(0xFF2B3B56),
+    notaFim: Color(0xFF2B3B56),
     notaBorda: Color(0x33FFFFFF),
     projetoCard: Color(0xFFF0A500),
     projetoTxt: Color(0xFF1A1200),
