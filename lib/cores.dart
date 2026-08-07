@@ -35,10 +35,10 @@ class AppCores extends ThemeExtension<AppCores> {
   );
 
   /// Tema escuro: cartões do projeto e o botão "+" em âmbar. A caixinha de
-  /// texto é um tom único e achatado (sem degrade).
+  /// texto é cinza escuro (estilo Notion), tom único sem degrade.
   static const AppCores escuro = AppCores(
-    notaInicio: Color(0xFF2B3B56),
-    notaFim: Color(0xFF2B3B56),
+    notaInicio: Color(0xFF242424),
+    notaFim: Color(0xFF242424),
     notaBorda: Color(0x33FFFFFF),
     projetoCard: Color(0xFFF0A500),
     projetoTxt: Color(0xFF1A1200),
