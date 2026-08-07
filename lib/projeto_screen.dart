@@ -90,19 +90,24 @@ class _NotaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
-        child: Column(
+        padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              texto,
-              maxLines: 8,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14.5, height: 1.35),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  texto,
+                  maxLines: 8,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14.5, height: 1.35),
+                ),
+              ),
             ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            const SizedBox(width: 4),
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _BotaoMini(
                   icone: Icons.copy_all_outlined,

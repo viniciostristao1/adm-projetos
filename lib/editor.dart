@@ -8,7 +8,7 @@ Future<String?> editarTexto(BuildContext context,
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -72,6 +72,7 @@ class _EditorTextoState extends State<_EditorTexto> {
               maxLines: null,
               expands: false,
               keyboardType: TextInputType.multiline,
+              inputFormatters: [_CapitalizarPrimeiraLetra()],
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -110,4 +111,22 @@ void copiarTexto(BuildContext context, String texto) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(const SnackBar(content: Text('Copiado!')));
+}
+
+/// Força a PRIMEIRA letra (não-espaço) do texto em maiúscula enquanto digita.
+class _CapitalizarPrimeiraLetra extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final t = newValue.text;
+    if (t.isEmpty) return newValue;
+    final m = RegExp(r'\S').firstMatch(t);
+    if (m == null) return newValue;
+    final i = m.start;
+    final letra = t[i];
+    if (letra == letra.toUpperCase()) return newValue;
+    return newValue.copyWith(
+      text: t.replaceRange(i, i + 1, letra.toUpperCase()),
+    );
+  }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'models.dart';
 import 'projeto_screen.dart';
 import 'storage.dart';
+import 'tema.dart';
 
 /// Página principal: a lista de projetos.
 class ProjetosScreen extends StatefulWidget {
@@ -24,6 +25,16 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   }
 
   Future<void> _salvar() => Storage.instance.salvar();
+
+  void _abrirConfig() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _ConfigSheet(),
+    );
+  }
 
   Future<void> _criarProjeto() async {
     final nome = await _pedirNome(context, titulo: 'Novo projeto');
@@ -77,6 +88,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
             Text('ADM-projetos'),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Configurações',
+            onPressed: _abrirConfig,
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _criarProjeto,
@@ -153,6 +171,73 @@ Future<String?> _pedirNome(BuildContext context,
       ],
     ),
   );
+}
+
+/// Folha de configurações (aberta pela engrenagem): tema claro/escuro.
+class _ConfigSheet extends StatelessWidget {
+  const _ConfigSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const Text('Configurações',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            const Text('Tema',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            ListenableBuilder(
+              listenable: temaController,
+              builder: (context, _) {
+                final escuro = temaController.escuro;
+                return SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: false,
+                      icon: Icon(Icons.light_mode_outlined),
+                      label: Text('Claro'),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: Icon(Icons.dark_mode_outlined),
+                      label: Text('Escuro'),
+                    ),
+                  ],
+                  selected: {escuro},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) =>
+                      temaController.definir(escuro: s.first),
+                );
+              },
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Usar o tema escuro do aplicativo.',
+              style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Vazio extends StatelessWidget {
