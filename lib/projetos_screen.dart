@@ -30,6 +30,15 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
 
   Future<void> _salvar() => Storage.instance.salvar();
 
+  /// Reordena a lista de projetos após arrastar (troca a ordem das pastas).
+  void _reordenar(int antigo, int novo) {
+    setState(() {
+      final p = _projetos.removeAt(antigo);
+      _projetos.insert(novo, p);
+    });
+    _salvar();
+  }
+
   void _abrirConfig() {
     showModalBottomSheet<void>(
       context: context,
@@ -125,24 +134,33 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       ),
       body: _projetos.isEmpty
           ? const _Vazio()
-          : ListView.separated(
+          : ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
               itemCount: _projetos.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              buildDefaultDragHandles: false,
+              onReorderItem: _reordenar,
               itemBuilder: (_, i) {
                 final p = _projetos[i];
-                final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
-                return Caixa3D(
-                  cor: app.projetoCard,
-                  child: Card(
-                    margin: EdgeInsets.zero,
-                    elevation: 0,
-                    color: app.projetoCard,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: ListTile(
-                    leading: Icon(Icons.folder_outlined, color: app.projetoTxt),
+                final app =
+                    Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+                return Padding(
+                  key: ValueKey(p.id),
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Caixa3D(
+                    cor: app.projetoCard,
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      elevation: 0,
+                      color: app.projetoCard,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: ListTile(
+                        leading: ReorderableDragStartListener(
+                          index: i,
+                          child:
+                              Icon(Icons.drag_indicator, color: app.projetoTxt),
+                        ),
                     title: TituloDestacado(
                       p.nome,
                       corTexto: app.projetoTxt,
@@ -181,7 +199,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     },
                   ),
                 ),
-              );
+              ),
+            );
               },
             ),
     );

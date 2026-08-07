@@ -45,6 +45,15 @@ class _ProjetoScreenState extends State<ProjetoScreen> {
     await _salvar();
   }
 
+  /// Reordena as caixinhas depois de arrastar.
+  void _reordenar(int antigo, int novo) {
+    setState(() {
+      final n = widget.projeto.notas.removeAt(antigo);
+      widget.projeto.notas.insert(novo, n);
+    });
+    _salvar();
+  }
+
   @override
   Widget build(BuildContext context) {
     final notas = widget.projeto.notas;
@@ -59,15 +68,21 @@ class _ProjetoScreenState extends State<ProjetoScreen> {
       ),
       body: notas.isEmpty
           ? const _SemNotas()
-          : ListView.separated(
+          : ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
               itemCount: notas.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => _CaixaNota(
-                key: _chaveDa(notas[i].id),
-                nota: notas[i],
-                onCopiar: () => copiarTexto(context, notas[i].texto),
-                onExcluir: () => _excluirNota(i),
+              buildDefaultDragHandles: false,
+              onReorderItem: _reordenar,
+              itemBuilder: (_, i) => Padding(
+                key: ValueKey(notas[i].id),
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _CaixaNota(
+                  key: _chaveDa(notas[i].id),
+                  nota: notas[i],
+                  indice: i,
+                  onCopiar: () => copiarTexto(context, notas[i].texto),
+                  onExcluir: () => _excluirNota(i),
+                ),
               ),
             ),
     );
@@ -78,11 +93,16 @@ class _CaixaNota extends StatefulWidget {
   const _CaixaNota({
     super.key,
     required this.nota,
+    required this.indice,
     required this.onCopiar,
     required this.onExcluir,
   });
 
   final Nota nota;
+
+  /// Posição da caixinha na lista (para o arrasto).
+  final int indice;
+
   final VoidCallback onCopiar;
   final VoidCallback onExcluir;
 
@@ -170,6 +190,14 @@ class _CaixaNotaState extends State<_CaixaNota> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ReorderableDragStartListener(
+                    index: widget.indice,
+                    child: Icon(
+                      Icons.drag_indicator,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   _BotaoMini(
                     icone: Icons.format_list_numbered,
                     tooltip: 'Adicionar item da lista',
