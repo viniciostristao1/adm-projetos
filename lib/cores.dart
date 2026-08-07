@@ -39,9 +39,9 @@ class AppCores extends ThemeExtension<AppCores> {
     notaInicio: Color(0xFF1B2A45),
     notaFim: Color(0xFF121B2E),
     notaBorda: Color(0x33FFFFFF),
-    projetoCard: Color(0xFFFFB300),
+    projetoCard: Color(0xFFF0A500),
     projetoTxt: Color(0xFF1A1200),
-    fab: Color(0xFFFFB300),
+    fab: Color(0xFFF0A500),
     fabIcone: Color(0xFF1A1200),
   );
 

@@ -90,58 +90,66 @@ class _NotaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [app.notaInicio, app.notaFim],
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [app.notaInicio, app.notaFim],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: app.notaBorda),
         ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: app.notaBorda),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 4, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _BotaoMini(
-                  icone: Icons.copy_all_outlined,
-                  tooltip: 'Copiar',
-                  onTap: onCopiar,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onEditar,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 4, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _BotaoMini(
+                      icone: Icons.copy_all_outlined,
+                      tooltip: 'Copiar',
+                      onTap: onCopiar,
+                    ),
+                    _BotaoMini(
+                      icone: Icons.edit_outlined,
+                      tooltip: 'Editar',
+                      onTap: onEditar,
+                    ),
+                    _BotaoMini(
+                      icone: Icons.delete_outline,
+                      tooltip: 'Excluir',
+                      isDanger: true,
+                      onTap: onExcluir,
+                    ),
+                  ],
                 ),
-                _BotaoMini(
-                  icone: Icons.edit_outlined,
-                  tooltip: 'Editar',
-                  onTap: onEditar,
-                ),
-                _BotaoMini(
-                  icone: Icons.delete_outline,
-                  tooltip: 'Excluir',
-                  isDanger: true,
-                  onTap: onExcluir,
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-            child: Text(
-              texto,
-              maxLines: 8,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 14.5,
-                height: 1.35,
-                color: Theme.of(context).colorScheme.onSurface,
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: Text(
+                  texto,
+                  maxLines: 8,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    height: 1.35,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
