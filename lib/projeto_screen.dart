@@ -19,23 +19,22 @@ class ProjetoScreen extends StatefulWidget {
 }
 
 class _ProjetoScreenState extends State<ProjetoScreen> {
-  /// Id da última caixinha criada (para focá-la ao abrir).
-  String? _ultimoNovo;
+  final Map<String, GlobalKey<_CaixaNotaState>> _chaves = {};
 
   Future<void> _salvar() => Storage.instance.salvar();
+
+  GlobalKey<_CaixaNotaState> _chaveDa(String id) =>
+      _chaves.putIfAbsent(id, () => GlobalKey<_CaixaNotaState>());
 
   void _adicionarNota() {
     final nota = Nota(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       texto: '1- ',
     );
-    setState(() {
-      widget.projeto.notas.add(nota);
-      _ultimoNovo = nota.id;
-    });
+    setState(() => widget.projeto.notas.add(nota));
     _salvar();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _ultimoNovo = null);
+      _chaveDa(nota.id).currentState?.focarNoFim();
     });
   }
 
@@ -63,9 +62,8 @@ class _ProjetoScreenState extends State<ProjetoScreen> {
               itemCount: notas.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (_, i) => _CaixaNota(
-                key: ValueKey(notas[i].id),
+                key: _chaveDa(notas[i].id),
                 nota: notas[i],
-                autofocus: notas[i].id == _ultimoNovo,
                 onCopiar: () => copiarTexto(context, notas[i].texto),
                 onExcluir: () => _excluirNota(i),
               ),
@@ -80,13 +78,11 @@ class _CaixaNota extends StatefulWidget {
     required this.nota,
     required this.onCopiar,
     required this.onExcluir,
-    this.autofocus = false,
   });
 
   final Nota nota;
   final VoidCallback onCopiar;
   final VoidCallback onExcluir;
-  final bool autofocus;
 
   @override
   State<_CaixaNota> createState() => _CaixaNotaState();
@@ -112,10 +108,25 @@ class _CaixaNotaState extends State<_CaixaNota> {
     super.dispose();
   }
 
-  void _mudou() {
-    widget.nota.texto = _ctrl.text;
+  /// Foca a caixinha e leva o cursor para o final do texto (usado ao criar
+  /// uma caixinha nova com o botão + e ao tocar na caixinha).
+  void focarNoFim() {
+    _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    _foco.requestFocus();
+  }
+
+  void _mudou(String novoTexto) {
+    final corrigido = maiusculaAposItem(novoTexto);
+    if (corrigido != novoTexto) {
+      _ctrl.value = TextEditingValue(
+        text: corrigido,
+        selection: TextSelection.collapsed(offset: corrigido.length),
+      );
+    }
+    widget.nota.texto = corrigido;
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), Storage.instance.salvar);
+    _debounce =
+        Timer(const Duration(milliseconds: 400), Storage.instance.salvar);
   }
 
   /// Botão de lista numerada: "enter + próximo número" (fica após o último).
@@ -129,7 +140,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
       selection: TextSelection.collapsed(offset: novo.length),
     );
     _foco.requestFocus();
-    _mudou();
+    _mudou(_ctrl.text);
   }
 
   @override
@@ -184,7 +195,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
             TextField(
               controller: _ctrl,
               focusNode: _foco,
-              autofocus: widget.autofocus,
               minLines: 1,
               maxLines: 8,
               keyboardType: TextInputType.multiline,
@@ -195,7 +205,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
                 height: 1.35,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
-              onChanged: (_) => _mudou(),
+              onTap: focarNoFim,
+              onChanged: _mudou,
               decoration: const InputDecoration(
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,

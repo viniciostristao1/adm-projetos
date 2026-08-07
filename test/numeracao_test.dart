@@ -23,13 +23,13 @@ void main() {
     TextEditingValue fmt(TextEditingValue novo) =>
         formatter.formatEditUpdate(const TextEditingValue(text: ''), novo);
 
-    test('Enter depois de item numerado cria o próximo número', () {
+test('Enter depois de item numerado cria o próximo número', () {
       const novo = TextEditingValue(
         text: '1- comprar pão\n',
-        selection: TextSelection.collapsed(offset: 15),
+        selection: TextSelection.collapsed(offset: 14),
       );
       final r = fmt(novo);
-      expect(r.text, '1- comprar pão\n2-');
+      expect(r.text, '1- comprar pão\n2- ');
     });
 
     test('sem linha nova, não altera nada', () {
@@ -38,6 +38,22 @@ void main() {
         selection: TextSelection.collapsed(offset: 14),
       );
       expect(fmt(novo).text, novo.text);
+    });
+
+    test('apagar número NÃO é desfeito pelo formatador', () {
+      // Backspace apagando toda a linha "2- b": a edição encolhe o texto,
+      // então o formatador não re-insere o número.
+      final r = formatter.formatEditUpdate(
+        const TextEditingValue(
+          text: '1- a\n2- b',
+          selection: TextSelection.collapsed(offset: 8),
+        ),
+        const TextEditingValue(
+          text: '1- a\n',
+          selection: TextSelection.collapsed(offset: 5),
+        ),
+      );
+      expect(r.text, '1- a\n');
     });
 
     test('não numera linha nova sem item anterior numerado', () {
@@ -60,8 +76,8 @@ void main() {
       v = formatter.formatEditUpdate(
         v,
         TextEditingValue(
-          text: '${v.text} b',
-          selection: TextSelection.collapsed(offset: v.text.length + 2),
+          text: '${v.text}b',
+          selection: TextSelection.collapsed(offset: v.text.length + 1),
         ),
       );
       v = formatter.formatEditUpdate(
@@ -71,7 +87,21 @@ void main() {
           selection: TextSelection.collapsed(offset: v.text.length + 1),
         ),
       );
-      expect(v.text, '1- a\n2- b\n3-');
+      expect(v.text, '1- a\n2- b\n3- ');
+    });
+  });
+
+  group('maiusculaAposItem', () {
+    test('maúscula no início do item', () {
+      expect(maiusculaAposItem('1- mercado'), '1- Mercado');
+    });
+
+    test('não muda texto já maúsculo', () {
+      expect(maiusculaAposItem('1- Feira'), '1- Feira');
+    });
+
+    test('não muda linha sem número', () {
+      expect(maiusculaAposItem('apenas texto'), 'apenas texto');
     });
   });
 }

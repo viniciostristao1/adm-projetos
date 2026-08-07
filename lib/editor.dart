@@ -30,58 +30,46 @@ int proximoNumeroLista(String texto) {
   return maior + 1;
 }
 
-/// Formata a digitação para que, ao pressionar Enter depois de um item
-/// numerado, a linha nova receba automaticamente o próximo número ("2-",
-/// "3-", etc.). Só mexe no texto quando há nova linha vazia após item
-/// numerado — não interfere na digitação por voz.
+/// Formata a digitação para que, ao pressionar Enter DEPOIS de um item
+/// numerado, a nova linha ganhe o próximo número ("2-", "3-", ...).
+///
+/// Só age quando a edição termina com uma linha nova (Enter no final) e a
+/// linha anterior é numerada — assim NÃO atrapalha o backspace de apagar os
+/// números nem interfere na digitação por voz.
 class LinhasNumeradas extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
     final texto = newValue.text;
-    if (!texto.contains('\n')) return newValue;
+    // Só age no Enter no final: a edição precisa TERMINAR com linha nova E
+    // ter AUMENTADO o texto (digitar Enter acrescenta; apagar com backspace
+    // não pode re-criar os números).
+    if (!texto.endsWith('\n')) return newValue;
+    if (texto.length <= oldValue.text.length) return newValue;
 
     final linhas = texto.split('\n');
-    var mudou = false;
-    final saida = <String>[];
-    int proximo = 1;
-    var anteriorNumerada = false;
+    if (linhas.length < 2) return newValue;
 
-    for (final linha in linhas) {
-      final m = RegExp(r'^\s*(\d+)\s*-').firstMatch(linha);
-      if (m != null) {
-        proximo = int.parse(m.group(1)!) + 1;
-        anteriorNumerada = true;
-        saida.add(linha);
-      } else if (linha.isEmpty && anteriorNumerada) {
-        saida.add('$proximo-');
-        proximo++;
-        mudou = true;
-      } else {
-        anteriorNumerada = false;
-        saida.add(linha);
-      }
-    }
-    if (!mudou) return newValue;
+    final m = RegExp(r'^\s*(\d+)\s*-').firstMatch(linhas[linhas.length - 2]);
+    if (m == null) return newValue;
 
-    final novoTexto = saida.join('\n');
-
-    // Linha onde está o cursor (no texto original).
-    final antes =
-        texto.substring(0, newValue.selection.isValid ? newValue.selection.start : texto.length);
-    var linhaCursor = antes.split('\n').length - 1;
-    if (linhaCursor > saida.length - 1) linhaCursor = saida.length - 1;
-
-    // Cursor no fim da linha do cursor (logo após o "N-" recém criado).
-    var off = 0;
-    for (var i = 0; i < linhaCursor; i++) {
-      off += saida[i].length + 1;
-    }
-    off += saida[linhaCursor].length;
-
+    final proximo = int.parse(m.group(1)!) + 1;
+    final novoTexto = '$texto$proximo- ';
     return newValue.copyWith(
       text: novoTexto,
-      selection: TextSelection.collapsed(offset: off),
+      selection: TextSelection.collapsed(offset: novoTexto.length),
     );
   }
+}
+
+/// Garante letra MAIÚSCULA logo após cada item numerado ("1- A", "2- B"...).
+/// Só age quando o primeiro caractere digitado depois de "N- " está minúsculo.
+String maiusculaAposItem(String texto) {
+  final linhas = texto.split('\n');
+  final ultima = linhas.last;
+  final m = RegExp(r'^(\d+\s*-\s*)([a-zà-ú])').firstMatch(ultima);
+  if (m == null) return texto;
+  final letra = m.group(2)!.toUpperCase();
+  final pos = texto.length - (ultima.length - m.group(1)!.length);
+  return texto.replaceRange(pos, pos + 1, letra);
 }
