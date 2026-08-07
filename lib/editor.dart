@@ -1,111 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Abre uma folha com campo de texto (multilinha) para editar/criar uma nota.
-/// Retorna o texto salvo, ou `null` se cancelado.
-Future<String?> editarTexto(BuildContext context,
-    {required String titulo, String inicial = ''}) {
-  return showModalBottomSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (_) => _EditorTexto(titulo: titulo, inicial: inicial),
-  );
-}
-
-class _EditorTexto extends StatefulWidget {
-  const _EditorTexto({required this.titulo, required this.inicial});
-
-  final String titulo;
-  final String inicial;
-
-  @override
-  State<_EditorTexto> createState() => _EditorTextoState();
-}
-
-class _EditorTextoState extends State<_EditorTexto> {
-  late final TextEditingController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(text: widget.inicial);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 10, 16, 16 + bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 14),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Text(widget.titulo,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 320),
-            child: TextField(
-              controller: _ctrl,
-              autofocus: true,
-              maxLines: null,
-              expands: false,
-              keyboardType: TextInputType.multiline,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                hintText: 'Escreva sua ideia…',
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text('Cancelar'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () =>
-                      Navigator.pop(context, capitalizarInicial(_ctrl.text)),
-                  child: const Text('Salvar'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Copia um texto para a área de transferência e mostra um aviso.
 void copiarTexto(BuildContext context, String texto) {
   Clipboard.setData(ClipboardData(text: texto));
@@ -114,8 +9,7 @@ void copiarTexto(BuildContext context, String texto) {
     ..showSnackBar(const SnackBar(content: Text('Copiado!')));
 }
 
-/// Deixa a PRIMEIRA letra (não-espaço) em maiúscula. Aplicado ao salvar — usar
-/// um formatador enquanto digita quebrava a digitação por voz do Android.
+/// Deixa a PRIMEIRA letra (não-espaço) em maiúscula.
 String capitalizarInicial(String texto) {
   final m = RegExp(r'\S').firstMatch(texto);
   if (m == null) return texto;
@@ -123,4 +17,71 @@ String capitalizarInicial(String texto) {
   final letra = texto[i];
   if (letra == letra.toUpperCase()) return texto;
   return texto.replaceRange(i, i + 1, letra.toUpperCase());
+}
+
+/// Próximo número da sequência da lista (maior número existente + 1).
+/// Ex.: "1- a\n2- b" -> 3; texto vazio -> 1.
+int proximoNumeroLista(String texto) {
+  var maior = 0;
+  for (final a in RegExp(r'(?:^|\n)\s*(\d+)\s*-').allMatches(texto)) {
+    final v = int.parse(a.group(1)!);
+    if (v > maior) maior = v;
+  }
+  return maior + 1;
+}
+
+/// Formata a digitação para que, ao pressionar Enter depois de um item
+/// numerado, a linha nova receba automaticamente o próximo número ("2-",
+/// "3-", etc.). Só mexe no texto quando há nova linha vazia após item
+/// numerado — não interfere na digitação por voz.
+class LinhasNumeradas extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final texto = newValue.text;
+    if (!texto.contains('\n')) return newValue;
+
+    final linhas = texto.split('\n');
+    var mudou = false;
+    final saida = <String>[];
+    int proximo = 1;
+    var anteriorNumerada = false;
+
+    for (final linha in linhas) {
+      final m = RegExp(r'^\s*(\d+)\s*-').firstMatch(linha);
+      if (m != null) {
+        proximo = int.parse(m.group(1)!) + 1;
+        anteriorNumerada = true;
+        saida.add(linha);
+      } else if (linha.isEmpty && anteriorNumerada) {
+        saida.add('$proximo-');
+        proximo++;
+        mudou = true;
+      } else {
+        anteriorNumerada = false;
+        saida.add(linha);
+      }
+    }
+    if (!mudou) return newValue;
+
+    final novoTexto = saida.join('\n');
+
+    // Linha onde está o cursor (no texto original).
+    final antes =
+        texto.substring(0, newValue.selection.isValid ? newValue.selection.start : texto.length);
+    var linhaCursor = antes.split('\n').length - 1;
+    if (linhaCursor > saida.length - 1) linhaCursor = saida.length - 1;
+
+    // Cursor no fim da linha do cursor (logo após o "N-" recém criado).
+    var off = 0;
+    for (var i = 0; i < linhaCursor; i++) {
+      off += saida[i].length + 1;
+    }
+    off += saida[linhaCursor].length;
+
+    return newValue.copyWith(
+      text: novoTexto,
+      selection: TextSelection.collapsed(offset: off),
+    );
+  }
 }

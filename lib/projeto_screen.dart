@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'cores.dart';
@@ -5,7 +7,8 @@ import 'editor.dart';
 import 'models.dart';
 import 'storage.dart';
 
-/// Página de um projeto: as caixas de texto, com botões de copiar e editar.
+/// Página de um projeto: caixas de texto (listas numeradas) editáveis do
+/// próprio card, com botões de copiar, numerar, editar e excluir.
 class ProjetoScreen extends StatefulWidget {
   const ProjetoScreen({super.key, required this.projeto});
 
@@ -16,28 +19,24 @@ class ProjetoScreen extends StatefulWidget {
 }
 
 class _ProjetoScreenState extends State<ProjetoScreen> {
+  /// Id da última caixinha criada (para focá-la ao abrir).
+  String? _ultimoNovo;
+
   Future<void> _salvar() => Storage.instance.salvar();
 
-  Future<void> _adicionarNota() async {
-    final texto = await editarTexto(context, titulo: 'Nova caixa de texto');
-    if (texto == null) return;
-    if (texto.trim().isEmpty) return;
+  void _adicionarNota() {
+    final nota = Nota(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      texto: '1- ',
+    );
     setState(() {
-      widget.projeto.notas.add(Nota(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        texto: texto,
-      ));
+      widget.projeto.notas.add(nota);
+      _ultimoNovo = nota.id;
     });
-    await _salvar();
-  }
-
-  Future<void> _editarNota(int i) async {
-    final nota = widget.projeto.notas[i];
-    final texto = await editarTexto(context,
-        titulo: 'Editar caixa', inicial: nota.texto);
-    if (texto == null) return;
-    setState(() => nota.texto = texto);
-    await _salvar();
+    _salvar();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _ultimoNovo = null);
+    });
   }
 
   Future<void> _excluirNota(int i) async {
@@ -63,10 +62,11 @@ class _ProjetoScreenState extends State<ProjetoScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
               itemCount: notas.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => _NotaCard(
-                texto: notas[i].texto,
+              itemBuilder: (_, i) => _CaixaNota(
+                key: ValueKey(notas[i].id),
+                nota: notas[i],
+                autofocus: notas[i].id == _ultimoNovo,
                 onCopiar: () => copiarTexto(context, notas[i].texto),
-                onEditar: () => _editarNota(i),
                 onExcluir: () => _excluirNota(i),
               ),
             ),
@@ -74,18 +74,63 @@ class _ProjetoScreenState extends State<ProjetoScreen> {
   }
 }
 
-class _NotaCard extends StatelessWidget {
-  const _NotaCard({
-    required this.texto,
+class _CaixaNota extends StatefulWidget {
+  const _CaixaNota({
+    super.key,
+    required this.nota,
     required this.onCopiar,
-    required this.onEditar,
     required this.onExcluir,
+    this.autofocus = false,
   });
 
-  final String texto;
+  final Nota nota;
   final VoidCallback onCopiar;
-  final VoidCallback onEditar;
   final VoidCallback onExcluir;
+  final bool autofocus;
+
+  @override
+  State<_CaixaNota> createState() => _CaixaNotaState();
+}
+
+class _CaixaNotaState extends State<_CaixaNota> {
+  late final TextEditingController _ctrl;
+  final FocusNode _foco = FocusNode();
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.nota.texto);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    Storage.instance.salvar();
+    _ctrl.dispose();
+    _foco.dispose();
+    super.dispose();
+  }
+
+  void _mudou() {
+    widget.nota.texto = _ctrl.text;
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), Storage.instance.salvar);
+  }
+
+  /// Botão de lista numerada: "enter + próximo número" (fica após o último).
+  void _proximoItem() {
+    final linha = '${proximoNumeroLista(_ctrl.text)}- ';
+    final novo = _ctrl.text.isEmpty || _ctrl.text.endsWith('\n')
+        ? _ctrl.text + linha
+        : '${_ctrl.text}\n$linha';
+    _ctrl.value = TextEditingValue(
+      text: novo,
+      selection: TextSelection.collapsed(offset: novo.length),
+    );
+    _foco.requestFocus();
+    _mudou();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,52 +148,63 @@ class _NotaCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: app.notaBorda),
         ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onEditar,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 4, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _BotaoMini(
-                      icone: Icons.copy_all_outlined,
-                      tooltip: 'Copiar',
-                      onTap: onCopiar,
-                    ),
-                    _BotaoMini(
-                      icone: Icons.edit_outlined,
-                      tooltip: 'Editar',
-                      onTap: onEditar,
-                    ),
-                    _BotaoMini(
-                      icone: Icons.delete_outline,
-                      tooltip: 'Excluir',
-                      isDanger: true,
-                      onTap: onExcluir,
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                child: Text(
-                  texto,
-                  maxLines: 8,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    height: 1.35,
-                    color: Theme.of(context).colorScheme.onSurface,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 4, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  _BotaoMini(
+                    icone: Icons.format_list_numbered,
+                    tooltip: 'Adicionar item da lista',
+                    onTap: _proximoItem,
                   ),
-                ),
+                  _BotaoMini(
+                    icone: Icons.copy_all_outlined,
+                    tooltip: 'Copiar',
+                    onTap: widget.onCopiar,
+                  ),
+                  _BotaoMini(
+                    icone: Icons.edit_outlined,
+                    tooltip: 'Editar',
+                    onTap: _foco.requestFocus,
+                  ),
+                  _BotaoMini(
+                    icone: Icons.delete_outline,
+                    tooltip: 'Excluir',
+                    isDanger: true,
+                    onTap: widget.onExcluir,
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            TextField(
+              controller: _ctrl,
+              focusNode: _foco,
+              autofocus: widget.autofocus,
+              minLines: 1,
+              maxLines: 8,
+              keyboardType: TextInputType.multiline,
+              textCapitalization: TextCapitalization.sentences,
+              inputFormatters: [LinhasNumeradas()],
+              style: TextStyle(
+                fontSize: 14.5,
+                height: 1.35,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              onChanged: (_) => _mudou(),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -194,7 +250,7 @@ class _SemNotas extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.notes, size: 56, color: Colors.grey),
+            const Icon(Icons.format_list_numbered, size: 56, color: Colors.grey),
             const SizedBox(height: 16),
             const Text('Nenhuma caixa ainda',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
