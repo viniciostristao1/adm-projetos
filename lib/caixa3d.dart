@@ -1,63 +1,47 @@
 import 'package:flutter/material.dart';
 
-/// Bloco com moldura em degradê nas bordas + sombra, dando um efeito 3D.
-/// O contorno vai de um tom mais claro (topo-esquerda) para mais escuro
-/// (baixo-direita), como se houvesse relevo.
+/// Bloco com profundidade (3D) vinda de FORA: sombra escura embaixo-direita e
+/// um leve brilho claro no topo-esquerda. O próprio bloco é de cor lisa, sem
+/// moldura nem degradê em cima dele.
 class Caixa3D extends StatelessWidget {
   const Caixa3D({
     super.key,
     required this.cor,
     required this.child,
-    this.raio = 16,
-    this.moldura = 2,
+    this.raio = 14,
   });
 
-  /// Cor principal do conteúdo.
+  /// Cor principal (lisa) do bloco.
   final Color cor;
 
-  /// Conteúdo que fica dentro da moldura.
+  /// Conteúdo do bloco.
   final Widget child;
 
-  /// Raio externo (cantos arredondados).
+  /// Raio dos cantos arredondados.
   final double raio;
-
-  /// Espessura da moldura em degradê.
-  final double moldura;
 
   @override
   Widget build(BuildContext context) {
-    final clara = Color.lerp(cor, Colors.white, 0.35)!;
-    final escura = Color.lerp(cor, Colors.black, 0.3)!;
-    final fundo = Color.lerp(cor, Colors.black, 0.5)!;
+    final sombraEscura = Color.lerp(cor, Colors.black, 0.35)!;
+    final brilhoClaro = Color.lerp(cor, Colors.white, 0.45)!;
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [clara, cor, escura],
-        ),
+        color: cor,
         borderRadius: BorderRadius.circular(raio),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: sombraEscura.withValues(alpha: 0.28),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
           ),
           BoxShadow(
-            color: fundo.withValues(alpha: 0.12),
-            blurRadius: 18,
-            offset: const Offset(0, 9),
+            color: brilhoClaro.withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(-3, -3),
           ),
         ],
       ),
-      padding: EdgeInsets.all(moldura),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cor,
-          borderRadius: BorderRadius.circular(raio - moldura),
-        ),
-        child: child,
-      ),
+      child: child,
     );
   }
 }
