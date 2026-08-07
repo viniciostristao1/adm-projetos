@@ -37,9 +37,16 @@ jobs:
       - name: Build APK (release)
         run: flutter build apk --release
 
-      - name: Publica o APK como artefato
-        uses: actions/upload-artifact@v4
-        with:
-          name: adm-projetos-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
+      - name: Publica o APK como Release (v0.1.0, sobrescreve a cada build)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v0.1.0 \
+            --repo "${{ github.repository }}" \
+            --title "ADM-projetos" \
+            --notes "APK de teste (assinado com a chave de debug)." \
+            || true
+          gh release upload v0.1.0 \
+            build/app/outputs/flutter-apk/app-release.apk \
+            --repo "${{ github.repository }}" \
+            --clobber
