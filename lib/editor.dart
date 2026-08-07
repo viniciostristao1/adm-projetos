@@ -72,7 +72,7 @@ class _EditorTextoState extends State<_EditorTexto> {
               maxLines: null,
               expands: false,
               keyboardType: TextInputType.multiline,
-              inputFormatters: [_CapitalizarPrimeiraLetra()],
+              textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -93,7 +93,8 @@ class _EditorTextoState extends State<_EditorTexto> {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: () => Navigator.pop(context, _ctrl.text),
+                  onPressed: () =>
+                      Navigator.pop(context, capitalizarInicial(_ctrl.text)),
                   child: const Text('Salvar'),
                 ),
               ),
@@ -113,20 +114,13 @@ void copiarTexto(BuildContext context, String texto) {
     ..showSnackBar(const SnackBar(content: Text('Copiado!')));
 }
 
-/// Força a PRIMEIRA letra (não-espaço) do texto em maiúscula enquanto digita.
-class _CapitalizarPrimeiraLetra extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final t = newValue.text;
-    if (t.isEmpty) return newValue;
-    final m = RegExp(r'\S').firstMatch(t);
-    if (m == null) return newValue;
-    final i = m.start;
-    final letra = t[i];
-    if (letra == letra.toUpperCase()) return newValue;
-    return newValue.copyWith(
-      text: t.replaceRange(i, i + 1, letra.toUpperCase()),
-    );
-  }
+/// Deixa a PRIMEIRA letra (não-espaço) em maiúscula. Aplicado ao salvar — usar
+/// um formatador enquanto digita quebrava a digitação por voz do Android.
+String capitalizarInicial(String texto) {
+  final m = RegExp(r'\S').firstMatch(texto);
+  if (m == null) return texto;
+  final i = m.start;
+  final letra = texto[i];
+  if (letra == letra.toUpperCase()) return texto;
+  return texto.replaceRange(i, i + 1, letra.toUpperCase());
 }

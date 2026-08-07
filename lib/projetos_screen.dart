@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'editor.dart';
 import 'models.dart';
 import 'projeto_screen.dart';
 import 'storage.dart';
@@ -159,6 +160,7 @@ Future<String?> _pedirNome(BuildContext context,
       content: TextField(
         controller: ctrl,
         autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
         decoration: const InputDecoration(hintText: 'Nome do projeto'),
       ),
       actions: [
@@ -166,7 +168,7 @@ Future<String?> _pedirNome(BuildContext context,
             onPressed: () => Navigator.pop(context, null),
             child: const Text('Cancelar')),
         TextButton(
-            onPressed: () => Navigator.pop(context, ctrl.text),
+            onPressed: () => Navigator.pop(context, capitalizarInicial(ctrl.text)),
             child: const Text('Criar')),
       ],
     ),
