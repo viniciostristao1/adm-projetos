@@ -4,6 +4,9 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+import java.io.FileInputStream
+import java.util.Properties
+
 android {
     namespace = "com.admprojetos.adm_projetos"
     compileSdk = flutter.compileSdkVersion
@@ -27,9 +30,23 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            val kp = rootProject.file("key.properties")
+            if (kp.exists()) {
+                // Assinatura FIXA (upload-keystore.jks) -> permite atualizar o app
+                // por cima sem conflito de assinatura. key.properties e o keystore
+                // NAO ficam no git (secrets + .gitignore).
+                val props = Properties()
+                FileInputStream(kp).use { props.load(it) }
+                signingConfig = signingConfigs.create("release") {
+                    keyAlias = props["keyAlias"] as String
+                    keyPassword = props["keyPassword"] as String
+                    storePassword = props["storePassword"] as String
+                    storeFile = rootProject.file("app/upload-keystore.jks")
+                }
+            } else {
+                // Sem keystore local (ex.: dev), usa a chave de debug.
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 }

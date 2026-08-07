@@ -37,6 +37,15 @@ jobs:
       - name: Dependências
         run: flutter pub get
 
+      - name: Chave de assinatura (secrets -> keystore + key.properties)
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias=upload
+          EOF
+
       - name: Build APK (release)
         run: flutter build apk --release
 
