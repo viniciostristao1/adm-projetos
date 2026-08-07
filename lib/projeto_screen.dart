@@ -186,47 +186,52 @@ class _CaixaNotaState extends State<_CaixaNota> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 4, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ReorderableDragStartListener(
-                    index: widget.indice,
-                    child: Icon(
-                      Icons.drag_indicator,
-                      size: 20,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+            padding: const EdgeInsets.fromLTRB(10, 6, 8, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ReorderableDragStartListener(
+                  index: widget.indice,
+                  child: Icon(
+                    Icons.drag_indicator,
+                    size: 22,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _BotaoMini(
+                      icone: Icons.format_list_numbered,
+                      tooltip: 'Adicionar item da lista',
+                      onTap: _proximoItem,
                     ),
-                  ),
-                  _BotaoMini(
-                    icone: Icons.format_list_numbered,
-                    tooltip: 'Adicionar item da lista',
-                    onTap: _proximoItem,
-                  ),
-                  _BotaoMini(
-                    icone: Icons.copy_all_outlined,
-                    tooltip: 'Copiar',
-                    onTap: widget.onCopiar,
-                  ),
-                  _BotaoMini(
-                    icone: Icons.edit_outlined,
-                    tooltip: 'Editar',
-                    onTap: _foco.requestFocus,
-                  ),
-                  _BotaoMini(
-                    icone: Icons.cleaning_services,
-                    tooltip: 'Limpar conteúdo',
-                    onTap: _limpar,
-                  ),
-                  _BotaoMini(
-                    icone: Icons.delete_outline,
-                    tooltip: 'Excluir',
-                    isDanger: true,
-                    onTap: widget.onExcluir,
-                  ),
-                ],
-              ),
+                    _BotaoMini(
+                      icone: Icons.copy_all_outlined,
+                      tooltip: 'Copiar',
+                      onTap: widget.onCopiar,
+                    ),
+                    _BotaoMini(
+                      icone: Icons.edit_outlined,
+                      tooltip: 'Editar',
+                      onTap: _foco.requestFocus,
+                    ),
+                    _BotaoMini(
+                      icone: Icons.cleaning_services,
+                      tooltip: 'Limpar conteúdo',
+                      onTap: _limpar,
+                    ),
+                    _BotaoMini(
+                      icone: Icons.delete_outline,
+                      tooltip: 'Excluir',
+                      isDanger: true,
+                      onTap: widget.onExcluir,
+                    ),
+                  ],
+                ),
+              ],
             ),
+          ),
             TextField(
               controller: _ctrl,
               focusNode: _foco,

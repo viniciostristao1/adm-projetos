@@ -23,15 +23,15 @@ class AppCores extends ThemeExtension<AppCores> {
   final Color fab;
   final Color fabIcone;
 
-  /// Tema claro (azul-marinho padrão).
+  /// Tema claro (botão "+" em azul claro).
   static const AppCores luz = AppCores(
     notaInicio: Color(0xFFF6FAFF),
     notaFim: Color(0xFFEAF1FA),
     notaBorda: Color(0x1A0B1220),
     projetoCard: Colors.white,
     projetoTxt: Color(0xFF1B2330),
-    fab: Color(0xFF1E3A8A),
-    fabIcone: Colors.white,
+    fab: Color(0xFF4FC3F7),
+    fabIcone: Color(0xFF0B2E44),
   );
 
   /// Tema escuro: cartões do projeto e o botão "+" em âmbar. A caixinha de
