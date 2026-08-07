@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'cores.dart';
 import 'editor.dart';
 import 'models.dart';
 import 'projeto_screen.dart';
@@ -120,23 +121,30 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (_, i) {
                 final p = _projetos[i];
+                final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
                 return Card(
+                  color: app.projetoCard,
                   child: ListTile(
-                    leading: const Icon(Icons.folder_outlined),
+                    leading: Icon(Icons.folder_outlined, color: app.projetoTxt),
                     title: Text(p.nome,
-                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, color: app.projetoTxt)),
                     subtitle: Text(
-                        '${p.notas.length} ${p.notas.length == 1 ? 'caixa' : 'caixas'}'),
+                        '${p.notas.length} ${p.notas.length == 1 ? 'caixa' : 'caixas'}',
+                        style: TextStyle(
+                            color: app.projetoTxt.withValues(alpha: 0.7))),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          icon: Icon(Icons.edit_outlined,
+                              size: 20, color: app.projetoTxt),
                           tooltip: 'Renomear',
                           onPressed: () => _renomear(p),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
+                          icon: Icon(Icons.delete_outline,
+                              size: 20, color: app.projetoTxt),
                           tooltip: 'Excluir',
                           onPressed: () => _excluir(p),
                         ),
@@ -219,30 +227,33 @@ class _ConfigSheet extends StatelessWidget {
             ListenableBuilder(
               listenable: temaController,
               builder: (context, _) {
-                final escuro = temaController.escuro;
-                return SegmentedButton<bool>(
+                return SegmentedButton<Modo>(
                   segments: const [
                     ButtonSegment(
-                      value: false,
+                      value: Modo.claro,
                       icon: Icon(Icons.light_mode_outlined),
                       label: Text('Claro'),
                     ),
                     ButtonSegment(
-                      value: true,
+                      value: Modo.escuro,
                       icon: Icon(Icons.dark_mode_outlined),
                       label: Text('Escuro'),
                     ),
+                    ButtonSegment(
+                      value: Modo.bege,
+                      icon: Icon(Icons.grid_4x4_outlined),
+                      label: Text('Bege'),
+                    ),
                   ],
-                  selected: {escuro},
+                  selected: {temaController.modo},
                   showSelectedIcon: false,
-                  onSelectionChanged: (s) =>
-                      temaController.definir(escuro: s.first),
+                  onSelectionChanged: (s) => temaController.definir(s.first),
                 );
               },
             ),
             const SizedBox(height: 4),
             Text(
-              'Usar o tema escuro do aplicativo.',
+              'Escolha o tema: Claro, Escuro ou Bege.',
               style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
             ),
           ],

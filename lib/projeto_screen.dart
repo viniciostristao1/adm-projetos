@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'cores.dart';
 import 'editor.dart';
 import 'models.dart';
 import 'storage.dart';
@@ -88,26 +89,25 @@ class _NotaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  texto,
-                  maxLines: 8,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14.5, height: 1.35),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Column(
-              mainAxisSize: MainAxisSize.min,
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [app.notaInicio, app.notaFim],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: app.notaBorda),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 4, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 _BotaoMini(
                   icone: Icons.copy_all_outlined,
@@ -127,8 +127,21 @@ class _NotaCard extends StatelessWidget {
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: Text(
+              texto,
+              maxLines: 8,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14.5,
+                height: 1.35,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -151,7 +164,10 @@ class _BotaoMini extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       icon: Icon(icone,
-          size: 20, color: isDanger ? Colors.red : Colors.grey.shade600),
+          size: 20,
+          color: isDanger
+              ? Colors.red
+              : Theme.of(context).colorScheme.onSurfaceVariant),
       tooltip: tooltip,
       visualDensity: VisualDensity.compact,
       onPressed: onTap,
