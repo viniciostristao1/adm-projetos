@@ -60,6 +60,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    - assets/icono.png
+
 # Config do ícone do app (gerado com flutter_launcher_icons).
 flutter_launcher_icons:
   android: true

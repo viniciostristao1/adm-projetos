@@ -82,13 +82,23 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.lightbulb_outline, size: 22),
-            SizedBox(width: 8),
-            Text('ADM-projetos'),
+            ClipRRect(
+              borderRadius: const BorderRadius.all(Radius.circular(8)),
+              child: Image.asset(
+                'assets/icono.png',
+                width: 24,
+                height: 24,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('ADM-projetos'),
           ],
         ),
+        centerTitle: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -253,7 +263,12 @@ class _Vazio extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.lightbulb_outline, size: 56, color: Colors.grey),
+            Image.asset(
+              'assets/icono.png',
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+            ),
             const SizedBox(height: 16),
             const Text('Nenhum projeto ainda',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
