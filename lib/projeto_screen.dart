@@ -6,6 +6,7 @@ import 'cores.dart';
 import 'editor.dart';
 import 'models.dart';
 import 'storage.dart';
+import 'titulo_destacado.dart';
 
 /// Página de um projeto: caixas de texto (listas numeradas) editáveis do
 /// próprio card, com botões de copiar, numerar, editar e excluir.
@@ -48,7 +49,7 @@ class _ProjetoScreenState extends State<ProjetoScreen> {
     final notas = widget.projeto.notas;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.projeto.nome),
+        title: TituloDestacado(widget.projeto.nome),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _adicionarNota,
