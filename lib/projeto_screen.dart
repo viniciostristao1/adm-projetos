@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'caixa3d.dart';
 import 'cores.dart';
@@ -70,6 +71,32 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     _salvar();
   }
 
+  void _copiarProjeto() {
+    final p = widget.projeto;
+    final buf = StringBuffer()
+      ..writeln(p.nome)
+      ..writeln('=' * 32);
+    if (p.tarefas.isNotEmpty) {
+      for (final n in p.tarefas) {
+        for (final linha in n.texto.split('\n')) {
+          buf.writeln('  $linha');
+        }
+      }
+    }
+    if (p.futuro.isNotEmpty) {
+      buf.writeln('  --- Futuro ---');
+      for (final n in p.futuro) {
+        for (final linha in n.texto.split('\n')) {
+          buf.writeln('  $linha');
+        }
+      }
+    }
+    Clipboard.setData(ClipboardData(text: buf.toString()));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Projeto copiado!')));
+  }
+
   Widget _listaCard(int aba) {
     final itens = _lista(aba);
     if (itens.isEmpty) {
@@ -119,7 +146,18 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: TituloDestacado(widget.projeto.nome),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TituloDestacado(widget.projeto.nome),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.copy_outlined, size: 18),
+              tooltip: 'Copiar tudo do projeto',
+              onPressed: _copiarProjeto,
+            ),
+          ],
+        ),
         bottom: TabBar(
           controller: _tabCtrl,
           indicatorSize: TabBarIndicatorSize.tab,
@@ -166,6 +204,7 @@ class _CaixaNota extends StatefulWidget {
 class _CaixaNotaState extends State<_CaixaNota> {
   late final TextEditingController _ctrl;
   final FocusNode _foco = FocusNode();
+  final ScrollController _scroll = ScrollController();
   Timer? _debounce;
 
   @override
@@ -180,6 +219,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
     Storage.instance.salvar();
     _ctrl.dispose();
     _foco.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -278,27 +318,31 @@ class _CaixaNotaState extends State<_CaixaNota> {
               ],
             ),
           ),
-          TextField(
-            controller: _ctrl,
-            focusNode: _foco,
-            minLines: 1,
-            maxLines: 8,
-            keyboardType: TextInputType.multiline,
-            textCapitalization: TextCapitalization.sentences,
-            inputFormatters: [LinhasNumeradas()],
-            style: TextStyle(
-              fontSize: 14.5,
-              height: 1.35,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            onTap: focarNoFim,
-            onChanged: _mudou,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+          Scrollbar(
+            controller: _scroll,
+            child: TextField(
+              scrollController: _scroll,
+              controller: _ctrl,
+              focusNode: _foco,
+              minLines: 1,
+              maxLines: 8,
+              keyboardType: TextInputType.multiline,
+              textCapitalization: TextCapitalization.sentences,
+              inputFormatters: [LinhasNumeradas()],
+              style: TextStyle(
+                fontSize: 14.5,
+                height: 1.35,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              onTap: focarNoFim,
+              onChanged: _mudou,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+              ),
             ),
           ),
         ],

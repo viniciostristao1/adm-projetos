@@ -47,6 +47,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
 
     for (final p in _projetos) {
       buf.writeln();
+      buf.writeln('- - -');
       buf.writeln(p.nome);
       if (p.tarefas.isNotEmpty) {
         for (final n in p.tarefas) {
