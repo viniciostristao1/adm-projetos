@@ -300,7 +300,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
                     _BotaoMini(
                       icone: Icons.edit_outlined,
                       tooltip: 'Editar',
-                      onTap: _foco.requestFocus,
+                      onTap: focarNoFim,
                     ),
                     _BotaoMini(
                       icone: Icons.cleaning_services,
@@ -334,7 +334,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
                 height: 1.35,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
-              onTap: focarNoFim,
               onChanged: _mudou,
               decoration: const InputDecoration(
                 border: InputBorder.none,
