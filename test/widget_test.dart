@@ -9,20 +9,35 @@ void main() {
     expect(deVolta.texto, 'minha ideia');
   });
 
-  test('Projeto serializa e mantém notas', () {
+  test('Projeto serializa e mantém tarefas', () {
     final projeto = Projeto(
       id: 'p1',
       nome: 'Projeto A',
-      notas: [Nota(id: '1', texto: 'ideia 1'), Nota(id: '2', texto: 'ideia 2')],
+      tarefas: [Nota(id: '1', texto: 'ideia 1'), Nota(id: '2', texto: 'ideia 2')],
     );
     final deVolta = Projeto.fromJson(projeto.toJson());
     expect(deVolta.nome, 'Projeto A');
-    expect(deVolta.notas.length, 2);
-    expect(deVolta.notas[1].texto, 'ideia 2');
+    expect(deVolta.tarefas.length, 2);
+    expect(deVolta.tarefas[1].texto, 'ideia 2');
   });
 
-  test('Projeto cria lista de notas vazia', () {
+  test('Projeto cria listas vazias', () {
     final projeto = Projeto(id: 'p2', nome: 'B');
-    expect(projeto.notas, isEmpty);
+    expect(projeto.tarefas, isEmpty);
+    expect(projeto.futuro, isEmpty);
+  });
+
+  test('Projeto migra notas antigas para tarefas', () {
+    final json = {
+      'id': 'p3',
+      'nome': 'Migrado',
+      'notas': [
+        {'id': '1', 'texto': 'velha ideia'}
+      ]
+    };
+    final p = Projeto.fromJson(json);
+    expect(p.tarefas.length, 1);
+    expect(p.tarefas.first.texto, 'velha ideia');
+    expect(p.futuro, isEmpty);
   });
 }

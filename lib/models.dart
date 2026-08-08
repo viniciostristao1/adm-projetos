@@ -15,26 +15,40 @@ class Nota {
       );
 }
 
-/// Um projeto: nome + lista de caixas de texto.
+/// Um projeto: nome + duas listas de caixas (tarefas atuais e ideias futuras).
 class Projeto {
   String id;
   String nome;
-  List<Nota> notas;
+  List<Nota> tarefas;
+  List<Nota> futuro;
 
-  Projeto({required this.id, required this.nome, List<Nota>? notas})
-      : notas = notas ?? [];
+  Projeto({
+    required this.id,
+    required this.nome,
+    List<Nota>? tarefas,
+    List<Nota>? futuro,
+  })  : tarefas = tarefas ?? [],
+        futuro = futuro ?? [];
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'nome': nome,
-        'notas': notas.map((n) => n.toJson()).toList(),
+        'tarefas': tarefas.map((n) => n.toJson()).toList(),
+        'futuro': futuro.map((n) => n.toJson()).toList(),
       };
 
-  factory Projeto.fromJson(Map<String, dynamic> j) => Projeto(
-        id: (j['id'] ?? '') as String,
-        nome: (j['nome'] ?? '') as String,
-        notas: ((j['notas'] ?? []) as List)
-            .map((e) => Nota.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
+  factory Projeto.fromJson(Map<String, dynamic> j) {
+    List<Nota> ler(String chave) => ((j[chave] ?? []) as List)
+        .map((e) => Nota.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    final velhas = ler('notas'); // dados antigos (antes das abas)
+
+    return Projeto(
+      id: (j['id'] ?? '') as String,
+      nome: (j['nome'] ?? '') as String,
+      tarefas: ler('tarefas').isNotEmpty ? ler('tarefas') : velhas,
+      futuro: ler('futuro'),
+    );
+  }
 }

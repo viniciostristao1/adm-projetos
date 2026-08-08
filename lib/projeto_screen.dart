@@ -9,8 +9,7 @@ import 'models.dart';
 import 'storage.dart';
 import 'titulo_destacado.dart';
 
-/// Página de um projeto: caixas de texto (listas numeradas) editáveis do
-/// próprio card, com botões de copiar, numerar, editar e excluir.
+/// Página de um projeto dividida em duas abas: "Tarefas" (atuais) e "Futuro".
 class ProjetoScreen extends StatefulWidget {
   const ProjetoScreen({super.key, required this.projeto});
 
@@ -20,71 +19,128 @@ class ProjetoScreen extends StatefulWidget {
   State<ProjetoScreen> createState() => _ProjetoScreenState();
 }
 
-class _ProjetoScreenState extends State<ProjetoScreen> {
+class _ProjetoScreenState extends State<ProjetoScreen>
+    with SingleTickerProviderStateMixin {
   final Map<String, GlobalKey<_CaixaNotaState>> _chaves = {};
+  late final TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _salvar() => Storage.instance.salvar();
 
   GlobalKey<_CaixaNotaState> _chaveDa(String id) =>
       _chaves.putIfAbsent(id, () => GlobalKey<_CaixaNotaState>());
 
-  void _adicionarNota() {
+  List<Nota> _lista(int aba) =>
+      aba == 0 ? widget.projeto.tarefas : widget.projeto.futuro;
+
+  void _adicionar(int aba) {
     final nota = Nota(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       texto: '1- ',
     );
-    setState(() => widget.projeto.notas.add(nota));
-    _salvar();
+    setState(() => _lista(aba).add(nota));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _chaveDa(nota.id).currentState?.focarNoFim();
     });
+    _salvar();
   }
 
-  Future<void> _excluirNota(int i) async {
-    setState(() => widget.projeto.notas.removeAt(i));
-    await _salvar();
+  void _excluir(int aba, int i) {
+    setState(() => _lista(aba).removeAt(i));
+    _salvar();
   }
 
-  /// Reordena as caixinhas depois de arrastar.
-  void _reordenar(int antigo, int novo) {
+  void _reordenar(int aba, int antigo, int novo) {
     setState(() {
-      final n = widget.projeto.notas.removeAt(antigo);
-      widget.projeto.notas.insert(novo, n);
+      final lst = _lista(aba);
+      final n = lst.removeAt(antigo);
+      lst.insert(novo, n);
     });
     _salvar();
+  }
+
+  Widget _listaCard(int aba) {
+    final itens = _lista(aba);
+    if (itens.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.format_list_numbered, size: 56,
+                  color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text('Nenhuma caixa ainda',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Text(
+                'Toque no + para criar a primeira caixa de texto.',
+                style: TextStyle(color: Colors.grey.shade600),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+      itemCount: itens.length,
+      buildDefaultDragHandles: false,
+      onReorderItem: (a, n) => _reordenar(aba, a, n),
+      itemBuilder: (_, i) => Padding(
+        key: ValueKey(itens[i].id),
+        padding: const EdgeInsets.only(bottom: 10),
+        child: _CaixaNota(
+          key: _chaveDa(itens[i].id),
+          nota: itens[i],
+          indice: i,
+          onCopiar: () => copiarTexto(context, itens[i].texto),
+          onExcluir: () => _excluir(aba, i),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final notas = widget.projeto.notas;
     return Scaffold(
       appBar: AppBar(
         title: TituloDestacado(widget.projeto.nome),
+        bottom: TabBar(
+          controller: _tabCtrl,
+          indicatorSize: TabBarIndicatorSize.tab,
+          tabs: const [
+            Tab(text: 'Tarefas'),
+            Tab(text: 'Futuro'),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _adicionarNota,
+        onPressed: () => _adicionar(_tabCtrl.index),
         tooltip: 'Nova caixa de texto',
         child: const Icon(Icons.add),
       ),
-      body: notas.isEmpty
-          ? const _SemNotas()
-          : ReorderableListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-              itemCount: notas.length,
-              buildDefaultDragHandles: false,
-              onReorderItem: _reordenar,
-              itemBuilder: (_, i) => Padding(
-                key: ValueKey(notas[i].id),
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _CaixaNota(
-                  key: _chaveDa(notas[i].id),
-                  nota: notas[i],
-                  indice: i,
-                  onCopiar: () => copiarTexto(context, notas[i].texto),
-                  onExcluir: () => _excluirNota(i),
-                ),
-              ),
-            ),
+      body: TabBarView(
+        controller: _tabCtrl,
+        children: [
+          _listaCard(0),
+          _listaCard(1),
+        ],
+      ),
     );
   }
 }
@@ -99,10 +155,7 @@ class _CaixaNota extends StatefulWidget {
   });
 
   final Nota nota;
-
-  /// Posição da caixinha na lista (para o arrasto).
   final int indice;
-
   final VoidCallback onCopiar;
   final VoidCallback onExcluir;
 
@@ -130,8 +183,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
     super.dispose();
   }
 
-  /// Foca a caixinha e leva o cursor para o final do texto (usado ao criar
-  /// uma caixinha nova com o botão + e ao tocar na caixinha).
   void focarNoFim() {
     _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
     _foco.requestFocus();
@@ -140,9 +191,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
   void _mudou(String novoTexto) {
     widget.nota.texto = novoTexto;
     _debounce?.cancel();
-    // Espera 2s de pausa para aplicar a maiúscula pós-"N- " e salvar.
-    // Menos que isso cortava a digitação por voz (ela envia o texto em
-    // partes com pequenas pausas).
     _debounce = Timer(const Duration(seconds: 2), () {
       final corrigido = maiusculaAposItem(_ctrl.text);
       if (corrigido != _ctrl.text) {
@@ -156,13 +204,11 @@ class _CaixaNotaState extends State<_CaixaNota> {
     });
   }
 
-  /// Limpa TODO o conteúdo da caixinha de uma vez.
   void _limpar() {
     _ctrl.clear();
     _mudou('');
   }
 
-  /// Botão de lista numerada: "enter + próximo número" (fica após o último).
   void _proximoItem() {
     final linha = '${proximoNumeroLista(_ctrl.text)}- ';
     final novo = _ctrl.text.isEmpty || _ctrl.text.endsWith('\n')
@@ -232,32 +278,32 @@ class _CaixaNotaState extends State<_CaixaNota> {
               ],
             ),
           ),
-            TextField(
-              controller: _ctrl,
-              focusNode: _foco,
-              minLines: 1,
-              maxLines: 8,
-              keyboardType: TextInputType.multiline,
-              textCapitalization: TextCapitalization.sentences,
-              inputFormatters: [LinhasNumeradas()],
-              style: TextStyle(
-                fontSize: 14.5,
-                height: 1.35,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              onTap: focarNoFim,
-              onChanged: _mudou,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
-              ),
+          TextField(
+            controller: _ctrl,
+            focusNode: _foco,
+            minLines: 1,
+            maxLines: 8,
+            keyboardType: TextInputType.multiline,
+            textCapitalization: TextCapitalization.sentences,
+            inputFormatters: [LinhasNumeradas()],
+            style: TextStyle(
+              fontSize: 14.5,
+              height: 1.35,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
-          ],
-        ),
-      );
+            onTap: focarNoFim,
+            onChanged: _mudou,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -285,34 +331,6 @@ class _BotaoMini extends StatelessWidget {
       tooltip: tooltip,
       visualDensity: VisualDensity.compact,
       onPressed: onTap,
-    );
-  }
-}
-
-class _SemNotas extends StatelessWidget {
-  const _SemNotas();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.format_list_numbered, size: 56, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text('Nenhuma caixa ainda',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Text(
-              'Toque no + para criar a primeira caixa de texto.',
-              style: TextStyle(color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'caixa3d.dart';
 import 'cores.dart';
@@ -37,6 +38,38 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       _projetos.insert(novo, p);
     });
     _salvar();
+  }
+
+  void _copiarTudo() {
+    final buf = StringBuffer()
+      ..writeln('ADM-projetos  —  Backup')
+      ..writeln('=' * 36);
+
+    for (final p in _projetos) {
+      buf.writeln();
+      buf.writeln(p.nome);
+      if (p.tarefas.isNotEmpty) {
+        for (final n in p.tarefas) {
+          for (final linha in n.texto.split('\n')) {
+            buf.writeln('  $linha');
+          }
+        }
+      }
+      if (p.futuro.isNotEmpty) {
+        buf.writeln('  --- Futuro ---');
+        for (final n in p.futuro) {
+          for (final linha in n.texto.split('\n')) {
+            buf.writeln('  $linha');
+          }
+        }
+      }
+    }
+    final texto = buf.toString();
+    Clipboard.setData(ClipboardData(text: texto));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+          const SnackBar(content: Text('Backup copiado (todos os projetos)!')));
   }
 
   void _abrirConfig() {
@@ -121,6 +154,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         centerTitle: false,
         actions: [
           IconButton(
+            icon: const Icon(Icons.copy_all_rounded),
+            tooltip: 'Copiar backup',
+            onPressed: _copiarTudo,
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Configurações',
             onPressed: _abrirConfig,
@@ -167,7 +205,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                       estilo: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     subtitle: Text(
-                        '${p.notas.length} ${p.notas.length == 1 ? 'caixa' : 'caixas'}',
+                        '${p.tarefas.length + p.futuro.length} ${p.tarefas.length + p.futuro.length == 1 ? 'caixa' : 'caixas'}',
                         style: TextStyle(
                             color: app.projetoTxt.withValues(alpha: 0.7))),
                     trailing: Row(
