@@ -174,7 +174,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       body: _projetos.isEmpty
           ? const _Vazio()
           : ReorderableListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
               itemCount: _projetos.length,
               buildDefaultDragHandles: false,
               onReorderItem: _reordenar,

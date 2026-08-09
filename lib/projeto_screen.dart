@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -124,7 +126,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       );
     }
     return ReorderableListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
       itemCount: itens.length,
       buildDefaultDragHandles: false,
       onReorderItem: (a, n) => _reordenar(aba, a, n),
@@ -283,6 +285,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
             decoration: const InputDecoration(border: OutlineInputBorder(),
                 hintText: 'Detalhe sua ideia aqui…')),
         actions: [
+          TextButton(onPressed: () => ctrl.clear(), child: const Text('Limpar')),
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
           FilledButton(onPressed: () {
             widget.nota.comentario = ctrl.text.isEmpty ? null : ctrl.text;
@@ -294,9 +297,9 @@ class _CaixaNotaState extends State<_CaixaNota> {
     );
   }
 
-  void _abrirLink() {
+  Future<void> _abrirLink() async {
     final ctrl = TextEditingController(text: widget.nota.link ?? '');
-    showDialog(
+    final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Link'),
@@ -305,6 +308,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
             decoration: const InputDecoration(border: OutlineInputBorder(),
                 hintText: 'https://…')),
         actions: [
+          TextButton(onPressed: () => ctrl.clear(), child: const Text('Limpar')),
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
           if (widget.nota.link != null && widget.nota.link!.isNotEmpty)
             TextButton(onPressed: () {
@@ -314,14 +318,51 @@ class _CaixaNotaState extends State<_CaixaNota> {
                 ..hideCurrentSnackBar()
                 ..showSnackBar(const SnackBar(content: Text('Link copiado!')));
             }, child: const Text('Copiar link')),
-          FilledButton(onPressed: () {
-            widget.nota.link = ctrl.text.isEmpty ? null : ctrl.text;
-            Storage.instance.salvar();
-            Navigator.pop(context);
-          }, child: const Text('Salvar')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Salvar')),
         ],
       ),
     );
+    if (ok != true) return;
+    final raw = ctrl.text.trim();
+    widget.nota.link = raw.isEmpty ? null : raw;
+    Storage.instance.salvar();
+
+    // Se for link do YouTube, tenta buscar o título do vídeo.
+    final url = widget.nota.link;
+    if (url != null && (url.contains('youtube.com') || url.contains('youtu.be'))) {
+      try {
+        final titulo = await _tituloYouTube(url);
+        if (titulo != null && (widget.nota.comentario ?? '').isEmpty) {
+          widget.nota.comentario = titulo;
+          Storage.instance.salvar();
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(SnackBar(content: Text('Título salvo: $titulo')));
+          }
+        }
+      } catch (_) {/* sem rede, tudo bem */}
+    }
+  }
+
+  Future<String?> _tituloYouTube(String url) async {
+    final uri = Uri.parse(url);
+    String? videoId;
+    if (uri.host.contains('youtu.be')) {
+      videoId = uri.pathSegments.firstOrNull;
+    } else {
+      videoId = uri.queryParameters['v'];
+    }
+    if (videoId == null || videoId.isEmpty) return null;
+
+    final api =
+        Uri.parse('https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoId&format=json');
+    final req = await HttpClient().getUrl(api);
+    final res = await req.close();
+    if (res.statusCode != 200) return null;
+    final body = await res.transform(utf8.decoder).join();
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    return json['title'] as String?;
   }
 
   @override
