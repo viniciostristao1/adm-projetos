@@ -126,7 +126,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       );
     }
     return ReorderableListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 150),
       itemCount: itens.length,
       buildDefaultDragHandles: false,
       onReorderItem: (a, n) => _reordenar(aba, a, n),
@@ -299,50 +299,91 @@ class _CaixaNotaState extends State<_CaixaNota> {
 
   Future<void> _abrirLink() async {
     final ctrl = TextEditingController(text: widget.nota.link ?? '');
+    String? titulo;
+    bool buscando = false;
+
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Link'),
-        content: TextField(controller: ctrl, autofocus: true,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(border: OutlineInputBorder(),
-                hintText: 'https://…')),
-        actions: [
-          TextButton(onPressed: () => ctrl.clear(), child: const Text('Limpar')),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
-          if (widget.nota.link != null && widget.nota.link!.isNotEmpty)
-            TextButton(onPressed: () {
-              Clipboard.setData(ClipboardData(text: widget.nota.link!));
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(const SnackBar(content: Text('Link copiado!')));
-            }, child: const Text('Copiar link')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Salvar')),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => AlertDialog(
+          title: const Text('Link'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                keyboardType: TextInputType.url,
+                onChanged: (v) async {
+                  if (v.contains('youtube.com') || v.contains('youtu.be')) {
+                    setSt(() => buscando = true);
+                    final t = await _tituloYouTube(v);
+                    if (ctx.mounted) {
+                      setSt(() {
+                        titulo = t;
+                        buscando = false;
+                      });
+                    }
+                  } else {
+                    setSt(() {
+                      titulo = null;
+                      buscando = false;
+                    });
+                  }
+                },
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'https://…',
+                ),
+              ),
+              if (buscando)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              if (titulo != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    titulo!,
+                    style: TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.onSurface
+                          .withValues(alpha: 0.65),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => ctrl.clear(), child: const Text('Limpar')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fechar')),
+            if (widget.nota.link != null && widget.nota.link!.isNotEmpty)
+              TextButton(onPressed: () {
+                Clipboard.setData(ClipboardData(text: widget.nota.link!));
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(const SnackBar(content: Text('Link copiado!')));
+              }, child: const Text('Copiar link')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Salvar')),
+          ],
+        ),
       ),
     );
     if (ok != true) return;
     final raw = ctrl.text.trim();
     widget.nota.link = raw.isEmpty ? null : raw;
-    Storage.instance.salvar();
 
-    // Se for link do YouTube, tenta buscar o título do vídeo.
-    final url = widget.nota.link;
-    if (url != null && (url.contains('youtube.com') || url.contains('youtu.be'))) {
-      try {
-        final titulo = await _tituloYouTube(url);
-        if (titulo != null && (widget.nota.comentario ?? '').isEmpty) {
-          widget.nota.comentario = titulo;
-          Storage.instance.salvar();
-          if (mounted) {
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(SnackBar(content: Text('Título salvo: $titulo')));
-          }
-        }
-      } catch (_) {/* sem rede, tudo bem */}
+    // Se encontrou título do YouTube, salva no comentário (se vazio).
+    if (titulo != null && (widget.nota.comentario ?? '').isEmpty) {
+      widget.nota.comentario = titulo;
     }
+    Storage.instance.salvar();
   }
 
   Future<String?> _tituloYouTube(String url) async {
@@ -355,9 +396,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
     }
     if (videoId == null || videoId.isEmpty) return null;
 
-    final api =
-        Uri.parse('https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoId&format=json');
+    final api = Uri.parse(
+        'https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoId&format=json');
     final req = await HttpClient().getUrl(api);
+    req.headers.set('User-Agent', 'Mozilla/5.0');
     final res = await req.close();
     if (res.statusCode != 200) return null;
     final body = await res.transform(utf8.decoder).join();
