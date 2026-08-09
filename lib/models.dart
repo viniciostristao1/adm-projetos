@@ -4,14 +4,32 @@
 class Nota {
   String id;
   String texto;
+  bool concluida;
+  String? comentario;
+  String? link;
 
-  Nota({required this.id, required this.texto});
+  Nota({
+    required this.id,
+    required this.texto,
+    this.concluida = false,
+    this.comentario,
+    this.link,
+  });
 
-  Map<String, dynamic> toJson() => {'id': id, 'texto': texto};
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'texto': texto,
+        'concluida': concluida,
+        if (comentario != null) 'comentario': comentario,
+        if (link != null) 'link': link,
+      };
 
   factory Nota.fromJson(Map<String, dynamic> j) => Nota(
         id: (j['id'] ?? '') as String,
         texto: (j['texto'] ?? '') as String,
+        concluida: (j['concluida'] ?? false) as bool,
+        comentario: j['comentario'] as String?,
+        link: j['link'] as String?,
       );
 }
 

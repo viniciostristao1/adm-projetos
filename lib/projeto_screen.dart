@@ -124,7 +124,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       );
     }
     return ReorderableListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       itemCount: itens.length,
       buildDefaultDragHandles: false,
       onReorderItem: (a, n) => _reordenar(aba, a, n),
@@ -206,6 +206,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   final FocusNode _foco = FocusNode();
   final ScrollController _scroll = ScrollController();
   Timer? _debounce;
+  bool _numerado = true;
 
   @override
   void initState() {
@@ -249,17 +250,78 @@ class _CaixaNotaState extends State<_CaixaNota> {
     _mudou('');
   }
 
-  void _proximoItem() {
-    final linha = '${proximoNumeroLista(_ctrl.text)}- ';
-    final novo = _ctrl.text.isEmpty || _ctrl.text.endsWith('\n')
-        ? _ctrl.text + linha
-        : '${_ctrl.text}\n$linha';
+  void _alternarConcluida() {
+    setState(() => widget.nota.concluida = !widget.nota.concluida);
+    Storage.instance.salvar();
+  }
+
+  void _inserirLinha() {
+    final base = _ctrl.text.trimRight();
+    String adicao;
+    if (_numerado) {
+      adicao = '\n${proximoNumeroLista(_ctrl.text)}- ';
+    } else {
+      adicao = '\n';
+    }
+    final novo = _ctrl.text.isEmpty ? adicao.trimLeft() : '$base$adicao';
     _ctrl.value = TextEditingValue(
       text: novo,
       selection: TextSelection.collapsed(offset: novo.length),
     );
     _foco.requestFocus();
     _mudou(_ctrl.text);
+    setState(() => _numerado = !_numerado);
+  }
+
+  void _abrirComentario() {
+    final ctrl = TextEditingController(text: widget.nota.comentario ?? '');
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Comentário'),
+        content: TextField(controller: ctrl, autofocus: true, maxLines: 4,
+            decoration: const InputDecoration(border: OutlineInputBorder(),
+                hintText: 'Detalhe sua ideia aqui…')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
+          FilledButton(onPressed: () {
+            widget.nota.comentario = ctrl.text.isEmpty ? null : ctrl.text;
+            Storage.instance.salvar();
+            Navigator.pop(context);
+          }, child: const Text('Salvar')),
+        ],
+      ),
+    );
+  }
+
+  void _abrirLink() {
+    final ctrl = TextEditingController(text: widget.nota.link ?? '');
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Link'),
+        content: TextField(controller: ctrl, autofocus: true,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(border: OutlineInputBorder(),
+                hintText: 'https://…')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
+          if (widget.nota.link != null && widget.nota.link!.isNotEmpty)
+            TextButton(onPressed: () {
+              Clipboard.setData(ClipboardData(text: widget.nota.link!));
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(const SnackBar(content: Text('Link copiado!')));
+            }, child: const Text('Copiar link')),
+          FilledButton(onPressed: () {
+            widget.nota.link = ctrl.text.isEmpty ? null : ctrl.text;
+            Storage.instance.salvar();
+            Navigator.pop(context);
+          }, child: const Text('Salvar')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -288,9 +350,32 @@ class _CaixaNotaState extends State<_CaixaNota> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _BotaoMini(
-                      icone: Icons.format_list_numbered,
-                      tooltip: 'Adicionar item da lista',
-                      onTap: _proximoItem,
+                      icone: widget.nota.concluida
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      tooltip: widget.nota.concluida
+                          ? 'Desmarcar'
+                          : 'Marcar como feito',
+                      onTap: _alternarConcluida,
+                    ),
+                    _BotaoMini(
+                      icone: _numerado
+                          ? Icons.format_list_numbered
+                          : Icons.format_align_justify,
+                      tooltip: _numerado
+                          ? 'Lista numerada (ligada)'
+                          : 'Nova linha (sem número)',
+                      onTap: _inserirLinha,
+                    ),
+                    _BotaoMini(
+                      icone: Icons.add_link,
+                      tooltip: 'Link',
+                      onTap: _abrirLink,
+                    ),
+                    _BotaoMini(
+                      icone: Icons.chat_bubble_outline,
+                      tooltip: 'Comentário',
+                      onTap: _abrirComentario,
                     ),
                     _BotaoMini(
                       icone: Icons.copy_all_outlined,
@@ -332,7 +417,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
               style: TextStyle(
                 fontSize: 14.5,
                 height: 1.35,
-                color: Theme.of(context).colorScheme.onSurface,
+                color: widget.nota.concluida
+                    ? Theme.of(context).colorScheme.onSurface
+                        .withValues(alpha: 0.45)
+                    : Theme.of(context).colorScheme.onSurface,
               ),
               onChanged: _mudou,
               decoration: const InputDecoration(
