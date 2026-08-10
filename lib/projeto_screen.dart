@@ -26,6 +26,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     with SingleTickerProviderStateMixin {
   final Map<String, GlobalKey<_CaixaNotaState>> _chaves = {};
   late final TabController _tabCtrl;
+  final TextEditingController _ctrlBusca = TextEditingController();
 
   @override
   void initState() {
@@ -36,6 +37,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _ctrlBusca.dispose();
     super.dispose();
   }
 
@@ -50,7 +52,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   void _adicionar(int aba) {
     final nota = Nota(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      texto: '1- ',
+      texto: aba == 0 ? '1- ' : '',
     );
     setState(() => _lista(aba).add(nota));
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -101,7 +103,10 @@ class _ProjetoScreenState extends State<ProjetoScreen>
 
   Widget _listaCard(int aba) {
     final itens = _lista(aba);
-    if (itens.isEmpty) {
+    final ehTarefas = aba == 0;
+
+    if (ehTarefas && itens.isEmpty ||
+        !ehTarefas && itens.isEmpty && _ctrlBusca.text.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -125,22 +130,65 @@ class _ProjetoScreenState extends State<ProjetoScreen>
         ),
       );
     }
-    return ReorderableListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 150),
-      itemCount: itens.length,
-      buildDefaultDragHandles: false,
-      onReorderItem: (a, n) => _reordenar(aba, a, n),
-      itemBuilder: (_, i) => Padding(
-        key: ValueKey(itens[i].id),
-        padding: const EdgeInsets.only(bottom: 10),
-        child: _CaixaNota(
-          key: _chaveDa(itens[i].id),
-          nota: itens[i],
-          indice: i,
-          onCopiar: () => copiarTexto(context, itens[i].texto),
-          onExcluir: () => _excluir(aba, i),
+
+    final filtradas = ehTarefas
+        ? itens
+        : itens.where((n) =>
+            _ctrlBusca.text.isEmpty ||
+            n.texto.toLowerCase().contains(_ctrlBusca.text.toLowerCase())).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!ehTarefas)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+            child: TextField(
+              controller: _ctrlBusca,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search, size: 20),
+                hintText: 'Buscar no Futuro…',
+                isDense: true,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+        Expanded(
+          child: filtradas.isEmpty
+              ? const Center(
+                  child: Text('Nada encontrado.',
+                      style: TextStyle(color: Colors.grey)))
+              : ReorderableListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 150),
+                  itemCount: filtradas.length,
+                  buildDefaultDragHandles: false,
+                  onReorderItem: (a, n) {
+                    final lst = _lista(aba);
+                    final antigo = lst.indexOf(filtradas[a]);
+                    final novo = lst.indexOf(filtradas[n]);
+                    _reordenar(aba, antigo, novo);
+                  },
+                  itemBuilder: (_, i) => Padding(
+                    key: ValueKey(filtradas[i].id),
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _CaixaNota(
+                      key: _chaveDa(filtradas[i].id),
+                      nota: filtradas[i],
+                      indice: _lista(aba).indexOf(filtradas[i]),
+                      modoTarefas: ehTarefas,
+                      onCopiar: () =>
+                          copiarTexto(context, filtradas[i].texto),
+                      onExcluir: () =>
+                          _excluir(aba, _lista(aba).indexOf(filtradas[i])),
+                    ),
+                  ),
+                ),
         ),
-      ),
+      ],
     );
   }
 
@@ -190,12 +238,18 @@ class _CaixaNota extends StatefulWidget {
     super.key,
     required this.nota,
     required this.indice,
+    required this.modoTarefas,
     required this.onCopiar,
     required this.onExcluir,
   });
 
   final Nota nota;
   final int indice;
+
+  /// Se false (modo Futuro), não mostra botão de lista numerada nem inicia
+  /// novas caixinhas com "1- ".
+  final bool modoTarefas;
+
   final VoidCallback onCopiar;
   final VoidCallback onExcluir;
 
@@ -208,7 +262,9 @@ class _CaixaNotaState extends State<_CaixaNota> {
   final FocusNode _foco = FocusNode();
   final ScrollController _scroll = ScrollController();
   Timer? _debounce;
+  Timer? _debounceYT;
   bool _numerado = true;
+  bool _comentarioExpandido = false;
 
   @override
   void initState() {
@@ -219,6 +275,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _debounceYT?.cancel();
     Storage.instance.salvar();
     _ctrl.dispose();
     _foco.dispose();
@@ -275,28 +332,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
     setState(() => _numerado = !_numerado);
   }
 
-  void _abrirComentario() {
-    final ctrl = TextEditingController(text: widget.nota.comentario ?? '');
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Comentário'),
-        content: TextField(controller: ctrl, autofocus: true, maxLines: 4,
-            decoration: const InputDecoration(border: OutlineInputBorder(),
-                hintText: 'Detalhe sua ideia aqui…')),
-        actions: [
-          TextButton(onPressed: () => ctrl.clear(), child: const Text('Limpar')),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
-          FilledButton(onPressed: () {
-            widget.nota.comentario = ctrl.text.isEmpty ? null : ctrl.text;
-            Storage.instance.salvar();
-            Navigator.pop(context);
-          }, child: const Text('Salvar')),
-        ],
-      ),
-    );
-  }
-
   Future<void> _abrirLink() async {
     final ctrl = TextEditingController(text: widget.nota.link ?? '');
     String? titulo;
@@ -314,21 +349,22 @@ class _CaixaNotaState extends State<_CaixaNota> {
                 controller: ctrl,
                 autofocus: true,
                 keyboardType: TextInputType.url,
-                onChanged: (v) async {
+                onChanged: (v) {
+                  _debounceYT?.cancel();
                   if (v.contains('youtube.com') || v.contains('youtu.be')) {
                     setSt(() => buscando = true);
-                    final t = await _tituloYouTube(v);
-                    if (ctx.mounted) {
-                      setSt(() {
-                        titulo = t;
-                        buscando = false;
-                      });
-                    }
-                  } else {
-                    setSt(() {
-                      titulo = null;
-                      buscando = false;
+                    _debounceYT = Timer(const Duration(milliseconds: 600), () async {
+                      try {
+                        final t = await _tituloYouTube(v);
+                        if (ctx.mounted) {
+                          setSt(() { titulo = t; buscando = false; });
+                        }
+                      } catch (_) {
+                        if (ctx.mounted) setSt(() => buscando = false);
+                      }
                     });
+                  } else {
+                    setSt(() { titulo = null; buscando = false; });
                   }
                 },
                 decoration: const InputDecoration(
@@ -410,14 +446,26 @@ class _CaixaNotaState extends State<_CaixaNota> {
   @override
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+    final corFerramentas = app.barraFerramentas;
+    final onBarra = ThemeData.estimateBrightnessForColor(corFerramentas) ==
+            Brightness.dark
+        ? Colors.white
+        : Colors.black87;
+
     return Caixa3D(
       cor: app.notaInicio,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 6, 8, 0),
+          // Barra de ferramentas com cor separada
+          Container(
+            decoration: BoxDecoration(
+              color: corFerramentas,
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(14)),
+            ),
+            padding: const EdgeInsets.fromLTRB(10, 4, 6, 2),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -426,7 +474,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
                   child: Icon(
                     Icons.drag_indicator,
                     size: 22,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: onBarra.withValues(alpha: 0.7),
                   ),
                 ),
                 Row(
@@ -436,50 +484,60 @@ class _CaixaNotaState extends State<_CaixaNota> {
                       icone: widget.nota.concluida
                           ? Icons.check_box
                           : Icons.check_box_outline_blank,
-                      tooltip: widget.nota.concluida
-                          ? 'Desmarcar'
-                          : 'Marcar como feito',
+                      tooltip: widget.nota.concluida ? 'Desmarcar' : 'Marcar como feito',
                       onTap: _alternarConcluida,
+                      cor: onBarra,
                     ),
-                    _BotaoMini(
-                      icone: _numerado
-                          ? Icons.format_list_numbered
-                          : Icons.format_align_justify,
-                      tooltip: _numerado
-                          ? 'Lista numerada (ligada)'
-                          : 'Nova linha (sem número)',
-                      onTap: _inserirLinha,
-                    ),
+                    if (widget.modoTarefas)
+                      _BotaoMini(
+                        icone: _numerado
+                            ? Icons.format_list_numbered
+                            : Icons.format_align_justify,
+                        tooltip: _numerado
+                            ? 'Lista numerada (ligada)'
+                            : 'Nova linha (sem número)',
+                        onTap: _inserirLinha,
+                        cor: onBarra,
+                      ),
                     _BotaoMini(
                       icone: Icons.add_link,
                       tooltip: 'Link',
                       onTap: _abrirLink,
+                      cor: onBarra,
                     ),
                     _BotaoMini(
-                      icone: Icons.chat_bubble_outline,
+                      icone: _comentarioExpandido
+                          ? Icons.chat_bubble
+                          : Icons.chat_bubble_outline,
                       tooltip: 'Comentário',
-                      onTap: _abrirComentario,
+                      onTap: () =>
+                          setState(() => _comentarioExpandido = !_comentarioExpandido),
+                      cor: onBarra,
                     ),
                     _BotaoMini(
                       icone: Icons.copy_all_outlined,
                       tooltip: 'Copiar',
                       onTap: widget.onCopiar,
+                      cor: onBarra,
                     ),
                     _BotaoMini(
                       icone: Icons.edit_outlined,
                       tooltip: 'Editar',
                       onTap: focarNoFim,
+                      cor: onBarra,
                     ),
                     _BotaoMini(
                       icone: Icons.cleaning_services,
                       tooltip: 'Limpar conteúdo',
                       onTap: _limpar,
+                      cor: onBarra,
                     ),
                     _BotaoMini(
                       icone: Icons.delete_outline,
                       tooltip: 'Excluir',
                       isDanger: true,
                       onTap: widget.onExcluir,
+                      cor: onBarra,
                     ),
                   ],
                 ),
@@ -515,6 +573,38 @@ class _CaixaNotaState extends State<_CaixaNota> {
               ),
             ),
           ),
+          // Subcaixinha de comentário inline (abaixo com letra mais fraca)
+          if (_comentarioExpandido)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                color: app.notaFim.withValues(alpha: 0.5),
+                borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(14)),
+              ),
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+              child: TextField(
+                controller: TextEditingController(
+                    text: widget.nota.comentario ?? ''),
+                onChanged: (v) {
+                  widget.nota.comentario = v.isEmpty ? null : v;
+                  Storage.instance.salvar();
+                },
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  hintText: 'Comentário…',
+                ),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.55),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -527,12 +617,14 @@ class _BotaoMini extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     this.isDanger = false,
+    this.cor,
   });
 
   final IconData icone;
   final String tooltip;
   final VoidCallback onTap;
   final bool isDanger;
+  final Color? cor;
 
   @override
   Widget build(BuildContext context) {
@@ -541,7 +633,7 @@ class _BotaoMini extends StatelessWidget {
           size: 20,
           color: isDanger
               ? Colors.red
-              : Theme.of(context).colorScheme.onSurfaceVariant),
+              : (cor ?? Theme.of(context).colorScheme.onSurfaceVariant)),
       tooltip: tooltip,
       visualDensity: VisualDensity.compact,
       onPressed: onTap,

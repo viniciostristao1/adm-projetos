@@ -110,6 +110,7 @@ class AdmProjetosApp extends StatelessWidget {
           seedColor: const Color(0xFF1E3A8A),
           brightness: Brightness.dark,
         ),
+        scaffoldBackgroundColor: const Color(0xFF121212),
         extensions: const [AppCores.escuro],
         appBarTheme: _appbarEscuro,
         floatingActionButtonTheme: FloatingActionButtonThemeData(

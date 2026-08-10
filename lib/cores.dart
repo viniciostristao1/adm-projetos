@@ -13,6 +13,7 @@ class AppCores extends ThemeExtension<AppCores> {
     required this.projetoTxt,
     required this.fab,
     required this.fabIcone,
+    required this.barraFerramentas,
   });
 
   final Color notaInicio;
@@ -23,6 +24,9 @@ class AppCores extends ThemeExtension<AppCores> {
   final Color fab;
   final Color fabIcone;
 
+  /// Cor de fundo da barra de ferramentas (ícones) no topo de cada caixinha.
+  final Color barraFerramentas;
+
   /// Tema claro (botão "+" em azul claro).
   static const AppCores luz = AppCores(
     notaInicio: Color(0xFFF6FAFF),
@@ -32,18 +36,19 @@ class AppCores extends ThemeExtension<AppCores> {
     projetoTxt: Color(0xFF1B2330),
     fab: Color(0xFF4FC3F7),
     fabIcone: Color(0xFF0B2E44),
+    barraFerramentas: Color(0xFF1E3A8A),
   );
 
-  /// Tema escuro: cartões do projeto e o botão "+" em âmbar. A caixinha de
-  /// texto é cinza escuro (estilo Notion), tom único sem degrade.
+  /// Tema escuro: fundo cinza escuro, cartões pretos, FAB em âmbar.
   static const AppCores escuro = AppCores(
     notaInicio: Color(0xFF242424),
     notaFim: Color(0xFF242424),
     notaBorda: Color(0x33FFFFFF),
-    projetoCard: Color(0xFFF0A500),
-    projetoTxt: Color(0xFF1A1200),
+    projetoCard: Color(0xFF0D0D0D),
+    projetoTxt: Color(0xFFE0E0E0),
     fab: Color(0xFFF0A500),
     fabIcone: Color(0xFF1A1200),
+    barraFerramentas: Colors.black,
   );
 
   /// Tema bege: fundo creme, cartões do projeto e o botão "+" em marrom.
@@ -55,6 +60,7 @@ class AppCores extends ThemeExtension<AppCores> {
     projetoTxt: Color(0xFFFBF3E8),
     fab: Color(0xFF6D4C2F),
     fabIcone: Color(0xFFFBF3E8),
+    barraFerramentas: Color(0xFF4A2A0E),
   );
 
   @override
@@ -66,6 +72,7 @@ class AppCores extends ThemeExtension<AppCores> {
     Color? projetoTxt,
     Color? fab,
     Color? fabIcone,
+    Color? barraFerramentas,
   }) {
     return AppCores(
       notaInicio: notaInicio ?? this.notaInicio,
@@ -75,6 +82,7 @@ class AppCores extends ThemeExtension<AppCores> {
       projetoTxt: projetoTxt ?? this.projetoTxt,
       fab: fab ?? this.fab,
       fabIcone: fabIcone ?? this.fabIcone,
+      barraFerramentas: barraFerramentas ?? this.barraFerramentas,
     );
   }
 
@@ -89,6 +97,7 @@ class AppCores extends ThemeExtension<AppCores> {
       projetoTxt: Color.lerp(projetoTxt, other.projetoTxt, t)!,
       fab: Color.lerp(fab, other.fab, t)!,
       fabIcone: Color.lerp(fabIcone, other.fabIcone, t)!,
+      barraFerramentas: Color.lerp(barraFerramentas, other.barraFerramentas, t)!,
     );
   }
 }

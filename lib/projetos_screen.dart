@@ -205,10 +205,6 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                       corTexto: app.projetoTxt,
                       estilo: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    subtitle: Text(
-                        '${p.tarefas.length + p.futuro.length} ${p.tarefas.length + p.futuro.length == 1 ? 'caixa' : 'caixas'}',
-                        style: TextStyle(
-                            color: app.projetoTxt.withValues(alpha: 0.7))),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
