@@ -134,7 +134,8 @@ class _ProjetoScreenState extends State<ProjetoScreen>
         ? itens
         : itens.where((n) =>
             _ctrlBusca.text.isEmpty ||
-            n.texto.toLowerCase().contains(_ctrlBusca.text.toLowerCase())).toList();
+            n.texto.toLowerCase().contains(_ctrlBusca.text.toLowerCase()) ||
+            (n.comentario ?? '').toLowerCase().contains(_ctrlBusca.text.toLowerCase())).toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -573,7 +574,9 @@ class _CaixaNotaState extends State<_CaixaNota> {
             ),
           ),
           // Subcaixinha de comentário inline (abaixo com letra mais fraca)
-          if (_comentarioExpandido)
+          if (_comentarioExpandido ||
+              (!widget.modoTarefas &&
+                  (widget.nota.comentario?.isNotEmpty ?? false)))
             Container(
               margin: const EdgeInsets.only(top: 4),
               decoration: BoxDecoration(

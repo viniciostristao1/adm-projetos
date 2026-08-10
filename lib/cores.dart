@@ -39,10 +39,10 @@ class AppCores extends ThemeExtension<AppCores> {
     barraFerramentas: Color(0xFF1E3A8A),
   );
 
-  /// Tema escuro: fundo cinza escuro, pastas bem pretas, FAB âmbar.
+  /// Tema escuro: fundo cinza claro, caixinha mais escura, barra/pasta pretas.
   static const AppCores escuro = AppCores(
-    notaInicio: Color(0xFF242424),
-    notaFim: Color(0xFF242424),
+    notaInicio: Color(0xFF0A0A0A),
+    notaFim: Color(0xFF0A0A0A),
     notaBorda: Color(0x33FFFFFF),
     projetoCard: Colors.black,
     projetoTxt: Color(0xFFE0E0E0),
