@@ -27,24 +27,24 @@ class AppCores extends ThemeExtension<AppCores> {
   /// Cor de fundo da barra de ferramentas (ícones) no topo de cada caixinha.
   final Color barraFerramentas;
 
-  /// Tema claro (botão "+" em azul claro).
+  /// Tema claro (botão "+" em azul claro, pastas azuis).
   static const AppCores luz = AppCores(
     notaInicio: Color(0xFFF6FAFF),
     notaFim: Color(0xFFEAF1FA),
     notaBorda: Color(0x1A0B1220),
-    projetoCard: Colors.white,
-    projetoTxt: Color(0xFF1B2330),
+    projetoCard: Color(0xFF1E3A8A),
+    projetoTxt: Colors.white,
     fab: Color(0xFF4FC3F7),
     fabIcone: Color(0xFF0B2E44),
     barraFerramentas: Color(0xFF1E3A8A),
   );
 
-  /// Tema escuro: fundo cinza escuro, cartões pretos, FAB em âmbar.
+  /// Tema escuro: fundo cinza escuro, pastas bem pretas, FAB âmbar.
   static const AppCores escuro = AppCores(
     notaInicio: Color(0xFF242424),
     notaFim: Color(0xFF242424),
     notaBorda: Color(0x33FFFFFF),
-    projetoCard: Color(0xFF0D0D0D),
+    projetoCard: Colors.black,
     projetoTxt: Color(0xFFE0E0E0),
     fab: Color(0xFFF0A500),
     fabIcone: Color(0xFF1A1200),
@@ -60,7 +60,7 @@ class AppCores extends ThemeExtension<AppCores> {
     projetoTxt: Color(0xFFFBF3E8),
     fab: Color(0xFF6D4C2F),
     fabIcone: Color(0xFFFBF3E8),
-    barraFerramentas: Color(0xFF4A2A0E),
+    barraFerramentas: Color(0xFF6D4C2F),
   );
 
   @override

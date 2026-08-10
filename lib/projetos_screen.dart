@@ -8,7 +8,6 @@ import 'models.dart';
 import 'projeto_screen.dart';
 import 'storage.dart';
 import 'tema.dart';
-import 'titulo_destacado.dart';
 
 /// Página principal: a lista de projetos.
 class ProjetosScreen extends StatefulWidget {
@@ -141,10 +140,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            TituloDestacado(
+            const Text(
               'ADM-projetos',
-              corTexto: Theme.of(context).colorScheme.onSurface,
-              estilo: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.2,
@@ -200,10 +198,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                           child:
                               Icon(Icons.drag_indicator, color: app.projetoTxt),
                         ),
-                    title: TituloDestacado(
+                    title: Text(
                       p.nome,
-                      corTexto: app.projetoTxt,
-                      estilo: const TextStyle(fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: app.projetoTxt),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,

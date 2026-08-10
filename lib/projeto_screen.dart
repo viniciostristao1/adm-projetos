@@ -10,7 +10,6 @@ import 'cores.dart';
 import 'editor.dart';
 import 'models.dart';
 import 'storage.dart';
-import 'titulo_destacado.dart';
 
 /// Página de um projeto dividida em duas abas: "Tarefas" (atuais) e "Futuro".
 class ProjetoScreen extends StatefulWidget {
@@ -199,7 +198,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TituloDestacado(widget.projeto.nome),
+            Text(widget.projeto.nome),
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.copy_outlined, size: 18),
