@@ -577,14 +577,13 @@ class _CaixaNotaState extends State<_CaixaNota> {
           if (_comentarioExpandido ||
               (!widget.modoTarefas &&
                   (widget.nota.comentario?.isNotEmpty ?? false)))
-            Container(
-              margin: const EdgeInsets.only(top: 4),
+           Container(
               decoration: BoxDecoration(
                 color: app.notaFim.withValues(alpha: 0.5),
                 borderRadius: const BorderRadius.vertical(
                     bottom: Radius.circular(14)),
               ),
-              padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+              padding: const EdgeInsets.fromLTRB(14, 2, 14, 4),
               child: TextField(
                 controller: TextEditingController(
                     text: widget.nota.comentario ?? ''),
@@ -592,10 +591,12 @@ class _CaixaNotaState extends State<_CaixaNota> {
                   widget.nota.comentario = v.isEmpty ? null : v;
                   Storage.instance.salvar();
                 },
-                maxLines: 3,
+                minLines: 1,
+                maxLines: 1,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   isDense: true,
+                  contentPadding: EdgeInsets.zero,
                   hintText: 'Comentário…',
                 ),
                 style: TextStyle(
