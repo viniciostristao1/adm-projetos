@@ -44,8 +44,8 @@ class AdmProjetosApp extends StatelessWidget {
   );
 
   static const _appbarBege = AppBarTheme(
-    backgroundColor: Color(0xFFEADCC5),
-    foregroundColor: Color(0xFF4A2A0E),
+    backgroundColor: Color(0xFF6D4C2F),
+    foregroundColor: Color(0xFFFBF3E8),
     surfaceTintColor: Colors.transparent,
     scrolledUnderElevation: 0,
     elevation: 0,
@@ -54,7 +54,7 @@ class AdmProjetosApp extends StatelessWidget {
       fontSize: 20,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.2,
-      color: Color(0xFF4A2A0E),
+      color: Color(0xFFFBF3E8),
     ),
   );
 
@@ -155,12 +155,30 @@ class AdmProjetosApp extends StatelessWidget {
       builder: (context, _) {
         final modo = temaController.modo;
         final usarBege = modo == Modo.bege;
+        final scale = temaController.fonte.scale;
         return MaterialApp(
           title: 'ADM-projetos',
           debugShowCheckedModeBanner: false,
           themeMode: temaController.themeFlutter,
           theme: usarBege ? _temaBege() : _temaClaro(),
           darkTheme: _temaEscuro(),
+          builder: (context, child) {
+            final data = MediaQuery.of(context);
+            return MediaQuery(
+              data: data.copyWith(
+                textScaler: TextScaler.linear(
+                    scale * data.textScaler.scale(1)),
+              ),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  iconTheme: Theme.of(context)
+                      .iconTheme
+                      .copyWith(size: 24 * scale),
+                ),
+                child: child!,
+              ),
+            );
+          },
           home: const ProjetosScreen(),
         );
       },

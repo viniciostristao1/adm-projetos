@@ -143,19 +143,25 @@ class _ProjetoScreenState extends State<ProjetoScreen>
         if (!ehTarefas)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-            child: TextField(
-              controller: _ctrlBusca,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search, size: 20),
-                hintText: 'Buscar no Futuro…',
-                isDense: true,
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
+            child: Builder(builder: (ctx) {
+              final app = Theme.of(ctx).extension<AppCores>() ?? AppCores.luz;
+              final ehBege = app == AppCores.bege;
+              return TextField(
+                controller: _ctrlBusca,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  hintText: 'Buscar no Futuro…',
+                  isDense: true,
+                  filled: ehBege,
+                  fillColor: ehBege ? app.notaFim : null,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                onChanged: (_) => setState(() {}),
+              );
+            }),
           ),
         Expanded(
           child: filtradas.isEmpty

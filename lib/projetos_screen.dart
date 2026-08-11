@@ -247,8 +247,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     escuro ? const Color(0xFF333333) : const Color(0xFF8D7255);
                 final arrastarCor = escuro ? Colors.white : const Color(0xFF6D4C2F);
                 final txtCor = escuro ? Colors.white : const Color(0xFF4A2A0E);
-                final bolaCor = escuro ? const Color(0xFF3A3A3A) : const Color(0xFFF1E9D7);
-                final iconeCor = escuro ? Colors.white : const Color(0xFF6D4C2F);
+                final bolaCor = escuro ? const Color(0xFF3A3A3A) : const Color(0xFF6D4C2F);
+                final iconeCor = Colors.white;
 
                 return Column(
                   key: ValueKey(p.id),
@@ -347,7 +347,7 @@ Future<String?> _pedirNome(BuildContext context,
   );
 }
 
-/// Folha de configurações (aberta pela engrenagem): tema claro/escuro.
+/// Folha de configurações (aberta pela engrenagem): tema e tamanho da fonte.
 class _ConfigSheet extends StatelessWidget {
   const _ConfigSheet();
 
@@ -374,7 +374,7 @@ class _ConfigSheet extends StatelessWidget {
             ),
             const Text('Configurações',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             const Text('Tema',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
@@ -405,9 +405,31 @@ class _ConfigSheet extends StatelessWidget {
                 );
               },
             ),
+            const SizedBox(height: 12),
+            const Text('Tamanho da fonte',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            ListenableBuilder(
+              listenable: temaController,
+              builder: (context, _) {
+                return SegmentedButton<ModoFonte>(
+                  segments: [
+                    for (final f in ModoFonte.values)
+                      ButtonSegment(
+                        value: f,
+                        label: Text(f.rotulo),
+                      ),
+                  ],
+                  selected: {temaController.fonte},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) =>
+                      temaController.definirFonte(s.first),
+                );
+              },
+            ),
             const SizedBox(height: 4),
             Text(
-              'Escolha o tema: Claro, Escuro ou Bege.',
+              'Ajusta texto e ícones do app.',
               style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
             ),
           ],
