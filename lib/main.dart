@@ -29,7 +29,7 @@ class AdmProjetosApp extends StatelessWidget {
   );
 
   static const _appbarEscuro = AppBarTheme(
-    backgroundColor: Color(0xFF0B1220),
+    backgroundColor: Colors.black,
     foregroundColor: Colors.white,
     surfaceTintColor: Colors.transparent,
     scrolledUnderElevation: 0,
@@ -110,7 +110,7 @@ class AdmProjetosApp extends StatelessWidget {
           seedColor: const Color(0xFF1E3A8A),
           brightness: Brightness.dark,
         ),
-        scaffoldBackgroundColor: const Color(0xFF1A1A1A),
+        scaffoldBackgroundColor: Colors.black,
         extensions: const [AppCores.escuro],
         appBarTheme: _appbarEscuro,
         floatingActionButtonTheme: FloatingActionButtonThemeData(

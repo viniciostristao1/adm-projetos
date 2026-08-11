@@ -302,6 +302,11 @@ class _CaixaNotaState extends State<_CaixaNota> {
       }
       Storage.instance.salvar();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _foco.hasFocus) {
+        Scrollable.ensureVisible(context, alignment: 0.2);
+      }
+    });
   }
 
   void _limpar() {

@@ -180,61 +180,142 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 final p = _projetos[i];
                 final app =
                     Theme.of(context).extension<AppCores>() ?? AppCores.luz;
-                return Padding(
-                  key: ValueKey(p.id),
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Caixa3D(
-                    cor: app.projetoCard,
-                    child: Card(
-                      margin: EdgeInsets.zero,
-                      elevation: 0,
-                      color: app.projetoCard,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                final modo = temaController.modo;
+
+                Future<void> onTapProjeto() async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProjetoScreen(projeto: p),
+                    ),
+                  );
+                  await _salvar();
+                  if (mounted) setState(() {});
+                }
+
+                if (modo == Modo.claro) {
+                  return Padding(
+                    key: ValueKey(p.id),
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Caixa3D(
+                      cor: app.projetoCard,
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        elevation: 0,
+                        color: app.projetoCard,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: ListTile(
+                          leading: ReorderableDragStartListener(
+                            index: i,
+                            child: Icon(Icons.drag_indicator,
+                                color: app.projetoTxt),
+                          ),
+                          title: Text(
+                            p.nome,
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: app.projetoTxt),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.edit_outlined,
+                                    size: 20, color: app.projetoTxt),
+                                tooltip: 'Renomear',
+                                onPressed: () => _renomear(p),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline,
+                                    size: 20, color: app.projetoTxt),
+                                tooltip: 'Excluir',
+                                onPressed: () => _excluir(p),
+                              ),
+                            ],
+                          ),
+                          onTap: onTapProjeto,
+                        ),
                       ),
-                      child: ListTile(
-                        leading: ReorderableDragStartListener(
-                          index: i,
-                          child:
-                              Icon(Icons.drag_indicator, color: app.projetoTxt),
-                        ),
-                    title: Text(
-                      p.nome,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: app.projetoTxt),
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.edit_outlined,
-                              size: 20, color: app.projetoTxt),
-                          tooltip: 'Renomear',
-                          onPressed: () => _renomear(p),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.delete_outline,
-                              size: 20, color: app.projetoTxt),
-                          tooltip: 'Excluir',
-                          onPressed: () => _excluir(p),
-                        ),
-                      ],
+                  );
+                }
+
+                final escuro = modo == Modo.escuro;
+                final dividir =
+                    escuro ? const Color(0xFF333333) : const Color(0xFF8D7255);
+                final arrastarCor = escuro ? Colors.white : const Color(0xFF6D4C2F);
+                final txtCor = escuro ? Colors.white : const Color(0xFF4A2A0E);
+                final bolaCor = escuro ? const Color(0xFF3A3A3A) : const Color(0xFFF1E9D7);
+                final iconeCor = escuro ? Colors.white : const Color(0xFF6D4C2F);
+
+                return Column(
+                  key: ValueKey(p.id),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
+                      child: Row(
+                        children: [
+                          ReorderableDragStartListener(
+                            index: i,
+                            child: Icon(Icons.drag_indicator, color: arrastarCor),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: InkWell(
+                              onTap: onTapProjeto,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  p.nome,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    color: txtCor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: bolaCor,
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              color: iconeCor,
+                              tooltip: 'Renomear',
+                              onPressed: () => _renomear(p),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: bolaCor,
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18),
+                              color: iconeCor,
+                              tooltip: 'Excluir',
+                              onPressed: () => _excluir(p),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProjetoScreen(projeto: p),
-                        ),
-                      );
-                      await _salvar();
-                      if (mounted) setState(() {});
-                    },
-                  ),
-                ),
-              ),
-            );
+                    Divider(height: 1, thickness: 1, color: dividir),
+                  ],
+                );
               },
             ),
     );
