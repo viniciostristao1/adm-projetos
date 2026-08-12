@@ -1,12 +1,50 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+/// Mostra um aviso que some sozinho após [duracao]. Além da duração própria
+/// do SnackBar, um Timer força o fechamento — garante que desapareça mesmo
+/// com animações do sistema desativadas.
+void mostrarAviso(BuildContext context, String texto,
+    {Duration duracao = const Duration(seconds: 4)}) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(texto), duration: duracao));
+  Timer(duracao, messenger.hideCurrentSnackBar);
+}
+
+/// Aviso com botão de ação (ex.: "Desfazer"). Mesma garantia de fechamento
+/// automático do [mostrarAviso].
+void mostrarAvisoAcao(
+  BuildContext context,
+  String texto,
+  String rotuloAcao,
+  VoidCallback onAcao, {
+  Duration duracao = const Duration(seconds: 4),
+}) {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      content: Text(texto),
+      duration: duracao,
+      action: SnackBarAction(
+        label: rotuloAcao,
+        onPressed: () {
+          messenger.hideCurrentSnackBar();
+          onAcao();
+        },
+      ),
+    ));
+  Timer(duracao, messenger.hideCurrentSnackBar);
+}
 
 /// Copia um texto para a área de transferência e mostra um aviso.
 void copiarTexto(BuildContext context, String texto) {
   Clipboard.setData(ClipboardData(text: texto));
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(const SnackBar(content: Text('Copiado!')));
+  mostrarAviso(context, 'Copiado!');
 }
 
 /// Deixa a PRIMEIRA letra (não-espaço) em maiúscula.

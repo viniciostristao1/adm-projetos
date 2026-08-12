@@ -1,5 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'caixa3d.dart';
 import 'cores.dart';
@@ -76,20 +82,20 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     }
     final texto = buf.toString();
     Clipboard.setData(ClipboardData(text: texto));
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-          const SnackBar(content: Text('Backup copiado (todos os projetos)!')));
+    mostrarAviso(context, 'Backup copiado (todos os projetos)!');
   }
 
-  void _abrirConfig() {
-    showModalBottomSheet<void>(
+  Future<void> _abrirConfig() async {
+    await showModalBottomSheet<String>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => const _ConfigSheet(),
     );
+    if (!mounted) return;
+    final p = await Storage.instance.carregar();
+    if (mounted) setState(() => _projetos = List.of(p));
   }
 
   Future<void> _criarProjeto() async {
@@ -132,20 +138,16 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       setState(() => _projetos.remove(p));
       await _salvar();
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: const Text('Projeto excluído'),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Desfazer',
-            onPressed: () {
-              setState(() => _projetos.insert(
-                  idx > _projetos.length ? _projetos.length : idx, p));
-              _salvar();
-            },
-          ),
-        ));
+      mostrarAvisoAcao(
+        context,
+        'Projeto excluído',
+        'Desfazer',
+        () {
+          setState(() => _projetos.insert(
+              idx > _projetos.length ? _projetos.length : idx, p));
+          _salvar();
+        },
+      );
     }
   }
 
@@ -433,6 +435,91 @@ Future<String?> _pedirNome(BuildContext context,
   );
 }
 
+/// Exporta todos os projetos num arquivo .json e abre o menu de
+/// compartilhamento (salvar no Drive, enviar, etc.).
+Future<void> _exportarBackup(BuildContext context) async {
+  try {
+    final json = await Storage.instance.exportarJson();
+    final dir = await getTemporaryDirectory();
+    final agora = DateTime.now();
+    String dois(int n) => n.toString().padLeft(2, '0');
+    final nome = 'adm-projetos-backup-${agora.year}-${dois(agora.month)}-'
+        '${dois(agora.day)}-${dois(agora.hour)}${dois(agora.minute)}.json';
+    final f = File('${dir.path}/$nome');
+    await f.writeAsString(json);
+    await SharePlus.instance.share(ShareParams(
+      files: [XFile(f.path)],
+      subject: 'Backup ADM-projetos',
+      text: 'Backup dos seus projetos do ADM-projetos.',
+    ));
+  } catch (e) {
+    if (context.mounted) mostrarAviso(context, 'Não foi possível exportar: $e');
+  }
+}
+
+/// Lê um arquivo de backup (.json) e restaura os projetos.
+Future<void> _importarBackup(BuildContext context) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final res = await FilePicker.platform.pickFiles();
+  if (res == null || res.files.isEmpty) return;
+  final path = res.files.single.path;
+  if (path == null) return;
+
+  List<Projeto> novos;
+  try {
+    final dados = jsonDecode(await File(path).readAsString()) as List;
+    novos = dados
+        .map((e) => Projeto.fromJson(e as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+          content: Text('Arquivo inválido: não é um backup do ADM-projetos.')));
+    return;
+  }
+  if (novos.isEmpty) {
+    if (context.mounted) mostrarAviso(context, 'O arquivo não tem nenhum projeto.');
+    return;
+  }
+  if (!context.mounted) return;
+
+  final acao = await showDialog<String>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Importar backup?'),
+      content: Text('O arquivo tem ${novos.length} projeto(s).'),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, 'somar'),
+            child: const Text('Somar ao que existe')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, 'substituir'),
+            child: const Text('Substituir tudo')),
+      ],
+    ),
+  );
+  if (acao == null) return;
+
+  if (acao == 'substituir') {
+    await Storage.instance.substituir(novos);
+  } else {
+    final atuais = await Storage.instance.carregar();
+    final ids = atuais.map((p) => p.id).toSet();
+    final mesclados = [
+      ...atuais,
+      ...novos.where((p) => !ids.contains(p.id)),
+    ];
+    await Storage.instance.substituir(mesclados);
+  }
+  if (!context.mounted) return;
+  mostrarAviso(context, 'Backup importado com sucesso!');
+  Navigator.of(context).pop('atualizado');
+}
+
 /// Folha de configurações (aberta pela engrenagem): tema e tamanho da fonte.
 class _ConfigSheet extends StatelessWidget {
   const _ConfigSheet();
@@ -516,6 +603,35 @@ class _ConfigSheet extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               'Ajusta texto e ícones do app.',
+              style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            const Text('Backup',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.upload_file_outlined, size: 18),
+                    label: const Text('Exportar arquivo'),
+                    onPressed: () => _exportarBackup(context),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.download_outlined, size: 18),
+                    label: const Text('Importar arquivo'),
+                    onPressed: () => _importarBackup(context),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Salve ou restaure seus projetos num arquivo (bom para trocar '
+              'de celular).',
               style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
             ),
           ],

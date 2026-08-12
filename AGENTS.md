@@ -23,12 +23,13 @@ App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, 
 lib/
 ├── main.dart            # Entry point + 3 ThemeData (claro/escuro/bege)
 ├── models.dart          # Nota, Projeto — serialização JSON
-├── storage.dart         # Persistência local (singleton Storage)
-├── tema.dart            # TemaController (ChangeNotifier) + enum Modo
+├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir
+├── tema.dart            # TemaController (ChangeNotifier) + enums Modo e ModoFonte
 ├── cores.dart           # AppCores (ThemeExtension) — 8 cores/tema
-├── projetos_screen.dart # Tela principal: lista de projetos
+├── projetos_screen.dart # Tela principal: lista de projetos + busca + backup (export/import)
 ├── projeto_screen.dart  # Tela de 1 projeto: abas Tarefas/Futuro + _CaixaNota
-├── editor.dart          # Utilitários: copiarTexto, capitalizarInicial,
+├── pdf_export.dart      # Gera PDF do projeto inteiro e compartilha (printing)
+├── editor.dart          # Utilitários: copiarTexto, mostrarAviso(Acao), capitalizarInicial,
 │                        #   proximoNumeroLista, LinhasNumeradas, maiusculaAposItem
 └── caixa3d.dart         # Widget simples: Container com cor sólida + borderRadius
 ```
@@ -122,33 +123,56 @@ lib/
 ```
 ProjetosScreen (lista de projetos)
   ├─ FAB [+] → criar projeto
+  ├─ 🔍 → busca projetos por nome
   ├─ Card → ProjetoScreen (projeto aberto)
   │    ├─ Tab "Tarefas" → ReorderableListView de _CaixaNota
-  │    └─ Tab "Futuro" → busca + ReorderableListView de _CaixaNota
-  └─ ⚙️ → ConfigSheet (SegmentedButton Claro/Escuro/Bege)
+  │    ├─ Tab "Futuro" → idem
+  │    ├─ 🔍 (ao lado das abas) → busca na aba ativa (texto + comentário)
+  │    └─ PDF → gera PDF do projeto inteiro e compartilha
+  └─ ⚙️ → ConfigSheet (tema, fonte, backup exportar/importar)
 ```
 
 ### Barra de ferramentas da caixinha (`_CaixaNota`)
 
-Ordem dos botões (da esquerda para direita):
-1. `drag_indicator` (arrastar) — canto esquerdo
-2. `check_box` / `check_box_outline_blank` (to-do)
-3. `format_list_numbered` / `format_align_justify` (lista numerada — **só em Tarefas**)
-4. `add_link` (link)
-5. `chat_bubble` / `chat_bubble_outline` (comentário inline)
-6. `copy_all_outlined` (copiar texto)
-7. `edit_outlined` (focar no fim)
-8. `cleaning_services` (limpar)
-9. `delete_outline` (excluir, vermelho)
+Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem dos botões (da esquerda para direita, após o pino):
+
+1. `copy_all_outlined` (copiar — botão mais usado, vem primeiro)
+2. `check_box` / `check_box_outline_blank` (to-do da caixinha: marcar como feito)
+3. `format_list_numbered` / `format_align_justify` (numeração — **só em Tarefas**)
+4. `checklist` (inserir item de to-do "☐ ")
+5. `arrow_downward` / `arrow_upward` (mover para a outra aba)
+6. `unfold_more` (topo/pé do texto)
+7. `add_link` (link)
+8. `chat_bubble` / `chat_bubble_outline` (comentário inline)
+9. `edit_outlined` (focar no fim)
+10. `cleaning_services` (limpar)
+11. `delete_outline` (excluir, vermelho)
 
 ---
 
 ## 6. Comportamentos Específicos
 
 ### Lista numerada
-- **Tarefas:** ao pressionar Enter, se a linha anterior é numerada, insere `"N- "` automaticamente. O botão da lista alterna: hora insere linha numerada, hora insere linha em branco.
+- **Tarefas:** ao pressionar Enter, se a linha anterior é numerada, insere `"N- "` automaticamente.
+- O botão de numeração **alterna o número da linha do cursor**: remove o `"N- "` se existir, ou adiciona o próximo número. Não insere linhas novas (quem cria linha é o Enter).
 - **Futuro:** sem numeração automática, sem botão de lista.
 - Nova caixinha em Tarefas inicia com `"1- "`; Futuro inicia vazio.
+
+### Itens de to-do (quadradinhos ☐/☑)
+- Botão `checklist` insere `"☐ "` no fim do texto; o Enter continua com `"☐ "` nas linhas seguintes (via `LinhasNumeradas`).
+- **Tocar no quadradinho** (faixa esquerda de ~40px de uma linha ☐/☑) alterna marcado/desmarcado — hit-test com `TextPainter` no `_toqueTexto`.
+
+### Caderno (caixinha longa)
+- `maxLines: 16` (~altura da tela); além disso o texto rola por dentro (Scrollbar).
+- Botão `unfold_more` alterna o scroll interno entre topo e pé.
+
+### Desfazer (undo)
+- Excluir caixinha, excluir projeto e mover entre abas mostram aviso com **Desfazer** por 4s.
+- `mostrarAviso`/`mostrarAvisoAcao` (editor.dart) usam SnackBar **+ Timer** para forçar o fechamento mesmo com animações do sistema desativadas.
+
+### Backup em arquivo (exportar/importar)
+- **Exportar:** gera `adm-projetos-backup-AAAA-MM-DD-hhmm.json` (mesmo JSON do Storage) e abre o menu de compartilhamento (`share_plus`).
+- **Importar:** escolhe arquivo (`file_picker`), valida o JSON e pergunta: **Substituir tudo** ou **Somar ao que existe** (mescla por id).
 
 ### Digitação por voz
 - O formatador `LinhasNumeradas` só age quando o texto CRESCE e termina com `\n` — não interfere com backspace nem com voz.
@@ -236,6 +260,9 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 ### Dependências
 - **path_provider:** `^2.1.6` — acesso ao diretório de documentos
 - **shared_preferences:** `^2.5.5` — preferências do usuário
+- **pdf:** `^3.11.3` + **printing:** `^5.14.2` — gerar/compartilhar PDF do projeto
+- **share_plus:** `^12.0.1` — compartilhar arquivo de backup
+- **file_picker:** `^10.3.3` — escolher arquivo de backup para importar
 - **flutter_launcher_icons:** `^0.14.4` — gerar ícones do app (dev only)
 - Não há pacote `http` — requisições HTTP usam `dart:io` `HttpClient` diretamente.
 

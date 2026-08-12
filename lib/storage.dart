@@ -40,4 +40,17 @@ class Storage {
     final f = await _file();
     await f.writeAsString(jsonEncode(_projetos.map((p) => p.toJson()).toList()));
   }
+
+  /// JSON cru de todos os projetos (para exportar em arquivo de backup).
+  Future<String> exportarJson() async {
+    await carregar();
+    return jsonEncode(_projetos.map((p) => p.toJson()).toList());
+  }
+
+  /// Substitui os projetos por uma lista (importada de backup) e salva.
+  Future<void> substituir(List<Projeto> projetos) async {
+    await carregar();
+    _projetos = List.of(projetos);
+    await salvar();
+  }
 }

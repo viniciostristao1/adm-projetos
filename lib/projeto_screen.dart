@@ -69,19 +69,15 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     final nota = lst[i];
     setState(() => lst.removeAt(i));
     _salvar();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: const Text('Caixinha excluída'),
-        duration: const Duration(seconds: 5),
-        action: SnackBarAction(
-          label: 'Desfazer',
-          onPressed: () {
-            setState(() => lst.insert(i > lst.length ? lst.length : i, nota));
-            _salvar();
-          },
-        ),
-      ));
+    mostrarAvisoAcao(
+      context,
+      'Caixinha excluída',
+      'Desfazer',
+      () {
+        setState(() => lst.insert(i > lst.length ? lst.length : i, nota));
+        _salvar();
+      },
+    );
   }
 
   /// Move a caixinha para a OUTRA aba (Tarefas <-> Futuro), com desfazer.
@@ -92,23 +88,19 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     final nomeDestino = aba == 0 ? 'Futuro' : 'Tarefas';
     setState(() {});
     _salvar();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text('Movida para $nomeDestino'),
-        duration: const Duration(seconds: 5),
-        action: SnackBarAction(
-          label: 'Desfazer',
-          onPressed: () {
-            setState(() {
-              destino.remove(nota);
-              final lst = _lista(aba);
-              lst.insert(i > lst.length ? lst.length : i, nota);
-            });
-            _salvar();
-          },
-        ),
-      ));
+    mostrarAvisoAcao(
+      context,
+      'Movida para $nomeDestino',
+      'Desfazer',
+      () {
+        setState(() {
+          destino.remove(nota);
+          final lst = _lista(aba);
+          lst.insert(i > lst.length ? lst.length : i, nota);
+        });
+        _salvar();
+      },
+    );
   }
 
   /// Abre/fecha o campo de busca da aba ativa.
@@ -154,9 +146,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       }
     }
     Clipboard.setData(ClipboardData(text: buf.toString()));
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Projeto copiado!')));
+    mostrarAviso(context, 'Projeto copiado!');
   }
 
   Widget _listaCard(int aba) {
@@ -353,6 +343,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   late final TextEditingController _ctrl;
   final FocusNode _foco = FocusNode();
   final ScrollController _scroll = ScrollController();
+  final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
   Timer? _debounceYT;
   bool _numerado = true;
@@ -379,6 +370,9 @@ class _CaixaNotaState extends State<_CaixaNota> {
     _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
     _foco.requestFocus();
   }
+
+  /// Métricas exatas do texto do campo (para o hit-test do quadradinho).
+  static const TextStyle _estiloTexto = TextStyle(fontSize: 14.5, height: 1.35);
 
   void _mudou(String novoTexto) {
     widget.nota.texto = novoTexto;
@@ -411,22 +405,53 @@ class _CaixaNotaState extends State<_CaixaNota> {
     Storage.instance.salvar();
   }
 
-  void _inserirLinha() {
-    final base = _ctrl.text.trimRight();
-    String adicao;
-    if (_numerado) {
-      adicao = '\n${proximoNumeroLista(_ctrl.text)}- ';
-    } else {
-      adicao = '\n';
+  /// Alterna o número da linha do cursor: remove o "N- " se existir, ou
+  /// adiciona o próximo número. Não insere linhas novas — quem cria linha é
+  /// o Enter (que continua a numeração automaticamente).
+  void _alternarNumero() {
+    final texto = _ctrl.text;
+    final linhas = texto.split('\n');
+    final cursor = _ctrl.selection.isValid
+        ? _ctrl.selection.baseOffset
+        : texto.length;
+    var alvo = linhas.length - 1;
+    var fim = 0;
+    for (var i = 0; i < linhas.length; i++) {
+      fim += linhas[i].length;
+      if (cursor <= fim) {
+        alvo = i;
+        break;
+      }
+      fim += 1; // conta o "\n"
     }
-    final novo = _ctrl.text.isEmpty ? adicao.trimLeft() : '$base$adicao';
+    while (alvo > 0 && linhas[alvo].trim().isEmpty) {
+      alvo--;
+    }
+    final linha = linhas[alvo];
+    final m = RegExp(r'^\s*(\d+)\s*-\s*').firstMatch(linha);
+    final bool adicionou;
+    if (m != null) {
+      linhas[alvo] = linha.substring(m.end);
+      adicionou = false;
+    } else {
+      final anteriores = linhas.sublist(0, alvo).join('\n');
+      final n = proximoNumeroLista(anteriores);
+      linhas[alvo] = '$n- ${linha.trimLeft()}';
+      adicionou = true;
+    }
+    final novo = linhas.join('\n');
+    var pos = 0;
+    for (var i = 0; i < alvo; i++) {
+      pos += linhas[i].length + 1;
+    }
+    pos += linhas[alvo].length;
     _ctrl.value = TextEditingValue(
       text: novo,
-      selection: TextSelection.collapsed(offset: novo.length),
+      selection: TextSelection.collapsed(offset: pos),
     );
     _foco.requestFocus();
-    _mudou(_ctrl.text);
-    setState(() => _numerado = !_numerado);
+    _mudou(novo);
+    setState(() => _numerado = adicionou);
   }
 
   /// Insere uma linha de to-do ("☐ ") e desliga a numeração.
@@ -453,6 +478,46 @@ class _CaixaNotaState extends State<_CaixaNota> {
       _scroll.animateTo(pos.maxScrollExtent,
           duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
     }
+  }
+
+  /// Ao tocar no quadradinho (☐/☑) de uma linha de to-do, alterna entre
+  /// marcado e desmarcado. O toque em qualquer outro lugar segue normal.
+  void _toqueTexto(TapUpDetails details) {
+    final texto = _ctrl.text;
+    if (!texto.contains('☐') && !texto.contains('☑')) return;
+    final ctx = _campoKey.currentContext;
+    if (ctx == null) return;
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final local = box.globalToLocal(details.globalPosition);
+    final dx = local.dx - 14;
+    if (dx < 0 || dx > 40) return; // só na faixa dos quadradinhos
+    final dy = local.dy + (_scroll.hasClients ? _scroll.offset : 0.0) - 2;
+    if (dy < 0) return;
+    final painter = TextPainter(
+      text: TextSpan(text: texto, style: _estiloTexto),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: box.size.width - 28);
+    final pos = painter.getPositionForOffset(
+        Offset(dx.clamp(0.0, painter.width), dy));
+    final offset = pos.offset.clamp(0, texto.length);
+    var inicio = texto.lastIndexOf('\n', offset > 0 ? offset - 1 : 0);
+    inicio = inicio < 0 ? 0 : inicio + 1;
+    var fim = texto.indexOf('\n', offset);
+    if (fim < 0) fim = texto.length;
+    final linha = texto.substring(inicio, fim);
+    final m = RegExp(r'^\s*(☐|☑)').firstMatch(linha);
+    if (m == null) return;
+    final idx = inicio + m.start + 1;
+    final novoChar = texto[idx] == '☐' ? '☑' : '☐';
+    final novo = texto.substring(0, idx) + novoChar + texto.substring(idx + 1);
+    _ctrl.value = TextEditingValue(
+      text: novo,
+      selection:
+          TextSelection.collapsed(offset: offset.clamp(0, novo.length)),
+    );
+    _mudou(novo);
   }
 
   Future<void> _abrirLink() async {
@@ -628,9 +693,9 @@ class _CaixaNotaState extends State<_CaixaNota> {
                                 ? Icons.format_list_numbered
                                 : Icons.format_align_justify,
                             tooltip: _numerado
-                                ? 'Lista numerada (ligada)'
-                                : 'Nova linha (sem número)',
-                            onTap: _inserirLinha,
+                                ? 'Remover número da linha'
+                                : 'Numerar linha',
+                            onTap: _alternarNumero,
                             cor: onBarra,
                           ),
                         _BotaoMini(
@@ -696,32 +761,37 @@ class _CaixaNotaState extends State<_CaixaNota> {
               ],
             ),
           ),
-          Scrollbar(
-            controller: _scroll,
-            child: TextField(
-              scrollController: _scroll,
-              controller: _ctrl,
-              focusNode: _foco,
-              minLines: 1,
-              maxLines: 16,
-              keyboardType: TextInputType.multiline,
-              textCapitalization: TextCapitalization.sentences,
-              inputFormatters: [LinhasNumeradas()],
-              style: TextStyle(
-                fontSize: 14.5,
-                height: 1.35,
-                color: widget.nota.concluida
-                    ? Theme.of(context).colorScheme.onSurface
-                        .withValues(alpha: 0.45)
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
-              onChanged: _mudou,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTapUp: _toqueTexto,
+            child: Scrollbar(
+              controller: _scroll,
+              child: TextField(
+                key: _campoKey,
+                scrollController: _scroll,
+                controller: _ctrl,
+                focusNode: _foco,
+                minLines: 1,
+                maxLines: 16,
+                keyboardType: TextInputType.multiline,
+                textCapitalization: TextCapitalization.sentences,
+                inputFormatters: [LinhasNumeradas()],
+                style: TextStyle(
+                  fontSize: 14.5,
+                  height: 1.35,
+                  color: widget.nota.concluida
+                      ? Theme.of(context).colorScheme.onSurface
+                          .withValues(alpha: 0.45)
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
+                onChanged: _mudou,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+                ),
               ),
             ),
           ),
