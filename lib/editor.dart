@@ -51,14 +51,25 @@ class LinhasNumeradas extends TextInputFormatter {
     if (linhas.length < 2) return newValue;
 
     final m = RegExp(r'^\s*(\d+)\s*-').firstMatch(linhas[linhas.length - 2]);
-    if (m == null) return newValue;
+    if (m != null) {
+      final proximo = int.parse(m.group(1)!) + 1;
+      final novoTexto = '$texto$proximo- ';
+      return newValue.copyWith(
+        text: novoTexto,
+        selection: TextSelection.collapsed(offset: novoTexto.length),
+      );
+    }
 
-    final proximo = int.parse(m.group(1)!) + 1;
-    final novoTexto = '$texto$proximo- ';
-    return newValue.copyWith(
-      text: novoTexto,
-      selection: TextSelection.collapsed(offset: novoTexto.length),
-    );
+    // Linha anterior é item de to-do ("☐ ") -> a nova linha continua com "☐ ".
+    if (RegExp(r'^\s*☐\s?').hasMatch(linhas[linhas.length - 2])) {
+      final novoTexto = '$texto☐ ';
+      return newValue.copyWith(
+        text: novoTexto,
+        selection: TextSelection.collapsed(offset: novoTexto.length),
+      );
+    }
+
+    return newValue;
   }
 }
 

@@ -19,6 +19,9 @@ class ProjetosScreen extends StatefulWidget {
 
 class _ProjetosScreenState extends State<ProjetosScreen> {
   List<Projeto> _projetos = [];
+  final TextEditingController _ctrlBusca = TextEditingController();
+  final FocusNode _focoBusca = FocusNode();
+  bool _buscando = false;
 
   @override
   void initState() {
@@ -26,6 +29,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     Storage.instance.carregar().then((p) {
       if (mounted) setState(() => _projetos = p);
     });
+  }
+
+  @override
+  void dispose() {
+    _ctrlBusca.dispose();
+    _focoBusca.dispose();
+    super.dispose();
   }
 
   Future<void> _salvar() => Storage.instance.salvar();
@@ -118,8 +128,37 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       ),
     );
     if (ok == true) {
+      final idx = _projetos.indexOf(p);
       setState(() => _projetos.remove(p));
       await _salvar();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: const Text('Projeto excluído'),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Desfazer',
+            onPressed: () {
+              setState(() => _projetos.insert(
+                  idx > _projetos.length ? _projetos.length : idx, p));
+              _salvar();
+            },
+          ),
+        ));
+    }
+  }
+
+  /// Abre/fecha o campo de busca por nome dos projetos.
+  void _alternarBusca() {
+    setState(() {
+      _buscando = !_buscando;
+      if (!_buscando) _ctrlBusca.clear();
+    });
+    if (_buscando) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focoBusca.requestFocus();
+      });
     }
   }
 
@@ -153,6 +192,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         centerTitle: false,
         actions: [
           IconButton(
+            icon: Icon(_buscando ? Icons.close : Icons.search),
+            tooltip: _buscando ? 'Fechar busca' : 'Buscar projeto',
+            onPressed: _alternarBusca,
+          ),
+          IconButton(
             icon: const Icon(Icons.copy_all_rounded),
             tooltip: 'Copiar backup',
             onPressed: _copiarTudo,
@@ -169,78 +213,113 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         tooltip: 'Novo projeto',
         child: const Icon(Icons.add),
       ),
-      body: _projetos.isEmpty
-          ? const _Vazio()
-          : ReorderableListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 150),
-              itemCount: _projetos.length,
-              buildDefaultDragHandles: false,
-              onReorderItem: _reordenar,
-              itemBuilder: (_, i) {
-                final p = _projetos[i];
-                final app =
-                    Theme.of(context).extension<AppCores>() ?? AppCores.luz;
-                final modo = temaController.modo;
+      body: Column(
+        children: [
+          if (_buscando)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+              child: TextField(
+                controller: _ctrlBusca,
+                focusNode: _focoBusca,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  hintText: 'Buscar projeto por nome…',
+                  isDense: true,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          Expanded(
+            child: Builder(builder: (ctx) {
+              final q = _ctrlBusca.text.trim().toLowerCase();
+              final visiveis = q.isEmpty
+                  ? _projetos
+                  : _projetos
+                      .where((p) => p.nome.toLowerCase().contains(q))
+                      .toList();
+              if (_projetos.isEmpty) return const _Vazio();
+              if (visiveis.isEmpty) {
+                return const Center(
+                    child: Text('Nenhum projeto encontrado.',
+                        style: TextStyle(color: Colors.grey)));
+              }
+              return ReorderableListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 150),
+                itemCount: visiveis.length,
+                buildDefaultDragHandles: false,
+                onReorderItem: _reordenar,
+                itemBuilder: (_, i) {
+                  final p = visiveis[i];
+                  final app =
+                      Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+                  final modo = temaController.modo;
 
-                Future<void> onTapProjeto() async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ProjetoScreen(projeto: p),
-                    ),
-                  );
-                  await _salvar();
-                  if (mounted) setState(() {});
-                }
+                  Future<void> onTapProjeto() async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProjetoScreen(projeto: p),
+                      ),
+                    );
+                    await _salvar();
+                    if (mounted) setState(() {});
+                  }
 
-                if (modo == Modo.claro) {
-                  return Padding(
-                    key: ValueKey(p.id),
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Caixa3D(
-                      cor: app.projetoCard,
-                      child: Card(
-                        margin: EdgeInsets.zero,
-                        elevation: 0,
-                        color: app.projetoCard,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: ListTile(
-                          leading: ReorderableDragStartListener(
-                            index: i,
-                            child: Icon(Icons.drag_indicator,
-                                color: app.projetoTxt),
+                  if (modo == Modo.claro) {
+                    return Padding(
+                      key: ValueKey(p.id),
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Caixa3D(
+                        cor: app.projetoCard,
+                        child: Card(
+                          margin: EdgeInsets.zero,
+                          elevation: 0,
+                          color: app.projetoCard,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          title: Text(
-                            p.nome,
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: app.projetoTxt),
+                          child: ListTile(
+                            leading: q.isNotEmpty
+                                ? Icon(Icons.drag_indicator,
+                                    color: app.projetoTxt)
+                                : ReorderableDragStartListener(
+                                    index: i,
+                                    child: Icon(Icons.drag_indicator,
+                                        color: app.projetoTxt),
+                                  ),
+                            title: Text(
+                              p.nome,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: app.projetoTxt),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.edit_outlined,
+                                      size: 20, color: app.projetoTxt),
+                                  tooltip: 'Renomear',
+                                  onPressed: () => _renomear(p),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.delete_outline,
+                                      size: 20, color: app.projetoTxt),
+                                  tooltip: 'Excluir',
+                                  onPressed: () => _excluir(p),
+                                ),
+                              ],
+                            ),
+                            onTap: onTapProjeto,
                           ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.edit_outlined,
-                                    size: 20, color: app.projetoTxt),
-                                tooltip: 'Renomear',
-                                onPressed: () => _renomear(p),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.delete_outline,
-                                    size: 20, color: app.projetoTxt),
-                                tooltip: 'Excluir',
-                                onPressed: () => _excluir(p),
-                              ),
-                            ],
-                          ),
-                          onTap: onTapProjeto,
                         ),
                       ),
-                    ),
-                  );
-                }
+                    );
+                  }
 
                 final escuro = modo == Modo.escuro;
                 final dividir =
@@ -258,10 +337,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                       padding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
                       child: Row(
                         children: [
-                          ReorderableDragStartListener(
-                            index: i,
-                            child: Icon(Icons.drag_indicator, color: arrastarCor),
-                          ),
+                          q.isNotEmpty
+                              ? Icon(Icons.drag_indicator, color: arrastarCor)
+                              : ReorderableDragStartListener(
+                                  index: i,
+                                  child: Icon(Icons.drag_indicator,
+                                      color: arrastarCor),
+                                ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: InkWell(
@@ -317,7 +399,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   ],
                 );
               },
-            ),
+            );
+            }),
+          ),
+        ],
+      ),
     );
   }
 }

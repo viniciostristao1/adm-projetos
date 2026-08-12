@@ -9,6 +9,7 @@ import 'caixa3d.dart';
 import 'cores.dart';
 import 'editor.dart';
 import 'models.dart';
+import 'pdf_export.dart';
 import 'storage.dart';
 
 /// Página de um projeto dividida em duas abas: "Tarefas" (atuais) e "Futuro".
@@ -26,6 +27,8 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   final Map<String, GlobalKey<_CaixaNotaState>> _chaves = {};
   late final TabController _tabCtrl;
   final TextEditingController _ctrlBusca = TextEditingController();
+  final FocusNode _focoBusca = FocusNode();
+  bool _buscando = false;
 
   @override
   void initState() {
@@ -37,6 +40,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   void dispose() {
     _tabCtrl.dispose();
     _ctrlBusca.dispose();
+    _focoBusca.dispose();
     super.dispose();
   }
 
@@ -61,8 +65,63 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   }
 
   void _excluir(int aba, int i) {
-    setState(() => _lista(aba).removeAt(i));
+    final lst = _lista(aba);
+    final nota = lst[i];
+    setState(() => lst.removeAt(i));
     _salvar();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: const Text('Caixinha excluída'),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Desfazer',
+          onPressed: () {
+            setState(() => lst.insert(i > lst.length ? lst.length : i, nota));
+            _salvar();
+          },
+        ),
+      ));
+  }
+
+  /// Move a caixinha para a OUTRA aba (Tarefas <-> Futuro), com desfazer.
+  void _moverOutraAba(int aba, int i) {
+    final nota = _lista(aba).removeAt(i);
+    final destino = aba == 0 ? widget.projeto.futuro : widget.projeto.tarefas;
+    destino.add(nota);
+    final nomeDestino = aba == 0 ? 'Futuro' : 'Tarefas';
+    setState(() {});
+    _salvar();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text('Movida para $nomeDestino'),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Desfazer',
+          onPressed: () {
+            setState(() {
+              destino.remove(nota);
+              final lst = _lista(aba);
+              lst.insert(i > lst.length ? lst.length : i, nota);
+            });
+            _salvar();
+          },
+        ),
+      ));
+  }
+
+  /// Abre/fecha o campo de busca da aba ativa.
+  void _alternarBusca() {
+    setState(() {
+      _buscando = !_buscando;
+      if (!_buscando) _ctrlBusca.clear();
+    });
+    if (_buscando) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focoBusca.requestFocus();
+      });
+    }
   }
 
   void _reordenar(int aba, int antigo, int novo) {
@@ -104,8 +163,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     final itens = _lista(aba);
     final ehTarefas = aba == 0;
 
-    if (ehTarefas && itens.isEmpty ||
-        !ehTarefas && itens.isEmpty && _ctrlBusca.text.isEmpty) {
+    if (itens.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -130,17 +188,17 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       );
     }
 
-    final filtradas = ehTarefas
+    final q = _ctrlBusca.text.trim().toLowerCase();
+    final filtradas = q.isEmpty
         ? itens
         : itens.where((n) =>
-            _ctrlBusca.text.isEmpty ||
-            n.texto.toLowerCase().contains(_ctrlBusca.text.toLowerCase()) ||
-            (n.comentario ?? '').toLowerCase().contains(_ctrlBusca.text.toLowerCase())).toList();
+            n.texto.toLowerCase().contains(q) ||
+            (n.comentario ?? '').toLowerCase().contains(q)).toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (!ehTarefas)
+        if (_buscando)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
             child: Builder(builder: (ctx) {
@@ -148,9 +206,12 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               final ehBege = app == AppCores.bege;
               return TextField(
                 controller: _ctrlBusca,
+                focusNode: _focoBusca,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search, size: 20),
-                  hintText: 'Buscar no Futuro…',
+                  hintText: ehTarefas
+                      ? 'Buscar em Tarefas…'
+                      : 'Buscar no Futuro…',
                   isDense: true,
                   filled: ehBege,
                   fillColor: ehBege ? app.notaFim : null,
@@ -190,6 +251,8 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                           copiarTexto(context, filtradas[i].texto),
                       onExcluir: () =>
                           _excluir(aba, _lista(aba).indexOf(filtradas[i])),
+                      onMover: () => _moverOutraAba(
+                          aba, _lista(aba).indexOf(filtradas[i])),
                     ),
                   ),
                 ),
@@ -206,7 +269,12 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(widget.projeto.nome),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+              tooltip: 'Exportar PDF do projeto',
+              onPressed: () => exportarPdfProjeto(context, widget.projeto),
+            ),
             IconButton(
               icon: const Icon(Icons.copy_outlined, size: 18),
               tooltip: 'Copiar tudo do projeto',
@@ -214,13 +282,27 @@ class _ProjetoScreenState extends State<ProjetoScreen>
             ),
           ],
         ),
-        bottom: TabBar(
-          controller: _tabCtrl,
-          indicatorSize: TabBarIndicatorSize.tab,
-          tabs: const [
-            Tab(text: 'Tarefas'),
-            Tab(text: 'Futuro'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kTextTabBarHeight),
+          child: Row(
+            children: [
+              Expanded(
+                child: TabBar(
+                  controller: _tabCtrl,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  tabs: const [
+                    Tab(text: 'Tarefas'),
+                    Tab(text: 'Futuro'),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(_buscando ? Icons.close : Icons.search),
+                tooltip: _buscando ? 'Fechar busca' : 'Buscar na aba',
+                onPressed: _alternarBusca,
+              ),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -247,6 +329,7 @@ class _CaixaNota extends StatefulWidget {
     required this.modoTarefas,
     required this.onCopiar,
     required this.onExcluir,
+    required this.onMover,
   });
 
   final Nota nota;
@@ -258,6 +341,9 @@ class _CaixaNota extends StatefulWidget {
 
   final VoidCallback onCopiar;
   final VoidCallback onExcluir;
+
+  /// Move a caixinha para a outra aba (Tarefas <-> Futuro).
+  final VoidCallback onMover;
 
   @override
   State<_CaixaNota> createState() => _CaixaNotaState();
@@ -341,6 +427,32 @@ class _CaixaNotaState extends State<_CaixaNota> {
     _foco.requestFocus();
     _mudou(_ctrl.text);
     setState(() => _numerado = !_numerado);
+  }
+
+  /// Insere uma linha de to-do ("☐ ") e desliga a numeração.
+  void _inserirTodo() {
+    final base = _ctrl.text.trimRight();
+    final novo = _ctrl.text.isEmpty ? '☐ ' : '$base\n☐ ';
+    _ctrl.value = TextEditingValue(
+      text: novo,
+      selection: TextSelection.collapsed(offset: novo.length),
+    );
+    _foco.requestFocus();
+    _mudou(_ctrl.text);
+    setState(() => _numerado = false);
+  }
+
+  /// Alterna o scroll interno do texto entre o topo e o pé.
+  void _irAoExtremo() {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    if (pos.pixels >= pos.maxScrollExtent - 2) {
+      _scroll.animateTo(0,
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    } else {
+      _scroll.animateTo(pos.maxScrollExtent,
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
   }
 
   Future<void> _abrirLink() async {
@@ -478,7 +590,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
             ),
             padding: const EdgeInsets.fromLTRB(10, 4, 6, 2),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 ReorderableDragStartListener(
                   index: widget.indice,
@@ -488,69 +599,99 @@ class _CaixaNotaState extends State<_CaixaNota> {
                     color: onBarra.withValues(alpha: 0.7),
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _BotaoMini(
-                      icone: widget.nota.concluida
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      tooltip: widget.nota.concluida ? 'Desmarcar' : 'Marcar como feito',
-                      onTap: _alternarConcluida,
-                      cor: onBarra,
+                const SizedBox(width: 4),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _BotaoMini(
+                          icone: Icons.copy_all_outlined,
+                          tooltip: 'Copiar',
+                          onTap: widget.onCopiar,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: widget.nota.concluida
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          tooltip: widget.nota.concluida
+                              ? 'Desmarcar'
+                              : 'Marcar como feito',
+                          onTap: _alternarConcluida,
+                          cor: onBarra,
+                        ),
+                        if (widget.modoTarefas)
+                          _BotaoMini(
+                            icone: _numerado
+                                ? Icons.format_list_numbered
+                                : Icons.format_align_justify,
+                            tooltip: _numerado
+                                ? 'Lista numerada (ligada)'
+                                : 'Nova linha (sem número)',
+                            onTap: _inserirLinha,
+                            cor: onBarra,
+                          ),
+                        _BotaoMini(
+                          icone: Icons.checklist,
+                          tooltip: 'Item de to-do (☐)',
+                          onTap: _inserirTodo,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: widget.modoTarefas
+                              ? Icons.arrow_downward
+                              : Icons.arrow_upward,
+                          tooltip: widget.modoTarefas
+                              ? 'Mover para Futuro'
+                              : 'Mover para Tarefas',
+                          onTap: widget.onMover,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: Icons.unfold_more,
+                          tooltip: 'Topo / Pé',
+                          onTap: _irAoExtremo,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: Icons.add_link,
+                          tooltip: 'Link',
+                          onTap: _abrirLink,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: _comentarioExpandido
+                              ? Icons.chat_bubble
+                              : Icons.chat_bubble_outline,
+                          tooltip: 'Comentário',
+                          onTap: () => setState(
+                              () => _comentarioExpandido = !_comentarioExpandido),
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: Icons.edit_outlined,
+                          tooltip: 'Editar',
+                          onTap: focarNoFim,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: Icons.cleaning_services,
+                          tooltip: 'Limpar conteúdo',
+                          onTap: _limpar,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: Icons.delete_outline,
+                          tooltip: 'Excluir',
+                          isDanger: true,
+                          onTap: widget.onExcluir,
+                          cor: onBarra,
+                        ),
+                      ],
                     ),
-                    if (widget.modoTarefas)
-                      _BotaoMini(
-                        icone: _numerado
-                            ? Icons.format_list_numbered
-                            : Icons.format_align_justify,
-                        tooltip: _numerado
-                            ? 'Lista numerada (ligada)'
-                            : 'Nova linha (sem número)',
-                        onTap: _inserirLinha,
-                        cor: onBarra,
-                      ),
-                    _BotaoMini(
-                      icone: Icons.add_link,
-                      tooltip: 'Link',
-                      onTap: _abrirLink,
-                      cor: onBarra,
-                    ),
-                    _BotaoMini(
-                      icone: _comentarioExpandido
-                          ? Icons.chat_bubble
-                          : Icons.chat_bubble_outline,
-                      tooltip: 'Comentário',
-                      onTap: () =>
-                          setState(() => _comentarioExpandido = !_comentarioExpandido),
-                      cor: onBarra,
-                    ),
-                    _BotaoMini(
-                      icone: Icons.copy_all_outlined,
-                      tooltip: 'Copiar',
-                      onTap: widget.onCopiar,
-                      cor: onBarra,
-                    ),
-                    _BotaoMini(
-                      icone: Icons.edit_outlined,
-                      tooltip: 'Editar',
-                      onTap: focarNoFim,
-                      cor: onBarra,
-                    ),
-                    _BotaoMini(
-                      icone: Icons.cleaning_services,
-                      tooltip: 'Limpar conteúdo',
-                      onTap: _limpar,
-                      cor: onBarra,
-                    ),
-                    _BotaoMini(
-                      icone: Icons.delete_outline,
-                      tooltip: 'Excluir',
-                      isDanger: true,
-                      onTap: widget.onExcluir,
-                      cor: onBarra,
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -562,7 +703,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
               controller: _ctrl,
               focusNode: _foco,
               minLines: 1,
-              maxLines: 8,
+              maxLines: 16,
               keyboardType: TextInputType.multiline,
               textCapitalization: TextCapitalization.sentences,
               inputFormatters: [LinhasNumeradas()],
