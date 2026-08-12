@@ -133,6 +133,13 @@ class AdmProjetosApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFEDE1CF),
         extensions: const [AppCores.bege],
         appBarTheme: _appbarBege,
+        tabBarTheme: const TabBarThemeData(
+          labelColor: Color(0xFFFBF3E8),
+          unselectedLabelColor: Color(0xB3FBF3E8),
+          indicatorColor: Color(0xFFFBF3E8),
+          dividerColor: Colors.transparent,
+          labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        ),
         floatingActionButtonTheme: FloatingActionButtonThemeData(
           backgroundColor: AppCores.bege.fab,
           foregroundColor: AppCores.bege.fabIcone,
