@@ -220,6 +220,23 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - **Exportar:** gera `adm-projetos-backup-AAAA-MM-DD-hhmm.json` (mesmo JSON do Storage) e abre o menu de compartilhamento (`share_plus`).
 - **Importar:** escolhe arquivo (`file_picker`), valida o JSON e pergunta: **Substituir tudo** ou **Somar ao que existe** (mescla por id).
 
+### Sincronização com a nuvem (Firebase)
+- **`SyncService`** (sync_service.dart, ChangeNotifier): doc `usuarios/{uid}` no
+  Firestore com `{dados: JSON, atualizadoEm: ms, email}`.
+- Estratégia: **quem salvou por último vence**. Ao entrar: nuvem mais nova →
+  baixa e aplica; senão sobe o local. Salvar local → upload com debounce 3s.
+  Mudanças remotas aplicadas na hora (eco ignorado via `_ultimoAplicadoMs`).
+- **`Storage`** virou `ChangeNotifier` e guarda `ultima_modificacao_ms` no
+  SharedPreferences; `marcarModificacaoEm(ms)` usada quando a nuvem baixa.
+- `ProjetosScreen` escuta o Storage e recarrega a lista quando a nuvem baixa.
+- **Modo local (sem Firebase):** `main()` chama `Firebase.initializeApp()` em
+  try/catch — se falhar (google-services.json ausente), o app segue 100%
+  local e o botão "Entrar com Google" mostra aviso amigável.
+- Login na engrenagem → seção **Nuvem**: Entrar com Google / email + Sair.
+- ⚠️ Ao CONFIGURAR o Firebase (google-services.json no `android/app/`), ainda
+  é preciso aplicar o plugin `com.google.gms.google-services` no Gradle
+  (settings.gradle.kts + app/build.gradle.kts), como no calistenia_app.
+
 ### Digitação por voz
 - O formatador `LinhasNumeradas` só age quando o texto CRESCE e termina com `\n` — não interfere com backspace nem com voz.
 - A correção de maiúscula (`maiusculaAposItem`) roda **2 segundos após pausa** na digitação (debounce), não durante — para não quebrar o ditado.

@@ -1,12 +1,22 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'cores.dart';
 import 'projetos_screen.dart';
+import 'sync_service.dart';
 import 'tema.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   temaController.carregar();
+  // Firebase: se ainda não estiver configurado (sem google-services.json),
+  // o app continua funcionando 100% local.
+  try {
+    await Firebase.initializeApp();
+    await SyncService.instance.iniciar();
+  } catch (e) {
+    debugPrint('Firebase indisponível (modo local): $e');
+  }
   runApp(const AdmProjetosApp());
 }
 

@@ -13,6 +13,7 @@ import 'editor.dart';
 import 'models.dart';
 import 'projeto_screen.dart';
 import 'storage.dart';
+import 'sync_service.dart';
 import 'tema.dart';
 
 /// Página principal: a lista de projetos.
@@ -35,13 +36,21 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     Storage.instance.carregar().then((p) {
       if (mounted) setState(() => _projetos = p);
     });
+    // Quando a nuvem baixa dados, recarrega a lista.
+    Storage.instance.addListener(_aoMudarStorage);
   }
 
   @override
   void dispose() {
+    Storage.instance.removeListener(_aoMudarStorage);
     _ctrlBusca.dispose();
     _focoBusca.dispose();
     super.dispose();
+  }
+
+  Future<void> _aoMudarStorage() async {
+    final p = await Storage.instance.carregar();
+    if (mounted) setState(() => _projetos = List.of(p));
   }
 
   Future<void> _salvar() => Storage.instance.salvar();
@@ -761,10 +770,72 @@ class _ConfigSheet extends StatelessWidget {
               'de celular).',
               style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
             ),
+            const SizedBox(height: 16),
+            const Text('Nuvem',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            ListenableBuilder(
+              listenable: SyncService.instance,
+              builder: (context, _) {
+                final sync = SyncService.instance;
+                if (!sync.conectado) {
+                  return OutlinedButton.icon(
+                    icon: const Icon(Icons.login, size: 18),
+                    label: const Text('Entrar com Google'),
+                    onPressed: () => _entrarGoogle(context),
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.cloud_done_outlined,
+                            size: 18, color: Color(0xFF4ADE80)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Sincronizado como ${sync.usuario!.email ?? ''}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: sync.sair,
+                          child: const Text('Sair'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tudo que você salvar sobe para a nuvem e volta em '
+                      'qualquer celular com a mesma conta.',
+                      style:
+                          TextStyle(color: s.onSurfaceVariant, fontSize: 12),
+                    ),
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),
     );
+  }
+}
+
+/// Faz login com o Google. Se o Firebase ainda não estiver configurado,
+/// mostra um aviso amigável.
+Future<void> _entrarGoogle(BuildContext context) async {
+  try {
+    await SyncService.instance.entrarComGoogle();
+  } catch (e) {
+    if (context.mounted) {
+      mostrarAviso(
+        context,
+        'Não foi possível entrar. O Firebase ainda não está configurado '
+        'neste aparelho.',
+      );
+    }
   }
 }
 
