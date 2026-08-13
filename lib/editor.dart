@@ -99,8 +99,10 @@ class LinhasNumeradas extends TextInputFormatter {
     }
 
     // Linha anterior é item de to-do ("☐ ") -> a nova linha continua com "☐ ".
-    if (RegExp(r'^\s*☐\s?').hasMatch(linhas[linhas.length - 2])) {
-      final novoTexto = '$texto☐ ';
+    // O \uFE0E força a apresentação em TEXTO do quadradinho (senão alguns
+    // celulares desenham o ☐/☑ como emoji colorido).
+    if (linhas[linhas.length - 2].trimLeft().startsWith('☐')) {
+      final novoTexto = '$texto☐\uFE0E ';
       return newValue.copyWith(
         text: novoTexto,
         selection: TextSelection.collapsed(offset: novoTexto.length),

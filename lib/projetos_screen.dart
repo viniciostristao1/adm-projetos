@@ -116,6 +116,12 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     await _salvar();
   }
 
+  /// Alterna o "em andamento" do projeto (✓ verde no cartão da lista).
+  void _alternarAndamento(Projeto p) {
+    setState(() => p.emAndamento = !p.emAndamento);
+    _salvar();
+  }
+
   Future<void> _excluir(Projeto p) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -304,6 +310,20 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
+                                  icon: Icon(
+                                      p.emAndamento
+                                          ? Icons.check_box
+                                          : Icons.check_box_outline_blank,
+                                      size: 20,
+                                      color: p.emAndamento
+                                          ? const Color(0xFF4ADE80)
+                                          : app.projetoTxt),
+                                  tooltip: p.emAndamento
+                                      ? 'Parar (não está mais em andamento)'
+                                      : 'Marcar como em andamento',
+                                  onPressed: () => _alternarAndamento(p),
+                                ),
+                                IconButton(
                                   icon: Icon(Icons.edit_outlined,
                                       size: 20, color: app.projetoTxt),
                                   tooltip: 'Renomear',
@@ -364,6 +384,25 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                                       ),
                                     ),
                                   ),
+                                  BotaoNeum(
+                                    raio: 999,
+                                    padding: const EdgeInsets.all(7),
+                                    corInicio: app.projetoCard,
+                                    corFim: app.projetoCardFim,
+                                    tooltip: p.emAndamento
+                                        ? 'Parar (não está mais em andamento)'
+                                        : 'Marcar como em andamento',
+                                    onTap: () => _alternarAndamento(p),
+                                    child: Icon(
+                                        p.emAndamento
+                                            ? Icons.check_box
+                                            : Icons.check_box_outline_blank,
+                                        size: 17,
+                                        color: p.emAndamento
+                                            ? const Color(0xFF4ADE80)
+                                            : app.projetoTxt),
+                                  ),
+                                  const SizedBox(width: 10),
                                   BotaoNeum(
                                     raio: 999,
                                     padding: const EdgeInsets.all(7),
@@ -436,6 +475,30 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                               ),
                             ),
                           ),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: bolaCor,
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                  p.emAndamento
+                                      ? Icons.check_box
+                                      : Icons.check_box_outline_blank,
+                                  size: 18),
+                              color: p.emAndamento
+                                  ? const Color(0xFF4ADE80)
+                                  : iconeCor,
+                              tooltip: p.emAndamento
+                                  ? 'Parar (não está mais em andamento)'
+                                  : 'Marcar como em andamento',
+                              onPressed: () => _alternarAndamento(p),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
                           Container(
                             width: 36,
                             height: 36,

@@ -484,15 +484,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
     Storage.instance.salvar();
   }
 
-  /// Alterna o número da linha do cursor: remove o "N- " se existir, ou
-  /// adiciona o próximo número. Não insere linhas novas — quem cria linha é
-  /// o Enter (que continua a numeração automaticamente).
-  void _alternarNumero() {
-    final texto = _ctrl.text;
+  /// Índice da linha que contém o cursor (ou a última linha com conteúdo,
+  /// se o cursor estiver depois de um "\n" final).
+  int _linhaDoCursor(String texto, int cursor) {
     final linhas = texto.split('\n');
-    final cursor = _ctrl.selection.isValid
-        ? _ctrl.selection.baseOffset
-        : texto.length;
     var alvo = linhas.length - 1;
     var fim = 0;
     for (var i = 0; i < linhas.length; i++) {
@@ -506,6 +501,19 @@ class _CaixaNotaState extends State<_CaixaNota> {
     while (alvo > 0 && linhas[alvo].trim().isEmpty) {
       alvo--;
     }
+    return alvo;
+  }
+
+  /// Alterna o número da linha do cursor: remove o "N- " se existir, ou
+  /// adiciona o próximo número. Não insere linhas novas — quem cria linha é
+  /// o Enter (que continua a numeração automaticamente).
+  void _alternarNumero() {
+    final texto = _ctrl.text;
+    final linhas = texto.split('\n');
+    final cursor = _ctrl.selection.isValid
+        ? _ctrl.selection.baseOffset
+        : texto.length;
+    final alvo = _linhaDoCursor(texto, cursor);
     final linha = linhas[alvo];
     final m = RegExp(r'^\s*(\d+)\s*-\s*').firstMatch(linha);
     final bool adicionou;
@@ -533,16 +541,43 @@ class _CaixaNotaState extends State<_CaixaNota> {
     setState(() => _numerado = adicionou);
   }
 
-  /// Insere uma linha de to-do ("☐ ") e desliga a numeração.
+  /// Converte a LINHA DO CURSOR em item de to-do ("☐ "); se a linha já for
+  /// um item de to-do, remove o quadradinho (alterna). Funciona em qualquer
+  /// linha, não só no fim do texto.
   void _inserirTodo() {
-    final base = _ctrl.text.trimRight();
-    final novo = _ctrl.text.isEmpty ? '☐ ' : '$base\n☐ ';
+    final texto = _ctrl.text;
+    final linhas = texto.split('\n');
+    final cursor = _ctrl.selection.isValid
+        ? _ctrl.selection.baseOffset
+        : texto.length;
+    final alvo = _linhaDoCursor(texto, cursor);
+    final linha = linhas[alvo];
+    final limpo = linha.trimLeft();
+    final inicioLimpo = linha.length - limpo.length;
+    final ehTodo = limpo.startsWith('☐') || limpo.startsWith('☑');
+    final String nova;
+    if (ehTodo) {
+      var fim = inicioLimpo + 1;
+      if (fim < linha.length && linha.codeUnitAt(fim) == 0xFE0E) fim++;
+      if (fim < linha.length && linha[fim] == ' ') fim++;
+      nova = linha.substring(fim);
+    } else {
+      // \uFE0E força apresentação em TEXTO (sem virar emoji colorido).
+      nova = '☐\uFE0E $limpo';
+    }
+    linhas[alvo] = nova;
+    final novo = linhas.join('\n');
+    var pos = 0;
+    for (var i = 0; i < alvo; i++) {
+      pos += linhas[i].length + 1;
+    }
+    pos += linhas[alvo].length;
     _ctrl.value = TextEditingValue(
       text: novo,
-      selection: TextSelection.collapsed(offset: novo.length),
+      selection: TextSelection.collapsed(offset: pos),
     );
     _foco.requestFocus();
-    _mudou(_ctrl.text);
+    _mudou(novo);
     setState(() => _numerado = false);
   }
 

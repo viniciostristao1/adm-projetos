@@ -9,6 +9,7 @@ import 'models.dart';
 /// por marcadores de texto — as fontes padrão do PDF não os suportam.
 String _textoPdf(String s) {
   var t = s.replaceAll(RegExp(r'[\u{10000}-\u{10FFFF}]', unicode: true), '');
+  t = t.replaceAll('\u2610\uFE0E', '[ ]').replaceAll('\u2611\uFE0E', '[x]');
   t = t.replaceAll('\u2610', '[ ]').replaceAll('\u2611', '[x]');
   return t;
 }

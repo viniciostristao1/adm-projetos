@@ -54,6 +54,7 @@ lib/
 | `nome` | `String` | `nome` |
 | `tarefas` | `List<Nota>` | `tarefas` |
 | `futuro` | `List<Nota>` | `futuro` |
+| `emAndamento` | `bool` | `emAndamento` (✓ verde no cartão da lista) |
 
 > **Backward compat:** `fromJson` migra chave antiga `notas` → `tarefas`.
 
@@ -193,8 +194,15 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - Nova caixinha em Tarefas inicia com `"1- "`; Futuro inicia vazio.
 
 ### Itens de to-do (quadradinhos ☐/☑)
-- Botão `checklist` insere `"☐ "` no fim do texto; o Enter continua com `"☐ "` nas linhas seguintes (via `LinhasNumeradas`).
-- **Tocar no quadradinho** (faixa esquerda de ~40px de uma linha ☐/☑) alterna marcado/desmarcado — hit-test com `TextPainter` no `_toqueTexto`.
+- Botão `checklist` **converte a LINHA DO CURSOR** em item de to-do (ou remove
+  o quadradinho se a linha já for um item) — funciona em qualquer linha, como
+  o botão de numeração. Não cria mais linha no fim do texto.
+- O Enter continua com `"☐ "` nas linhas seguintes (via `LinhasNumeradas`).
+- Os quadradinhos usam `\uFE0E` (VS15) para forçar a apresentação em TEXTO —
+  sem isso alguns celulares desenham ☐/☑ como emoji colorido.
+- **Tocar no quadradinho** (faixa esquerda de ~40px de uma linha ☐/☑) alterna
+  marcado/desmarcado — hit-test com `TextPainter` no `_toqueTexto`, detectado
+  por `Listener` (eventos crus, sem disputa de gestos com o campo de texto).
 
 ### Caderno (caixinha longa)
 - `maxLines: 24`; além disso o texto rola por dentro (Scrollbar).

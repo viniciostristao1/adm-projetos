@@ -40,11 +40,15 @@ class Projeto {
   List<Nota> tarefas;
   List<Nota> futuro;
 
+  /// Projeto em andamento (mostra ✓ verde no cartão da lista).
+  bool emAndamento;
+
   Projeto({
     required this.id,
     required this.nome,
     List<Nota>? tarefas,
     List<Nota>? futuro,
+    this.emAndamento = false,
   })  : tarefas = tarefas ?? [],
         futuro = futuro ?? [];
 
@@ -53,6 +57,7 @@ class Projeto {
         'nome': nome,
         'tarefas': tarefas.map((n) => n.toJson()).toList(),
         'futuro': futuro.map((n) => n.toJson()).toList(),
+        'emAndamento': emAndamento,
       };
 
   factory Projeto.fromJson(Map<String, dynamic> j) {
@@ -67,6 +72,7 @@ class Projeto {
       nome: (j['nome'] ?? '') as String,
       tarefas: ler('tarefas').isNotEmpty ? ler('tarefas') : velhas,
       futuro: ler('futuro'),
+      emAndamento: (j['emAndamento'] ?? false) as bool,
     );
   }
 }
