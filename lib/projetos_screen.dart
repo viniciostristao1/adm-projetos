@@ -785,13 +785,26 @@ class _ConfigSheet extends StatelessWidget {
                     onPressed: () => _entrarGoogle(context),
                   );
                 }
+                final ok = sync.status == 'Sincronizado';
+                final enviando = sync.status == 'Enviando…' ||
+                    sync.status == 'Conectando…';
+                final corStatus =
+                    ok ? const Color(0xFF4ADE80) : (enviando ? s.onSurfaceVariant : Colors.redAccent);
+                final icone = ok
+                    ? Icons.cloud_done_outlined
+                    : (enviando ? Icons.cloud_sync_outlined : Icons.cloud_off_outlined);
+                String texto = sync.status;
+                if (ok && sync.ultimoEnvio != null) {
+                  final h = sync.ultimoEnvio!.hour.toString().padLeft(2, '0');
+                  final m = sync.ultimoEnvio!.minute.toString().padLeft(2, '0');
+                  texto = 'Sincronizado às $h:$m';
+                }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.cloud_done_outlined,
-                            size: 18, color: Color(0xFF4ADE80)),
+                        Icon(icone, size: 18, color: corStatus),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -805,6 +818,35 @@ class _ConfigSheet extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      texto,
+                      style: TextStyle(
+                        color: corStatus,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (sync.status == 'Erro' &&
+                        sync.ultimaMensagem != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        sync.ultimaMensagem!,
+                        style: TextStyle(
+                            color: s.onSurfaceVariant, fontSize: 11),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Tentar de novo'),
+                          onPressed: sync.enviarAgora,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       'Tudo que você salvar sobe para a nuvem e volta em '

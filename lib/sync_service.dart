@@ -33,6 +33,12 @@ class SyncService extends ChangeNotifier {
   int _ultimoAplicadoMs = 0;
   bool _aplicandoRemoto = false;
 
+  /// Estado visível da sincronização: 'desligado', 'Conectando…',
+  /// 'Sincronizado', 'Enviando…' ou 'Erro' (com [ultimaMensagem]).
+  String status = 'desligado';
+  String? ultimaMensagem;
+  DateTime? ultimoEnvio;
+
   bool get conectado => usuario != null;
 
   Future<void> iniciar() async {
@@ -55,6 +61,14 @@ class SyncService extends ChangeNotifier {
     _debounceEnvio?.cancel();
     _debounceEnvio = null;
     Storage.instance.removeListener(_aoSalvarLocal);
+    status = 'desligado';
+    ultimaMensagem = null;
+    notifyListeners();
+  }
+
+  void _setStatus(String s, [String? msg]) {
+    status = s;
+    ultimaMensagem = msg;
     notifyListeners();
   }
 
@@ -65,7 +79,7 @@ class SyncService extends ChangeNotifier {
     }
     usuario = u;
     Storage.instance.addListener(_aoSalvarLocal);
-    notifyListeners();
+    _setStatus('Conectando…');
     try {
       final doc = await _db.collection('usuarios').doc(u.uid).get();
       final remoto = doc.exists ? doc.data() : null;
@@ -80,7 +94,7 @@ class SyncService extends ChangeNotifier {
         await _enviarAgora();
       }
     } catch (e) {
-      debugPrint('sync: primeiro contato falhou: $e');
+      _setStatus('Erro', e.toString());
     }
     _ouvirRemoto(u.uid);
   }
@@ -107,8 +121,10 @@ class SyncService extends ChangeNotifier {
       await Storage.instance.substituir(lista);
       await Storage.instance.marcarModificacaoEm(ms);
       _ultimoAplicadoMs = ms;
+      _setStatus('Sincronizado');
       debugPrint('sync: dados da nuvem aplicados ($ms)');
     } catch (e) {
+      _setStatus('Erro', e.toString());
       debugPrint('sync: aplicar remoto falhou: $e');
     } finally {
       _aplicandoRemoto = false;
@@ -118,12 +134,14 @@ class SyncService extends ChangeNotifier {
   void _aoSalvarLocal() {
     if (_aplicandoRemoto || usuario == null) return;
     _debounceEnvio?.cancel();
-    _debounceEnvio = Timer(const Duration(seconds: 3), _enviarAgora);
+    _debounceEnvio = Timer(const Duration(seconds: 3), enviarAgora);
   }
 
-  Future<void> _enviarAgora() async {
+  /// Sobe os dados locais para a nuvem (público para o botão "Tentar de novo").
+  Future<void> enviarAgora() async {
     final u = usuario;
     if (u == null) return;
+    _setStatus('Enviando…');
     try {
       final json = await Storage.instance.exportarJson();
       final ms = DateTime.now().millisecondsSinceEpoch;
@@ -133,9 +151,12 @@ class SyncService extends ChangeNotifier {
         'email': u.email ?? '',
       });
       _ultimoAplicadoMs = ms;
+      ultimoEnvio = DateTime.now();
       await Storage.instance.marcarModificacaoEm(ms);
+      _setStatus('Sincronizado');
       debugPrint('sync: enviado para a nuvem ($ms)');
     } catch (e) {
+      _setStatus('Erro', e.toString());
       debugPrint('sync: enviar falhou: $e');
     }
   }
