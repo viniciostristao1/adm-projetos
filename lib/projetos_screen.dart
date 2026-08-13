@@ -367,6 +367,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                                   BotaoNeum(
                                     raio: 999,
                                     padding: const EdgeInsets.all(7),
+                                    corInicio: app.projetoCard,
+                                    corFim: app.projetoCardFim,
                                     tooltip: 'Renomear',
                                     onTap: () => _renomear(p),
                                     child: Icon(Icons.edit_outlined,
@@ -376,6 +378,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                                   BotaoNeum(
                                     raio: 999,
                                     padding: const EdgeInsets.all(7),
+                                    corInicio: app.projetoCard,
+                                    corFim: app.projetoCardFim,
                                     tooltip: 'Excluir',
                                     onTap: () => _excluir(p),
                                     child: Icon(Icons.delete_outline,

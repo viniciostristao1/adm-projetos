@@ -591,7 +591,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
     final linha = texto.substring(inicio, fim);
     final m = RegExp(r'^\s*(☐|☑)').firstMatch(linha);
     if (m == null) return;
-    final idx = inicio + m.start + 1;
+    // Índice real do quadradinho = início da linha + deslocamento do grupo 1
+    // dentro do match (m.start aponta para o começo do match inteiro, que
+    // inclui os espaços casados pelo \s*).
+    final idx = inicio + m.start + m.group(0)!.indexOf(m.group(1)!);
     final novoChar = texto[idx] == '☐' ? '☑' : '☐';
     final novo = texto.substring(0, idx) + novoChar + texto.substring(idx + 1);
     _ctrl.value = TextEditingValue(
@@ -997,9 +1000,15 @@ class _BotaoMini extends StatelessWidget {
       );
     }
     final corIcone = isDanger ? Colors.redAccent : (cor ?? Colors.white);
+    // Botão segue o gradiente da barra quando ela tem cor própria (bege:
+    // marrom); senão usa a superfície padrão do tema.
+    final barraPropria = app.barraFerramentas != app.notaInicio ||
+        app.barraFerramentas != app.notaFim;
     return BotaoNeum(
       raio: 9,
       padding: const EdgeInsets.all(5),
+      corInicio: barraPropria ? app.barraFerramentas : null,
+      corFim: barraPropria ? app.barraFerramentasFim : null,
       tooltip: tooltip,
       onTap: onTap,
       child: Icon(icone, size: 17, color: corIcone),

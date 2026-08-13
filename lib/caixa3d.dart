@@ -94,6 +94,8 @@ class BotaoNeum extends StatefulWidget {
     this.selecionado = false,
     this.tooltip,
     this.padding = const EdgeInsets.all(7),
+    this.corInicio,
+    this.corFim,
   });
 
   final Widget child;
@@ -102,6 +104,10 @@ class BotaoNeum extends StatefulWidget {
   final bool selecionado;
   final String? tooltip;
   final EdgeInsetsGeometry padding;
+
+  /// Sobrescrevem as pontas do gradiente da superfície (padrão: as do tema).
+  final Color? corInicio;
+  final Color? corFim;
 
   @override
   State<BotaoNeum> createState() => _BotaoNeumState();
@@ -126,7 +132,10 @@ class _BotaoNeumState extends State<BotaoNeum> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [app.notaInicio, app.notaFim],
+          colors: [
+            widget.corInicio ?? app.notaInicio,
+            widget.corFim ?? app.notaFim,
+          ],
         ),
         boxShadow: inset
             ? const []
