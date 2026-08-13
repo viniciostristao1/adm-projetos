@@ -194,6 +194,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
             child: Builder(builder: (ctx) {
               final app = Theme.of(ctx).extension<AppCores>() ?? AppCores.luz;
               final ehBege = app == AppCores.bege;
+              final preencher = ehBege || app.neumorfico;
               return TextField(
                 controller: _ctrlBusca,
                 focusNode: _focoBusca,
@@ -203,8 +204,8 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                       ? 'Buscar em Tarefas…'
                       : 'Buscar no Futuro…',
                   isDense: true,
-                  filled: ehBege,
-                  fillColor: ehBege ? app.notaFim : null,
+                  filled: preencher,
+                  fillColor: preencher ? app.notaFim : null,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
                   contentPadding:
@@ -689,13 +690,27 @@ class _CaixaNotaState extends State<_CaixaNota> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Barra de ferramentas com cor separada
+          // Barra de ferramentas com cor separada (ou embutida na superfície
+          // neumórfica, com linha interna sutil embaixo)
           Container(
-            decoration: BoxDecoration(
-              color: corFerramentas,
-              borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(14)),
-            ),
+            decoration: app.neumorfico
+                ? BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(14)),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [app.notaInicio, app.notaFim],
+                    ),
+                    border: const Border(
+                      bottom: BorderSide(color: Color(0x2E000000)),
+                    ),
+                  )
+                : BoxDecoration(
+                    color: corFerramentas,
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(14)),
+                  ),
             padding: const EdgeInsets.fromLTRB(10, 4, 6, 2),
             child: Row(
               children: [
@@ -903,15 +918,26 @@ class _BotaoMini extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(icone,
-          size: 20,
-          color: isDanger
-              ? Colors.red
-              : (cor ?? Theme.of(context).colorScheme.onSurfaceVariant)),
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+    if (!app.neumorfico) {
+      return IconButton(
+        icon: Icon(icone,
+            size: 20,
+            color: isDanger
+                ? Colors.red
+                : (cor ?? Theme.of(context).colorScheme.onSurfaceVariant)),
+        tooltip: tooltip,
+        visualDensity: VisualDensity.compact,
+        onPressed: onTap,
+      );
+    }
+    final corIcone = isDanger ? Colors.redAccent : (cor ?? Colors.white);
+    return BotaoNeum(
+      raio: 9,
+      padding: const EdgeInsets.all(5),
       tooltip: tooltip,
-      visualDensity: VisualDensity.compact,
-      onPressed: onTap,
+      onTap: onTap,
+      child: Icon(icone, size: 17, color: corIcone),
     );
   }
 }

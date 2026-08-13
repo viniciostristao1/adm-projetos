@@ -62,21 +62,37 @@ lib/
 ## 4. Sistema de Temas
 
 ### Modo (enum em `tema.dart`)
-`claro`, `escuro`, `bege`
+`claro`, `escuro`, `bege`, `neumA` (Grafite + Âmbar), `neumB` (Aço + Gelo)
+
+- `themeFlutter`: dark para `escuro`/`neumA`/`neumB`; light para os demais.
+- Seletor de tema na engrenagem: `ChoiceChip` para cada `Modo` (usa `Modo.rotulo`).
+
+### Dark Neumorphism (A e B)
+- `AppCores.neumorfico == true` habilita superfícies em relevo (luz ↗ superior
+  esquerda, sombra dupla difusa, highlight 1px no topo/esquerda, sem contornos).
+- `Caixa3D` renderiza gradiente (`notaInicio`→`notaFim`) + sombras nos temas A/B.
+- `BotaoNeum` (caixa3d.dart): botão interativo com estado pressionado (inset
+  simulado por gradiente) e `selecionado` (tint do acento).
+- Fundo do app: `RadialGradient` (`fundoInicio`→`fundoFim`) aplicado no
+  `builder` do MaterialApp; scaffold transparente.
+- Fonte: **Manrope** (variável, asset local) — só nos temas A e B.
+- FAB: cor `fab` (acento) com elevação 8; abas com indicador "pill" do acento.
 
 ### AppCores (ThemeExtension em `cores.dart`)
-8 campos de cor por tema:
+8 campos de cor por tema + 3 novos:
 
 | Campo | Uso |
 |---|---|
-| `notaInicio` | Cor da caixinha de texto |
-| `notaFim` | Cor final da caixinha (se igual a inicio, tom sólido) |
-| `notaBorda` | Borda da caixinha (atualmente não usada no layout) |
+| `notaInicio` | Cor inicial da superfície (A/B: gradiente topo-esquerda) |
+| `notaFim` | Cor final da superfície (A/B: gradiente baixo-direita) |
+| `notaBorda` | Borda da caixinha (não usada no layout) |
 | `projetoCard` | Fundo do cartão de projeto na lista principal |
 | `projetoTxt` | Cor do texto no cartão de projeto |
 | `fab` | Cor de fundo do FAB (botão `+`) |
 | `fabIcone` | Cor do ícone no FAB |
 | `barraFerramentas` | Cor da barra de ícones no topo de cada caixinha |
+| `neumorfico` | bool — ativa relevo neumórfico (A/B) |
+| `fundoInicio` / `fundoFim` | Gradiente do fundo do app (A/B) |
 
 ### Valores por tema
 

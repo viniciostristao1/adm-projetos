@@ -2,7 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Tema do aplicativo.
-enum Modo { claro, escuro, bege }
+enum Modo {
+  claro('Claro'),
+  escuro('Escuro'),
+  bege('Bege'),
+  neumA('Grafite + Âmbar'),
+  neumB('Aço + Gelo');
+
+  const Modo(this.rotulo);
+  final String rotulo;
+}
 
 /// Tamanho da fonte e dos ícones.
 enum ModoFonte {
@@ -27,9 +36,11 @@ class TemaController extends ChangeNotifier {
   Modo get modo => _modo;
   ModoFonte get fonte => _fonte;
 
-  /// Modo usado pelo [MaterialApp] (bege é um tema claro).
+  /// Modo usado pelo [MaterialApp] (bege é um tema claro; A e B são escuros).
   ThemeMode get themeFlutter =>
-      _modo == Modo.escuro ? ThemeMode.dark : ThemeMode.light;
+      _modo == Modo.escuro || _modo == Modo.neumA || _modo == Modo.neumB
+          ? ThemeMode.dark
+          : ThemeMode.light;
 
   /// Carrega as preferências salvas (chamar no início do app).
   Future<void> carregar() async {

@@ -14,6 +14,9 @@ class AppCores extends ThemeExtension<AppCores> {
     required this.fab,
     required this.fabIcone,
     required this.barraFerramentas,
+    this.neumorfico = false,
+    this.fundoInicio = const Color(0xFF000000),
+    this.fundoFim = const Color(0xFF000000),
   });
 
   final Color notaInicio;
@@ -26,6 +29,14 @@ class AppCores extends ThemeExtension<AppCores> {
 
   /// Cor de fundo da barra de ferramentas (ícones) no topo de cada caixinha.
   final Color barraFerramentas;
+
+  /// Se true, superfícies usam relevo neumórfico (gradiente + luz ↗ esquerda
+  /// superior + sombra dupla difusa), em vez de cores lisas.
+  final bool neumorfico;
+
+  /// Gradiente do fundo do app (topo-esquerda → baixo-direita).
+  final Color fundoInicio;
+  final Color fundoFim;
 
   /// Tema claro (botão "+" em azul claro, pastas azuis).
   static const AppCores luz = AppCores(
@@ -63,6 +74,36 @@ class AppCores extends ThemeExtension<AppCores> {
     barraFerramentas: Color(0xFF6D4C2F),
   );
 
+  /// Tema A (Dark Neumorphism): grafite + âmbar.
+  static const AppCores neumA = AppCores(
+    notaInicio: Color(0xFF26292C),
+    notaFim: Color(0xFF1B1E20),
+    notaBorda: Color(0x00FFFFFF),
+    projetoCard: Color(0xFF26292C),
+    projetoTxt: Color(0xFFF2F4F5),
+    fab: Color(0xFFE8A13A),
+    fabIcone: Color(0xFF1A1309),
+    barraFerramentas: Color(0xFF1B1E20),
+    neumorfico: true,
+    fundoInicio: Color(0xFF1C1F21),
+    fundoFim: Color(0xFF121416),
+  );
+
+  /// Tema B (Dark Neumorphism): aço + gelo.
+  static const AppCores neumB = AppCores(
+    notaInicio: Color(0xFF232B34),
+    notaFim: Color(0xFF181F27),
+    notaBorda: Color(0x00FFFFFF),
+    projetoCard: Color(0xFF232B34),
+    projetoTxt: Color(0xFFEDF2F5),
+    fab: Color(0xFF79B8DC),
+    fabIcone: Color(0xFF0C141A),
+    barraFerramentas: Color(0xFF181F27),
+    neumorfico: true,
+    fundoInicio: Color(0xFF181D24),
+    fundoFim: Color(0xFF0E1115),
+  );
+
   @override
   AppCores copyWith({
     Color? notaInicio,
@@ -73,6 +114,9 @@ class AppCores extends ThemeExtension<AppCores> {
     Color? fab,
     Color? fabIcone,
     Color? barraFerramentas,
+    bool? neumorfico,
+    Color? fundoInicio,
+    Color? fundoFim,
   }) {
     return AppCores(
       notaInicio: notaInicio ?? this.notaInicio,
@@ -83,6 +127,9 @@ class AppCores extends ThemeExtension<AppCores> {
       fab: fab ?? this.fab,
       fabIcone: fabIcone ?? this.fabIcone,
       barraFerramentas: barraFerramentas ?? this.barraFerramentas,
+      neumorfico: neumorfico ?? this.neumorfico,
+      fundoInicio: fundoInicio ?? this.fundoInicio,
+      fundoFim: fundoFim ?? this.fundoFim,
     );
   }
 
@@ -98,6 +145,9 @@ class AppCores extends ThemeExtension<AppCores> {
       fab: Color.lerp(fab, other.fab, t)!,
       fabIcone: Color.lerp(fabIcone, other.fabIcone, t)!,
       barraFerramentas: Color.lerp(barraFerramentas, other.barraFerramentas, t)!,
+      neumorfico: neumorfico,
+      fundoInicio: Color.lerp(fundoInicio, other.fundoInicio, t)!,
+      fundoFim: Color.lerp(fundoFim, other.fundoFim, t)!,
     );
   }
 }

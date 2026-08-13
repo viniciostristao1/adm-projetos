@@ -323,6 +323,72 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     );
                   }
 
+                  if (modo == Modo.neumA || modo == Modo.neumB) {
+                    return Padding(
+                      key: ValueKey(p.id),
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Caixa3D(
+                        cor: app.projetoCard,
+                        raio: 18,
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: onTapProjeto,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                              child: Row(
+                                children: [
+                                  q.isNotEmpty
+                                      ? Icon(Icons.drag_indicator,
+                                          color: app.projetoTxt
+                                              .withValues(alpha: 0.5))
+                                      : ReorderableDragStartListener(
+                                          index: i,
+                                          child: Icon(Icons.drag_indicator,
+                                              color: app.projetoTxt
+                                                  .withValues(alpha: 0.5)),
+                                        ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      p.nome,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
+                                        color: app.projetoTxt,
+                                      ),
+                                    ),
+                                  ),
+                                  BotaoNeum(
+                                    raio: 999,
+                                    padding: const EdgeInsets.all(7),
+                                    tooltip: 'Renomear',
+                                    onTap: () => _renomear(p),
+                                    child: Icon(Icons.edit_outlined,
+                                        size: 17, color: app.projetoTxt),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  BotaoNeum(
+                                    raio: 999,
+                                    padding: const EdgeInsets.all(7),
+                                    tooltip: 'Excluir',
+                                    onTap: () => _excluir(p),
+                                    child: Icon(Icons.delete_outline,
+                                        size: 17,
+                                        color: Colors.redAccent
+                                            .withValues(alpha: 0.85)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
                 final escuro = modo == Modo.escuro;
                 final dividir =
                     escuro ? const Color(0xFF333333) : const Color(0xFF8D7255);
@@ -528,7 +594,7 @@ class _ConfigSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = Theme.of(context).colorScheme;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -554,27 +620,17 @@ class _ConfigSheet extends StatelessWidget {
             ListenableBuilder(
               listenable: temaController,
               builder: (context, _) {
-                return SegmentedButton<Modo>(
-                  segments: const [
-                    ButtonSegment(
-                      value: Modo.claro,
-                      icon: Icon(Icons.light_mode_outlined),
-                      label: Text('Claro'),
-                    ),
-                    ButtonSegment(
-                      value: Modo.escuro,
-                      icon: Icon(Icons.dark_mode_outlined),
-                      label: Text('Escuro'),
-                    ),
-                    ButtonSegment(
-                      value: Modo.bege,
-                      icon: Icon(Icons.grid_4x4_outlined),
-                      label: Text('Bege'),
-                    ),
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final m in Modo.values)
+                      ChoiceChip(
+                        label: Text(m.rotulo),
+                        selected: temaController.modo == m,
+                        onSelected: (_) => temaController.definir(m),
+                      ),
                   ],
-                  selected: {temaController.modo},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (s) => temaController.definir(s.first),
                 );
               },
             ),
