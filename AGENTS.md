@@ -62,19 +62,23 @@ lib/
 ## 4. Sistema de Temas
 
 ### Modo (enum em `tema.dart`)
-`claro`, `escuro`, `bege`, `neumA` (Grafite + Âmbar), `neumB` (Dark Game),
-`begeNeum` (Bege Game)
+`claro`, `escuro`, `bege` (neumórfico com cartões/barra marrons), `neumB`
+(Dark Game), `begeNeum` (Bege Game)
 
-- `themeFlutter`: dark para `escuro`/`neumA`/`neumB`; light para os demais.
+- `themeFlutter`: dark para `escuro`/`neumB`; light para os demais.
 - Seletor de tema na engrenagem: `ChoiceChip` para cada `Modo` (usa `Modo.rotulo`).
 
-### Dark Neumorphism (neumA, neumB, begeNeum)
+### Dark Neumorphism (bege, neumB, begeNeum)
 - `AppCores.neumorfico == true` habilita superfícies em relevo (luz ↗ superior
-  esquerda, sombra dupla difusa, highlight 1px no topo/esquerda, sem contornos).
-- `Caixa3D` renderiza gradiente (`notaInicio`→`notaFim`) + sombras nos temas
-  neumórficos; as cores das sombras/luz vêm de `sombraForte`, `sombraFraca`,
-  `brilho` e `bordaLuz` (cada paleta define as suas — ex.: Bege Game usa
-  sombra marrom suave e luz branca forte).
+  esquerda, sombra dupla difusa, SEM linhas/bordas — o highlight vem do brilho
+  difuso).
+- `Caixa3D` renderiza gradiente (`notaInicio`→`notaFim`, ou `corInicio`/
+  `corFim` quando passados — ex.: cartões de projeto usam `projetoCard`→
+  `projetoCardFim`); as cores das sombras/luz vêm de `sombraForte`,
+  `sombraFraca`, `brilho` e `bordaLuz` (por paleta).
+- Barra de ferramentas: usa gradiente próprio (`barraFerramentas`→
+  `barraFerramentasFim`) quando difere da superfície (tema bege = marrom);
+  senão segue o gradiente da superfície.
 - `BotaoNeum` (caixa3d.dart): botão interativo com estado pressionado (inset
   simulado por gradiente) e `selecionado` (tint do acento).
 - `Fundo` (caixa3d.dart): gradiente radial (`fundoInicio`→`fundoFim`) aplicado
@@ -82,6 +86,9 @@ lib/
   fade junto com o conteúdo (evita efeito "fantasma" da rota anterior).
 - Fonte: **Manrope** (variável, asset local) — só nos temas neumórficos.
 - FAB: cor `fab` (acento) com elevação 8; abas com indicador "pill" do acento.
+- Texto da interface (títulos/abas/chips): `textoUI` — separado de
+  `projetoTxt` (texto DENTRO dos cartões) para o caso bege (cartão marrom com
+  texto creme + interface marrom escuro sobre fundo claro).
 
 ### AppCores (ThemeExtension em `cores.dart`)
 8 campos de cor por tema + 3 novos:
@@ -101,6 +108,9 @@ lib/
 | `sombraForte` / `sombraFraca` | Sombras duplas difusas (cores por tema) |
 | `brilho` | Luz refletida no canto superior esquerdo |
 | `bordaLuz` | Highlight de 1px (topo/esquerda) |
+| `projetoCardFim` | Ponta escura do gradiente do cartão de projeto |
+| `barraFerramentasFim` | Ponta escura do gradiente da barra de ferramentas |
+| `textoUI` | Texto da interface (títulos, abas, chips) |
 
 ### Valores por tema
 

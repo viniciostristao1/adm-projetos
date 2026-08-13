@@ -6,7 +6,6 @@ enum Modo {
   claro('Claro'),
   escuro('Escuro'),
   bege('Bege'),
-  neumA('Grafite + Âmbar'),
   neumB('Dark Game'),
   begeNeum('Bege Game');
 
@@ -37,10 +36,9 @@ class TemaController extends ChangeNotifier {
   Modo get modo => _modo;
   ModoFonte get fonte => _fonte;
 
-  /// Modo usado pelo [MaterialApp] (A, B e Bege Game são escur/neumbricos;
-  /// bege é um tema claro).
+  /// Modo usado pelo [MaterialApp] (Dark Game é escuro; bege é claro).
   ThemeMode get themeFlutter =>
-      _modo == Modo.escuro || _modo == Modo.neumA || _modo == Modo.neumB
+      _modo == Modo.escuro || _modo == Modo.neumB
           ? ThemeMode.dark
           : ThemeMode.light;
 

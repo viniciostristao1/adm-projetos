@@ -330,6 +330,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Caixa3D(
                         cor: app.projetoCard,
+                        corInicio: app.projetoCard,
+                        corFim: app.projetoCardFim,
                         raio: 18,
                         child: Material(
                           type: MaterialType.transparency,

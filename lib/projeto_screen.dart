@@ -561,7 +561,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
 
   /// Ao tocar no quadradinho (☐/☑) de uma linha de to-do, alterna entre
   /// marcado e desmarcado. O toque em qualquer outro lugar segue normal.
-  void _toqueTexto(TapUpDetails details) {
+  void _toqueTexto(Offset posicaoGlobal) {
     // Toque na caixinha re-ancora a visibilidade (cobre o caso de ela ter
     // sido rolada para trás do "+" enquanto já estava focada).
     _agendarAjuste();
@@ -571,7 +571,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
     if (ctx == null) return;
     final box = ctx.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
-    final local = box.globalToLocal(details.globalPosition);
+    final local = box.globalToLocal(posicaoGlobal);
     final dx = local.dx - 14;
     if (dx < 0 || dx > 40) return; // só na faixa dos quadradinhos
     final dy = local.dy + (_scroll.hasClients ? _scroll.offset : 0.0) - 2;
@@ -600,6 +600,28 @@ class _CaixaNotaState extends State<_CaixaNota> {
           TextSelection.collapsed(offset: offset.clamp(0, novo.length)),
     );
     _mudou(novo);
+  }
+
+  /// Detecta o toque por eventos crus de ponteiro (o GestureDetector perde a
+  /// disputa de gestos para o próprio campo de texto e nunca dispararia).
+  Offset? _toqueInicial;
+  DateTime? _toqueInicialT;
+
+  void _pointerDown(PointerDownEvent e) {
+    _toqueInicial = e.position;
+    _toqueInicialT = DateTime.now();
+  }
+
+  void _pointerUp(PointerUpEvent e) {
+    final ini = _toqueInicial;
+    final iniT = _toqueInicialT;
+    _toqueInicial = null;
+    _toqueInicialT = null;
+    if (ini == null || iniT == null) return;
+    final moveu = (e.position - ini).distance;
+    final rapido = DateTime.now().difference(iniT).inMilliseconds < 500;
+    if (!moveu.isFinite || moveu > 8 || !rapido) return; // foi arrasto/seleção
+    _toqueTexto(e.position);
   }
 
   Future<void> _abrirLink() async {
@@ -729,7 +751,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Barra de ferramentas com cor separada (ou embutida na superfície
-          // neumórfica, com linha interna sutil embaixo)
+          // neumórfica, com linha interna sutil embaixo). No tema bege a
+          // barra tem gradiente marrom próprio.
           Container(
             decoration: app.neumorfico
                 ? BoxDecoration(
@@ -738,7 +761,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [app.notaInicio, app.notaFim],
+                      colors: app.barraFerramentas == app.notaInicio &&
+                              app.barraFerramentas == app.notaFim
+                          ? [app.notaInicio, app.notaFim]
+                          : [app.barraFerramentas, app.barraFerramentasFim],
                     ),
                     border: const Border(
                       bottom: BorderSide(color: Color(0x2E000000)),
@@ -857,9 +883,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
               ],
             ),
           ),
-          GestureDetector(
+          Listener(
             behavior: HitTestBehavior.translucent,
-            onTapUp: _toqueTexto,
+            onPointerDown: _pointerDown,
+            onPointerUp: _pointerUp,
             child: Scrollbar(
               controller: _scroll,
               child: ConstrainedBox(

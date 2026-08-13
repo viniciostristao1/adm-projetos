@@ -11,6 +11,8 @@ class Caixa3D extends StatelessWidget {
     required this.cor,
     required this.child,
     this.raio = 14,
+    this.corInicio,
+    this.corFim,
   });
 
   /// Cor principal (lisa) do bloco nos temas planos.
@@ -21,6 +23,11 @@ class Caixa3D extends StatelessWidget {
 
   /// Raio dos cantos arredondados.
   final double raio;
+
+  /// Nos temas neumórficos, sobrescrevem as pontas do gradiente da
+  /// superfície (padrão: notaInicio → notaFim do tema).
+  final Color? corInicio;
+  final Color? corFim;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +47,10 @@ class Caixa3D extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [app.notaInicio, app.notaFim],
+          colors: [
+            corInicio ?? app.notaInicio,
+            corFim ?? app.notaFim,
+          ],
         ),
         boxShadow: [
           // sombra principal (abaixo/direita) — distante e difusa
@@ -66,18 +76,7 @@ class Caixa3D extends StatelessWidget {
           ),
         ],
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(raio),
-          // highlight de 1px no topo e na esquerda (fonte de luz)
-          border: Border(
-            top: BorderSide(color: app.bordaLuz, width: 1),
-            left: BorderSide(
-                color: app.bordaLuz.withValues(alpha: 0.55), width: 1),
-          ),
-        ),
-        child: child,
-      ),
+      child: child,
     );
   }
 }

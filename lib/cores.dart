@@ -21,6 +21,9 @@ class AppCores extends ThemeExtension<AppCores> {
     this.sombraFraca = const Color(0x73000000),
     this.brilho = const Color(0x0AFFFFFF),
     this.bordaLuz = const Color(0x14FFFFFF),
+    this.projetoCardFim = const Color(0xFF000000),
+    this.barraFerramentasFim = const Color(0xFF000000),
+    this.textoUI = const Color(0xFFFFFFFF),
   });
 
   final Color notaInicio;
@@ -51,6 +54,16 @@ class AppCores extends ThemeExtension<AppCores> {
   /// Highlight de 1px nas bordas superior/esquerda das superfícies.
   final Color bordaLuz;
 
+  /// Ponta escura do gradiente do cartão de projeto (temas neumórficos).
+  final Color projetoCardFim;
+
+  /// Ponta escura do gradiente da barra de ferramentas (temas neumórficos).
+  final Color barraFerramentasFim;
+
+  /// Cor do texto da interface (títulos, abas, chips) — pode diferir da cor
+  /// do texto dentro dos cartões quando o cartão é escuro e o fundo claro.
+  final Color textoUI;
+
   /// Tema claro (botão "+" em azul claro, pastas azuis).
   static const AppCores luz = AppCores(
     notaInicio: Color(0xFFF6FAFF),
@@ -75,31 +88,27 @@ class AppCores extends ThemeExtension<AppCores> {
     barraFerramentas: Color(0xFF1A1A1A),
   );
 
-  /// Tema bege: fundo creme, cartões do projeto e o botão "+" em marrom.
+  /// Tema bege: fundo creme, cartões do projeto e barra de ferramentas em
+  /// marrom, no estilo neumórfico (mesma física de luz/sombra dos temas Game).
   static const AppCores bege = AppCores(
     notaInicio: Color(0xFFFFF9F0),
     notaFim: Color(0xFFF1E9D7),
     notaBorda: Color(0x336D4C2F),
     projetoCard: Color(0xFF6D4C2F),
+    projetoCardFim: Color(0xFF57402A),
     projetoTxt: Color(0xFFFBF3E8),
     fab: Color(0xFF6D4C2F),
     fabIcone: Color(0xFFFBF3E8),
     barraFerramentas: Color(0xFF6D4C2F),
-  );
-
-  /// Tema A (Dark Neumorphism): grafite + âmbar.
-  static const AppCores neumA = AppCores(
-    notaInicio: Color(0xFF26292C),
-    notaFim: Color(0xFF1B1E20),
-    notaBorda: Color(0x00FFFFFF),
-    projetoCard: Color(0xFF26292C),
-    projetoTxt: Color(0xFFF2F4F5),
-    fab: Color(0xFFE8A13A),
-    fabIcone: Color(0xFF1A1309),
-    barraFerramentas: Color(0xFF1B1E20),
+    barraFerramentasFim: Color(0xFF57402A),
     neumorfico: true,
-    fundoInicio: Color(0xFF1C1F21),
-    fundoFim: Color(0xFF121416),
+    fundoInicio: Color(0xFFF2E9D8),
+    fundoFim: Color(0xFFE3D5B8),
+    sombraForte: Color(0x40603E1F),
+    sombraFraca: Color(0x2E603E1F),
+    brilho: Color(0xA6FFFFFF),
+    bordaLuz: Color(0xE6FFFFFF),
+    textoUI: Color(0xFF4A2A0E),
   );
 
   /// Tema B (Dark Game): grafite e pretos neutros, acento aço desaturado.
@@ -108,10 +117,12 @@ class AppCores extends ThemeExtension<AppCores> {
     notaFim: Color(0xFF111315),
     notaBorda: Color(0x00FFFFFF),
     projetoCard: Color(0xFF1B1D20),
+    projetoCardFim: Color(0xFF111315),
     projetoTxt: Color(0xFFEDEFF1),
     fab: Color(0xFF9AA4AE),
     fabIcone: Color(0xFF0D1012),
     barraFerramentas: Color(0xFF111315),
+    barraFerramentasFim: Color(0xFF111315),
     neumorfico: true,
     fundoInicio: Color(0xFF121517),
     fundoFim: Color(0xFF0A0C0D),
@@ -119,6 +130,7 @@ class AppCores extends ThemeExtension<AppCores> {
     sombraFraca: Color(0x80000000),
     brilho: Color(0x08FFFFFF),
     bordaLuz: Color(0x10FFFFFF),
+    textoUI: Color(0xFFEDEFF1),
   );
 
   /// Tema Bege Game: mesmo estilo neumórfico do Dark Game, em tons claros
@@ -128,10 +140,12 @@ class AppCores extends ThemeExtension<AppCores> {
     notaFim: Color(0xFFEAD9BE),
     notaBorda: Color(0x00FFFFFF),
     projetoCard: Color(0xFFF8F0E1),
+    projetoCardFim: Color(0xFFEAD9BE),
     projetoTxt: Color(0xFF4A2A0E),
     fab: Color(0xFF6D4C2F),
     fabIcone: Color(0xFFFBF3E8),
     barraFerramentas: Color(0xFFEAD9BE),
+    barraFerramentasFim: Color(0xFFEAD9BE),
     neumorfico: true,
     fundoInicio: Color(0xFFEFE5D3),
     fundoFim: Color(0xFFE0D2B8),
@@ -139,6 +153,7 @@ class AppCores extends ThemeExtension<AppCores> {
     sombraFraca: Color(0x2E603E1F),
     brilho: Color(0xA6FFFFFF),
     bordaLuz: Color(0xE6FFFFFF),
+    textoUI: Color(0xFF4A2A0E),
   );
 
   @override
@@ -158,6 +173,9 @@ class AppCores extends ThemeExtension<AppCores> {
     Color? sombraFraca,
     Color? brilho,
     Color? bordaLuz,
+    Color? projetoCardFim,
+    Color? barraFerramentasFim,
+    Color? textoUI,
   }) {
     return AppCores(
       notaInicio: notaInicio ?? this.notaInicio,
@@ -175,6 +193,10 @@ class AppCores extends ThemeExtension<AppCores> {
       sombraFraca: sombraFraca ?? this.sombraFraca,
       brilho: brilho ?? this.brilho,
       bordaLuz: bordaLuz ?? this.bordaLuz,
+      projetoCardFim: projetoCardFim ?? this.projetoCardFim,
+      barraFerramentasFim:
+          barraFerramentasFim ?? this.barraFerramentasFim,
+      textoUI: textoUI ?? this.textoUI,
     );
   }
 
@@ -197,6 +219,10 @@ class AppCores extends ThemeExtension<AppCores> {
       sombraFraca: Color.lerp(sombraFraca, other.sombraFraca, t)!,
       brilho: Color.lerp(brilho, other.brilho, t)!,
       bordaLuz: Color.lerp(bordaLuz, other.bordaLuz, t)!,
+      projetoCardFim: Color.lerp(projetoCardFim, other.projetoCardFim, t)!,
+      barraFerramentasFim: Color.lerp(
+          barraFerramentasFim, other.barraFerramentasFim, t)!,
+      textoUI: Color.lerp(textoUI, other.textoUI, t)!,
     );
   }
 }
