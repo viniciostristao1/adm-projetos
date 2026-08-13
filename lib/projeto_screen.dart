@@ -346,6 +346,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
   final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
   Timer? _debounceYT;
+  Timer? _timerVis;
+  double? _alturaMaxima;
   bool _numerado = true;
   bool _comentarioExpandido = false;
 
@@ -353,12 +355,15 @@ class _CaixaNotaState extends State<_CaixaNota> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.nota.texto);
+    _foco.addListener(_aoFocar);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _debounceYT?.cancel();
+    _timerVis?.cancel();
+    _foco.removeListener(_aoFocar);
     Storage.instance.salvar();
     _ctrl.dispose();
     _foco.dispose();
@@ -369,6 +374,49 @@ class _CaixaNotaState extends State<_CaixaNota> {
   void focarNoFim() {
     _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
     _foco.requestFocus();
+  }
+
+  /// Ao ganhar foco: rola a lista para a caixinha ficar acima do botão "+"
+  /// e trava a altura máxima do texto no espaço disponível. Só roda nesse
+  /// momento (e 300ms depois, para o teclado terminar de abrir) — nunca a
+  /// cada tecla, para a lista não "tremer" durante a digitação.
+  void _aoFocar() {
+    if (!_foco.hasFocus) return;
+    _ajustarVisibilidade();
+    _timerVis?.cancel();
+    _timerVis = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) _ajustarVisibilidade();
+    });
+  }
+
+  void _ajustarVisibilidade() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final box = context.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      final media = MediaQuery.of(context);
+      final limite =
+          media.size.height - media.viewInsets.bottom - 100;
+      var topo = box.localToGlobal(Offset.zero).dy;
+      if (limite - topo < 160) {
+        final scrollable = Scrollable.of(context);
+        if (scrollable.position.hasContentDimensions) {
+          scrollable.position.jumpTo(
+            (scrollable.position.pixels + (160 - (limite - topo)))
+                .clamp(
+              scrollable.position.minScrollExtent,
+              scrollable.position.maxScrollExtent,
+            ),
+          );
+        }
+        topo = limite - 160;
+      }
+      final nova =
+          (limite - topo).clamp(96.0, media.size.height * 0.6);
+      if (_alturaMaxima == null || (nova - _alturaMaxima!).abs() > 1) {
+        setState(() => _alturaMaxima = nova);
+      }
+    });
   }
 
   /// Métricas exatas do texto do campo (para o hit-test do quadradinho).
@@ -387,11 +435,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
         widget.nota.texto = corrigido;
       }
       Storage.instance.salvar();
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _foco.hasFocus) {
-        Scrollable.ensureVisible(context, alignment: 0.2);
-      }
     });
   }
 
@@ -766,31 +809,38 @@ class _CaixaNotaState extends State<_CaixaNota> {
             onTapUp: _toqueTexto,
             child: Scrollbar(
               controller: _scroll,
-              child: TextField(
-                key: _campoKey,
-                scrollController: _scroll,
-                controller: _ctrl,
-                focusNode: _foco,
-                minLines: 1,
-                maxLines: 16,
-                keyboardType: TextInputType.multiline,
-                textCapitalization: TextCapitalization.sentences,
-                inputFormatters: [LinhasNumeradas()],
-                style: TextStyle(
-                  fontSize: 14.5,
-                  height: 1.35,
-                  color: widget.nota.concluida
-                      ? Theme.of(context).colorScheme.onSurface
-                          .withValues(alpha: 0.45)
-                      : Theme.of(context).colorScheme.onSurface,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: _alturaMaxima == null
+                      ? double.infinity
+                      : (_alturaMaxima! - 40).clamp(60.0, double.infinity),
                 ),
-                onChanged: _mudou,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+                child: TextField(
+                  key: _campoKey,
+                  scrollController: _scroll,
+                  controller: _ctrl,
+                  focusNode: _foco,
+                  minLines: 1,
+                  maxLines: 24,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  inputFormatters: [LinhasNumeradas()],
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    height: 1.35,
+                    color: widget.nota.concluida
+                        ? Theme.of(context).colorScheme.onSurface
+                            .withValues(alpha: 0.45)
+                        : Theme.of(context).colorScheme.onSurface,
+                  ),
+                  onChanged: _mudou,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+                  ),
                 ),
               ),
             ),

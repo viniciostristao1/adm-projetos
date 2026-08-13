@@ -163,7 +163,11 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - **Tocar no quadradinho** (faixa esquerda de ~40px de uma linha ☐/☑) alterna marcado/desmarcado — hit-test com `TextPainter` no `_toqueTexto`.
 
 ### Caderno (caixinha longa)
-- `maxLines: 16` (~altura da tela); além disso o texto rola por dentro (Scrollbar).
+- `maxLines: 24`; além disso o texto rola por dentro (Scrollbar).
+- Ao GANHAR FOCO, a caixinha rola para cima do botão "+" e a altura do texto é
+  travada no espaço disponível (`_alturaMaxima`, recalculada 300ms depois para
+  o teclado terminar de abrir). Assim a caixinha NUNCA cresce para trás do FAB
+  e a lista NÃO rola a cada tecla (evita o "tremor" durante a digitação).
 - Botão `unfold_more` alterna o scroll interno entre topo e pé.
 
 ### Desfazer (undo)
