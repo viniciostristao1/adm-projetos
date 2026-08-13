@@ -12,7 +12,20 @@
           "package_name": "com.admprojetos.adm_projetos"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "326190358442-c87kh0skr58iahd0u8gq4smdq9ktu2ps.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.admprojetos.adm_projetos",
+            "certificate_hash": "373ec12ca8b1264be008931281861588dc162720"
+          }
+        },
+        {
+          "client_id": "326190358442-lqmg6g7v556tb1m2i1bb7cmmbku95ehr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBb460nhiqksAiskIPVUXA4jXPwUrQQQOM"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "326190358442-lqmg6g7v556tb1m2i1bb7cmmbku95ehr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
