@@ -62,20 +62,25 @@ lib/
 ## 4. Sistema de Temas
 
 ### Modo (enum em `tema.dart`)
-`claro`, `escuro`, `bege`, `neumA` (Grafite + Âmbar), `neumB` (Aço + Gelo)
+`claro`, `escuro`, `bege`, `neumA` (Grafite + Âmbar), `neumB` (Dark Game),
+`begeNeum` (Bege Game)
 
 - `themeFlutter`: dark para `escuro`/`neumA`/`neumB`; light para os demais.
 - Seletor de tema na engrenagem: `ChoiceChip` para cada `Modo` (usa `Modo.rotulo`).
 
-### Dark Neumorphism (A e B)
+### Dark Neumorphism (neumA, neumB, begeNeum)
 - `AppCores.neumorfico == true` habilita superfícies em relevo (luz ↗ superior
   esquerda, sombra dupla difusa, highlight 1px no topo/esquerda, sem contornos).
-- `Caixa3D` renderiza gradiente (`notaInicio`→`notaFim`) + sombras nos temas A/B.
+- `Caixa3D` renderiza gradiente (`notaInicio`→`notaFim`) + sombras nos temas
+  neumórficos; as cores das sombras/luz vêm de `sombraForte`, `sombraFraca`,
+  `brilho` e `bordaLuz` (cada paleta define as suas — ex.: Bege Game usa
+  sombra marrom suave e luz branca forte).
 - `BotaoNeum` (caixa3d.dart): botão interativo com estado pressionado (inset
   simulado por gradiente) e `selecionado` (tint do acento).
-- Fundo do app: `RadialGradient` (`fundoInicio`→`fundoFim`) aplicado no
-  `builder` do MaterialApp; scaffold transparente.
-- Fonte: **Manrope** (variável, asset local) — só nos temas A e B.
+- `Fundo` (caixa3d.dart): gradiente radial (`fundoInicio`→`fundoFim`) aplicado
+  POR TELA, dentro da rota — durante o gesto de voltar, o fundo participa do
+  fade junto com o conteúdo (evita efeito "fantasma" da rota anterior).
+- Fonte: **Manrope** (variável, asset local) — só nos temas neumórficos.
 - FAB: cor `fab` (acento) com elevação 8; abas com indicador "pill" do acento.
 
 ### AppCores (ThemeExtension em `cores.dart`)
@@ -91,8 +96,11 @@ lib/
 | `fab` | Cor de fundo do FAB (botão `+`) |
 | `fabIcone` | Cor do ícone no FAB |
 | `barraFerramentas` | Cor da barra de ícones no topo de cada caixinha |
-| `neumorfico` | bool — ativa relevo neumórfico (A/B) |
-| `fundoInicio` / `fundoFim` | Gradiente do fundo do app (A/B) |
+| `neumorfico` | bool — ativa relevo neumórfico (A/B/Bege Game) |
+| `fundoInicio` / `fundoFim` | Gradiente do fundo do app |
+| `sombraForte` / `sombraFraca` | Sombras duplas difusas (cores por tema) |
+| `brilho` | Luz refletida no canto superior esquerdo |
+| `bordaLuz` | Highlight de 1px (topo/esquerda) |
 
 ### Valores por tema
 

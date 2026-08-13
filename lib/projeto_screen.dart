@@ -254,8 +254,9 @@ class _ProjetoScreenState extends State<ProjetoScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return Fundo(
+      child: Scaffold(
+        appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -308,6 +309,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           _listaCard(1),
         ],
       ),
+      ),
     );
   }
 }
@@ -351,6 +353,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
   double? _alturaMaxima;
   bool _numerado = true;
   bool _comentarioExpandido = false;
+  ScrollPosition? _posExterna;
+  double? _insetsAntes;
 
   @override
   void initState() {
@@ -360,10 +364,30 @@ class _CaixaNotaState extends State<_CaixaNota> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recalcula quando o teclado abre/fecha durante a digitação.
+    final insets = MediaQuery.viewInsetsOf(context).bottom;
+    if (_insetsAntes != null && _insetsAntes != insets && _foco.hasFocus) {
+      _agendarAjuste();
+    }
+    _insetsAntes = insets;
+    // Recalcula quando a LISTA rola (a caixinha pode ir parar atrás do "+").
+    final sc = Scrollable.maybeOf(context);
+    final pos = sc?.position;
+    if (!identical(pos, _posExterna)) {
+      _posExterna?.removeListener(_aoRolarExterno);
+      _posExterna = pos;
+      _posExterna?.addListener(_aoRolarExterno);
+    }
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
     _debounceYT?.cancel();
     _timerVis?.cancel();
+    _posExterna?.removeListener(_aoRolarExterno);
     _foco.removeListener(_aoFocar);
     Storage.instance.salvar();
     _ctrl.dispose();
@@ -389,6 +413,17 @@ class _CaixaNotaState extends State<_CaixaNota> {
       if (mounted) _ajustarVisibilidade();
     });
   }
+
+  /// Ajuste com um pequeno atraso (evita rajada de recalculos ao rolar).
+  void _agendarAjuste() {
+    if (!_foco.hasFocus) return;
+    _timerVis?.cancel();
+    _timerVis = Timer(const Duration(milliseconds: 120), () {
+      if (mounted && _foco.hasFocus) _ajustarVisibilidade();
+    });
+  }
+
+  void _aoRolarExterno() => _agendarAjuste();
 
   void _ajustarVisibilidade() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -527,6 +562,9 @@ class _CaixaNotaState extends State<_CaixaNota> {
   /// Ao tocar no quadradinho (☐/☑) de uma linha de to-do, alterna entre
   /// marcado e desmarcado. O toque em qualquer outro lugar segue normal.
   void _toqueTexto(TapUpDetails details) {
+    // Toque na caixinha re-ancora a visibilidade (cobre o caso de ela ter
+    // sido rolada para trás do "+" enquanto já estava focada).
+    _agendarAjuste();
     final texto = _ctrl.text;
     if (!texto.contains('☐') && !texto.contains('☑')) return;
     final ctx = _campoKey.currentContext;

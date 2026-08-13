@@ -42,25 +42,25 @@ class Caixa3D extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [app.notaInicio, app.notaFim],
         ),
-        boxShadow: const [
+        boxShadow: [
           // sombra principal (abaixo/direita) — distante e difusa
           BoxShadow(
-            color: Color(0xB3000000),
-            offset: Offset(7, 9),
+            color: app.sombraForte,
+            offset: const Offset(7, 9),
             blurRadius: 18,
             spreadRadius: -4,
           ),
           // sombra de proximidade (âncora)
           BoxShadow(
-            color: Color(0x73000000),
-            offset: Offset(2, 3),
+            color: app.sombraFraca,
+            offset: const Offset(2, 3),
             blurRadius: 8,
             spreadRadius: -2,
           ),
           // luz difusa refletida (acima/esquerda)
           BoxShadow(
-            color: Color(0x0AFFFFFF),
-            offset: Offset(-6, -6),
+            color: app.brilho,
+            offset: const Offset(-6, -6),
             blurRadius: 16,
             spreadRadius: -8,
           ),
@@ -70,9 +70,10 @@ class Caixa3D extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(raio),
           // highlight de 1px no topo e na esquerda (fonte de luz)
-          border: const Border(
-            top: BorderSide(color: Color(0x14FFFFFF), width: 1),
-            left: BorderSide(color: Color(0x0AFFFFFF), width: 1),
+          border: Border(
+            top: BorderSide(color: app.bordaLuz, width: 1),
+            left: BorderSide(
+                color: app.bordaLuz.withValues(alpha: 0.55), width: 1),
           ),
         ),
         child: child,
@@ -130,16 +131,16 @@ class _BotaoNeumState extends State<BotaoNeum> {
         ),
         boxShadow: inset
             ? const []
-            : const [
+            : [
                 BoxShadow(
-                  color: Color(0x8C000000),
-                  offset: Offset(3, 4),
+                  color: app.sombraFraca,
+                  offset: const Offset(3, 4),
                   blurRadius: 8,
                   spreadRadius: -2,
                 ),
                 BoxShadow(
-                  color: Color(0x0AFFFFFF),
-                  offset: Offset(-3, -3),
+                  color: app.brilho,
+                  offset: const Offset(-3, -3),
                   blurRadius: 7,
                   spreadRadius: -4,
                 ),
@@ -153,11 +154,11 @@ class _BotaoNeumState extends State<BotaoNeum> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0x59000000),
+                    app.sombraForte,
                     widget.selecionado
                         ? app.fab.withValues(alpha: 0.14)
                         : Colors.transparent,
-                    const Color(0x0FFFFFFF),
+                    app.brilho,
                   ],
                   stops: const [0, 0.5, 1],
                 )
@@ -176,6 +177,34 @@ class _BotaoNeumState extends State<BotaoNeum> {
       onTapCancel: () => setState(() => _pressionado = false),
       onTap: widget.onTap,
       child: w,
+    );
+  }
+}
+
+/// Fundo com gradiente dos temas neumórficos, aplicado POR TELA (dentro da
+/// rota). Nos temas planos, devolve o [child] sem decoração.
+///
+/// Fica dentro da rota de propósito: durante a transição de voltar (gesto
+/// preditivo), o gradiente participa do fade da página junto com o conteúdo —
+/// sem isso a página vira um "fantasma" sobre a anterior.
+class Fundo extends StatelessWidget {
+  const Fundo({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+    if (!app.neumorfico) return child;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          center: const Alignment(-0.7, -1.3),
+          radius: 1.6,
+          colors: [app.fundoInicio, app.fundoFim],
+        ),
+      ),
+      child: child,
     );
   }
 }

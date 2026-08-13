@@ -155,90 +155,97 @@ class AdmProjetosApp extends StatelessWidget {
         ),
       ));
 
-  /// Tema neumórfico (A: grafite+âmbar; B: aço+gelo). Luz ↗ superior esquerda,
-  /// sombras duplas difusas, inner shadow nos pressionados, sem contornos.
-  ThemeData _temaNeum(AppCores app) => ThemeData(
-        fontFamily: 'Manrope',
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: app.fab,
-          brightness: Brightness.dark,
+  /// Tema neumórfico (A: grafite+âmbar; B: Dark Game; Bege Game).
+  /// Luz ↗ superior esquerda, sombras duplas difusas, inner shadow nos
+  /// pressionados, sem contornos. Funciona para paletas claras e escuras.
+  ThemeData _temaNeum(AppCores app) {
+    final claro =
+        ThemeData.estimateBrightnessForColor(app.fundoFim) == Brightness.light;
+    return ThemeData(
+      fontFamily: 'Manrope',
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: app.fab,
+        brightness: claro ? Brightness.light : Brightness.dark,
+      ),
+      scaffoldBackgroundColor: Colors.transparent,
+      extensions: [app],
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        foregroundColor: app.projetoTxt,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.2,
+          color: app.projetoTxt,
         ),
-        scaffoldBackgroundColor: Colors.transparent,
-        extensions: [app],
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          elevation: 0,
-          centerTitle: false,
-          titleTextStyle: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
-            color: Colors.white,
-          ),
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: app.projetoTxt,
+        unselectedLabelColor: app.projetoTxt.withValues(alpha: 0.55),
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+        indicator: BoxDecoration(
+          color: app.fab.withValues(alpha: claro ? 0.2 : 0.15),
+          borderRadius: BorderRadius.circular(12),
         ),
-        tabBarTheme: TabBarThemeData(
-          labelColor: app.projetoTxt,
-          unselectedLabelColor: app.projetoTxt.withValues(alpha: 0.55),
-          dividerColor: Colors.transparent,
-          indicatorSize: TabBarIndicatorSize.tab,
-          labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-          indicator: BoxDecoration(
-            color: app.fab.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: app.fab,
+        foregroundColor: app.fabIcone,
+        elevation: 8,
+        highlightElevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: app.fab,
-          foregroundColor: app.fabIcone,
-          elevation: 8,
-          highlightElevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: app.notaFim,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: app.notaFim,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: app.notaInicio,
+        selectedColor: app.fab.withValues(alpha: 0.22),
+        labelStyle: TextStyle(
+          color: app.projetoTxt,
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
         ),
-        chipTheme: ChipThemeData(
-          backgroundColor: app.notaInicio,
-          selectedColor: app.fab.withValues(alpha: 0.22),
-          labelStyle: TextStyle(
-            color: app.projetoTxt,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-          secondaryLabelStyle: TextStyle(
-            color: app.projetoTxt.withValues(alpha: 0.65),
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-          side: BorderSide.none,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+        secondaryLabelStyle: TextStyle(
+          color: app.projetoTxt.withValues(alpha: 0.65),
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
         ),
-        dialogTheme: DialogThemeData(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          titleTextStyle: const TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w800,
-          ),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-      );
+      ),
+      dialogTheme: DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        titleTextStyle: const TextStyle(
+          fontSize: 19,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
 
   ThemeData _temaNeumA() => _temaNeum(AppCores.neumA);
 
   ThemeData _temaNeumB() => _temaNeum(AppCores.neumB);
+
+  ThemeData _temaBegeNeum() => _temaNeum(AppCores.begeNeum);
 
   @override
   Widget build(BuildContext context) {
@@ -256,6 +263,7 @@ class AdmProjetosApp extends StatelessWidget {
           Modo.escuro => _temaClaro(), // não usado (themeMode.dark)
           Modo.neumA => _temaNeumA(),
           Modo.neumB => _temaNeumB(),
+          Modo.begeNeum => _temaBegeNeum(),
         };
         final darkTheme = switch (modo) {
           Modo.escuro => _temaEscuro(),
@@ -271,21 +279,6 @@ class AdmProjetosApp extends StatelessWidget {
           darkTheme: darkTheme,
           builder: (context, child) {
             final data = MediaQuery.of(context);
-            Widget w = child!;
-            if (modo == Modo.neumA || modo == Modo.neumB) {
-              final app =
-                  modo == Modo.neumA ? AppCores.neumA : AppCores.neumB;
-              w = DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: const Alignment(-0.7, -1.3),
-                    radius: 1.6,
-                    colors: [app.fundoInicio, app.fundoFim],
-                  ),
-                ),
-                child: w,
-              );
-            }
             return MediaQuery(
               data: data.copyWith(
                 textScaler: TextScaler.linear(
@@ -297,7 +290,7 @@ class AdmProjetosApp extends StatelessWidget {
                       .iconTheme
                       .copyWith(size: 24 * scale),
                 ),
-                child: w,
+                child: child!,
               ),
             );
           },

@@ -166,7 +166,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Fundo(
+      child: Scaffold(
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -323,7 +324,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     );
                   }
 
-                  if (modo == Modo.neumA || modo == Modo.neumB) {
+                  if (app.neumorfico) {
                     return Padding(
                       key: ValueKey(p.id),
                       padding: const EdgeInsets.only(bottom: 16),
@@ -471,6 +472,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
             }),
           ),
         ],
+      ),
       ),
     );
   }
