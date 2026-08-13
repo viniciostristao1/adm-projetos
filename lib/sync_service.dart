@@ -91,7 +91,7 @@ class SyncService extends ChangeNotifier {
         await _aplicarRemoto(dados, remotoMs);
       } else {
         // Telefone mais novo (ou nuvem vazia): sobe o que já existe.
-        await _enviarAgora();
+        await enviarAgora();
       }
     } catch (e) {
       _setStatus('Erro', e.toString());
