@@ -3,12 +3,16 @@ import 'package:flutter/material.dart';
 
 import 'cores.dart';
 import 'projetos_screen.dart';
+import 'storage.dart';
 import 'sync_service.dart';
 import 'tema.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   temaController.carregar();
+  // Salva na hora quando o app sai de primeiro plano (fechar/minimizar) —
+  // garante que o texto recém-digitado não se perca.
+  WidgetsBinding.instance.addObserver(_SalvadorDeVida());
   // Firebase: se ainda não estiver configurado (sem google-services.json),
   // o app continua funcionando 100% local.
   try {
@@ -18,6 +22,20 @@ Future<void> main() async {
     debugPrint('Firebase indisponível (modo local): $e');
   }
   runApp(const AdmProjetosApp());
+}
+
+/// Salva os dados em qualquer mudança de ciclo de vida que tire o app da
+/// tela (pausa, inativo, oculto) — reforço além do debounce das caixinhas.
+class _SalvadorDeVida with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      Storage.instance.salvar();
+    }
+  }
 }
 
 class AdmProjetosApp extends StatelessWidget {

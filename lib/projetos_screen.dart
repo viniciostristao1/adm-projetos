@@ -49,8 +49,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   }
 
   Future<void> _aoMudarStorage() async {
+    // IMPORTANTE: sem List.of — a tela precisa apontar para a MESMA lista
+    // interna do Storage; copiar desliga as edições do salvamento (bug de
+    // "dados que somem").
     final p = await Storage.instance.carregar();
-    if (mounted) setState(() => _projetos = List.of(p));
+    if (mounted) setState(() => _projetos = p);
   }
 
   Future<void> _salvar() => Storage.instance.salvar();
@@ -103,8 +106,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       builder: (_) => const _ConfigSheet(),
     );
     if (!mounted) return;
+    // Sem List.of: a tela deve usar a MESMA lista interna do Storage
+    // (copiar desliga as edições do salvamento).
     final p = await Storage.instance.carregar();
-    if (mounted) setState(() => _projetos = List.of(p));
+    if (mounted) setState(() => _projetos = p);
   }
 
   Future<void> _criarProjeto() async {

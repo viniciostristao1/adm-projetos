@@ -257,6 +257,11 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - `Storage.instance.salvar()` é chamado após cada ação (criar, editar, excluir, reordenar, check, link, comentário).
 - Dentro do `_CaixaNota`, o texto salva com debounce de **2 segundos**.
 - Ao fechar a tela ou o widget, força `Storage.instance.salvar()`.
+- `_SalvadorDeVida` (main.dart) salva quando o app sai de primeiro plano (pausa/inativo/oculto) — reforço contra perder digitação recente ao fechar o app.
+- ⚠️ **NUNCA copiar a lista do Storage para o estado das telas** (`List.of`):
+  as telas devem apontar para a MESMA lista interna (`Storage._projetos`) —
+  copiar desliga as edições do salvamento e os dados "somem". `_aoMudarStorage`
+  e `_abrirConfig` re-atribuem a referência, sem cópia.
 
 ---
 
