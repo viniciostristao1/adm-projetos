@@ -226,19 +226,33 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - **Exportar:** gera `adm-projetos-backup-AAAA-MM-DD-hhmm.json` (mesmo JSON do Storage) e abre o menu de compartilhamento (`share_plus`).
 - **Importar:** escolhe arquivo (`file_picker`), valida o JSON e pergunta: **Substituir tudo** ou **Somar ao que existe** (mescla por id).
 
-### Sincronização com a nuvem (Firebase)
+### Sincronização com a nuvem (Firebase) — 100% MANUAL (por botão)
 - **`SyncService`** (sync_service.dart, ChangeNotifier): doc `usuarios/{uid}` no
   Firestore com `{dados: JSON, atualizadoEm: ms, email}`.
-- Estratégia: **quem salvou por último vence**. Ao entrar: nuvem mais nova →
-  baixa e aplica; senão sobe o local. Salvar local → upload com debounce 3s.
-  Mudanças remotas aplicadas na hora (eco ignorado via `_ultimoAplicadoMs`).
-- **`Storage`** virou `ChangeNotifier` e guarda `ultima_modificacao_ms` no
-  SharedPreferences; `marcarModificacaoEm(ms)` usada quando a nuvem baixa.
-- `ProjetosScreen` escuta o Storage e recarrega a lista quando a nuvem baixa.
+- ⚠️ **NADA sobe ou desce sozinho.** O app é SEMPRE local; a nuvem é só um
+  backup opcional acionado por botão. Só existem duas operações, ambas manuais
+  e disparadas nas Configurações (com nenhuma caixinha aberta):
+  - **`enviarAgora()`** (botão "Enviar para a nuvem"): sobe o local. Seguro —
+    apenas LÊ os projetos e envia; não toca na lista em memória.
+  - **`baixarDaNuvem()`** (botão "Baixar da nuvem", com confirmação):
+    `Storage.substituir()` pelos dados da nuvem.
+- **Entrar com Google** só autentica e mostra o estado (`nuvemMaisNova` é apenas
+  uma DICA, comparando `atualizadoEm` remoto vs local — nunca aplica sozinho).
+- 🐛 **Por que virou manual (regressão da perda de texto — V0.1.24):** o modo
+  automático anterior aplicava a nuvem (inclusive o ECO do próprio envio) via
+  `Storage.substituir()`, que TROCA os objetos do modelo por novos. Se isso
+  acontecia enquanto o usuário digitava, a `_CaixaNota` aberta seguia gravando
+  no objeto ANTIGO (descartado) → texto sumia e caixinha excluída "voltava".
+  Salvar a cada tecla/foco/pausa NÃO resolvia (o defeito era a nuvem trocar os
+  objetos por baixo dos dedos). Removidos: listener em tempo real
+  (`snapshots()`), upload com debounce 3s e auto-apply no login.
+- **`Storage`** é `ChangeNotifier` e guarda `atualizadoEm` no próprio arquivo;
+  `marcarModificacaoEm(ms)` alinha o relógio após um envio.
+- `ProjetosScreen` escuta o Storage e re-aponta a lista (sem cópia) após um
+  "Baixar da nuvem".
 - **Modo local (sem Firebase):** `main()` chama `Firebase.initializeApp()` em
   try/catch — se falhar (google-services.json ausente), o app segue 100%
   local e o botão "Entrar com Google" mostra aviso amigável.
-- Login na engrenagem → seção **Nuvem**: Entrar com Google / email + Sair.
 - ⚠️ Ao CONFIGURAR o Firebase (google-services.json no `android/app/`), ainda
   é preciso aplicar o plugin `com.google.gms.google-services` no Gradle
   (settings.gradle.kts + app/build.gradle.kts), como no calistenia_app.
@@ -412,3 +426,4 @@ A cada publicação de APK:
 | `dart:io` em vez de `http` | Não adicionar dependência extra |
 | Sem `jumpTo` da lista durante a rolagem do usuário | Era o "tremor" ao rolar a página com uma caixinha focada |
 | Derramar controladores no modelo ao perder foco/fechar | Texto em composição da IME não se perde ao sair rápido |
+| Nuvem 100% manual (por botão), sem sync automático | Auto-apply da nuvem trocava os objetos do modelo durante a digitação → perda de texto / caixinha excluída voltando (V0.1.24) |

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,18 +7,24 @@ import 'package:flutter/foundation.dart';
 import 'models.dart';
 import 'storage.dart';
 
-/// Sincroniza os projetos com o Firestore (documento `usuarios/{uid}`), com
-/// os dados locais como fonte imediata. Estratégia simples para uso pessoal:
-/// **quem salvou por último vence** (comparação pelo campo `atualizadoEm`).
+/// Sincroniza os projetos com o Firestore (documento `usuarios/{uid}`).
 ///
-/// - Ao entrar: se a nuvem for mais nova, baixa; senão, sobe o que está no
-///   telefone (nunca apaga nada).
-/// - A cada salvamento local, sobe para a nuvem (com debounce de 3s).
-/// - Mudanças vindas de outro aparelho são aplicadas na hora (ignora o eco
-///   dos próprios envios).
+/// ⚠️ SINCRONIZAÇÃO 100% MANUAL (por botão). O app funciona SEMPRE local; a
+/// nuvem é apenas um backup opcional. NADA é enviado nem baixado
+/// automaticamente.
 ///
-/// Se o Firebase ainda não estiver configurado, o app simplesmente continua
-/// 100% local (a inicialização falha em silêncio no main).
+/// Por quê: o modo automático anterior aplicava dados da nuvem (inclusive o
+/// eco do próprio envio) chamando `Storage.substituir()` — que TROCA os objetos
+/// em memória por novos. Quando isso acontecia enquanto o usuário digitava, a
+/// caixinha aberta continuava escrevendo no objeto ANTIGO (já descartado): o
+/// texto recém-digitado se perdia e caixinhas excluídas "voltavam". Deixando a
+/// nuvem 100% manual (só nas Configurações, sem nenhuma caixinha aberta), essa
+/// troca nunca pega o usuário no meio da digitação.
+///
+/// - **Entrar com Google:** só autentica e mostra o estado (não sincroniza).
+/// - **Enviar para a nuvem:** sobe o que está no telefone.
+/// - **Baixar da nuvem:** substitui os projetos locais pelos da nuvem (com
+///   confirmação na tela).
 class SyncService extends ChangeNotifier {
   SyncService._();
   static final SyncService instance = SyncService._();
@@ -28,16 +33,16 @@ class SyncService extends ChangeNotifier {
   FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   User? usuario;
-  StreamSubscription<DocumentSnapshot>? _subRemoto;
-  Timer? _debounceEnvio;
-  int _ultimoAplicadoMs = 0;
-  bool _aplicandoRemoto = false;
 
-  /// Estado visível da sincronização: 'desligado', 'Conectando…',
-  /// 'Sincronizado', 'Enviando…' ou 'Erro' (com [ultimaMensagem]).
+  /// Estado visível da sincronização: 'desligado', 'Conectando…', 'Conectado',
+  /// 'Enviando…', 'Baixando…', 'Sincronizado' ou 'Erro' (com [ultimaMensagem]).
   String status = 'desligado';
   String? ultimaMensagem;
   DateTime? ultimoEnvio;
+
+  /// true quando a nuvem tem uma versão MAIS NOVA que a deste celular — apenas
+  /// uma DICA para o usuário tocar em "Baixar da nuvem". Nunca aplica sozinho.
+  bool nuvemMaisNova = false;
 
   bool get conectado => usuario != null;
 
@@ -56,11 +61,7 @@ class SyncService extends ChangeNotifier {
 
   void _desligar() {
     usuario = null;
-    _subRemoto?.cancel();
-    _subRemoto = null;
-    _debounceEnvio?.cancel();
-    _debounceEnvio = null;
-    Storage.instance.removeListener(_aoSalvarLocal);
+    nuvemMaisNova = false;
     status = 'desligado';
     ultimaMensagem = null;
     notifyListeners();
@@ -72,76 +73,30 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ao autenticar: apenas conecta. NÃO sincroniza — só verifica (sem aplicar
+  /// nada) se a nuvem está mais nova que o local, para exibir a dica de baixar.
   Future<void> _aoMudarAuth(User? u) async {
     if (u == null) {
       _desligar();
       return;
     }
     usuario = u;
-    Storage.instance.addListener(_aoSalvarLocal);
     _setStatus('Conectando…');
     try {
       final doc = await _db.collection('usuarios').doc(u.uid).get();
       final remoto = doc.exists ? doc.data() : null;
       final remotoMs = remoto?['atualizadoEm'] as int? ?? 0;
-      final dados = remoto?['dados'] as String?;
+      final temDados = (remoto?['dados'] as String?) != null;
       final localMs = await Storage.instance.ultimaModificacaoMs();
-      if (dados != null && remotoMs > localMs) {
-        // Nuvem mais nova (ex.: outro celular): baixa e aplica.
-        await _aplicarRemoto(dados, remotoMs);
-      } else {
-        // Telefone mais novo (ou nuvem vazia): sobe o que já existe.
-        await enviarAgora();
-      }
+      nuvemMaisNova = temDados && remotoMs > localMs;
+      _setStatus('Conectado');
     } catch (e) {
       _setStatus('Erro', e.toString());
     }
-    _ouvirRemoto(u.uid);
   }
 
-  void _ouvirRemoto(String uid) {
-    _subRemoto?.cancel();
-    _subRemoto = _db.collection('usuarios').doc(uid).snapshots().listen((snap) {
-      if (!snap.exists) return;
-      final dados = snap.data();
-      final ms = dados?['atualizadoEm'] as int? ?? 0;
-      if (ms == 0 || ms <= _ultimoAplicadoMs) return; // eco do próprio envio
-      final json = dados?['dados'] as String?;
-      if (json == null) return;
-      _aplicarRemoto(json, ms);
-    });
-  }
-
-  Future<void> _aplicarRemoto(String json, int ms) async {
-    _aplicandoRemoto = true;
-    try {
-      // Defesa extra: nunca aplicar dados da nuvem que não sejam MAIS NOVOS
-      // que o conteúdo local (o arquivo guarda o horário junto com os dados).
-      final localMs = await Storage.instance.ultimaModificacaoMs();
-      if (ms <= localMs) return;
-      final lista = (jsonDecode(json) as List)
-          .map((e) => Projeto.fromJson(e as Map<String, dynamic>))
-          .toList();
-      await Storage.instance.substituir(lista);
-      await Storage.instance.marcarModificacaoEm(ms);
-      _ultimoAplicadoMs = ms;
-      _setStatus('Sincronizado');
-      debugPrint('sync: dados da nuvem aplicados ($ms)');
-    } catch (e) {
-      _setStatus('Erro', e.toString());
-      debugPrint('sync: aplicar remoto falhou: $e');
-    } finally {
-      _aplicandoRemoto = false;
-    }
-  }
-
-  void _aoSalvarLocal() {
-    if (_aplicandoRemoto || usuario == null) return;
-    _debounceEnvio?.cancel();
-    _debounceEnvio = Timer(const Duration(seconds: 3), enviarAgora);
-  }
-
-  /// Sobe os dados locais para a nuvem (público para o botão "Tentar de novo").
+  /// MANUAL — sobe os dados locais para a nuvem (botão "Enviar para a nuvem").
+  /// Seguro: apenas LÊ os projetos e envia; não mexe na lista em memória.
   Future<void> enviarAgora() async {
     final u = usuario;
     if (u == null) return;
@@ -154,14 +109,44 @@ class SyncService extends ChangeNotifier {
         'atualizadoEm': ms,
         'email': u.email ?? '',
       });
-      _ultimoAplicadoMs = ms;
       ultimoEnvio = DateTime.now();
+      // Alinha o relógio local ao envio para o próximo login não achar que a
+      // nuvem está "mais nova" que o que já está aqui.
       await Storage.instance.marcarModificacaoEm(ms);
+      nuvemMaisNova = false;
       _setStatus('Sincronizado');
       debugPrint('sync: enviado para a nuvem ($ms)');
     } catch (e) {
       _setStatus('Erro', e.toString());
       debugPrint('sync: enviar falhou: $e');
+    }
+  }
+
+  /// MANUAL — baixa os dados da nuvem e SUBSTITUI os projetos locais (botão
+  /// "Baixar da nuvem", com confirmação na tela). Chamado só a partir das
+  /// Configurações, com nenhuma caixinha aberta — por isso é seguro trocar a
+  /// lista em memória aqui.
+  Future<void> baixarDaNuvem() async {
+    final u = usuario;
+    if (u == null) return;
+    _setStatus('Baixando…');
+    try {
+      final doc = await _db.collection('usuarios').doc(u.uid).get();
+      final dados = doc.exists ? (doc.data()?['dados'] as String?) : null;
+      if (dados == null) {
+        _setStatus('Erro', 'A nuvem ainda não tem nenhum backup.');
+        return;
+      }
+      final lista = (jsonDecode(dados) as List)
+          .map((e) => Projeto.fromJson(e as Map<String, dynamic>))
+          .toList();
+      await Storage.instance.substituir(lista);
+      nuvemMaisNova = false;
+      _setStatus('Sincronizado');
+      debugPrint('sync: dados da nuvem aplicados');
+    } catch (e) {
+      _setStatus('Erro', e.toString());
+      debugPrint('sync: baixar falhou: $e');
     }
   }
 }

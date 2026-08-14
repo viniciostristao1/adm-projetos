@@ -801,18 +801,23 @@ class _ConfigSheet extends StatelessWidget {
                   );
                 }
                 final ok = sync.status == 'Sincronizado';
-                final enviando = sync.status == 'Enviando…' ||
+                final ocupado = sync.status == 'Enviando…' ||
+                    sync.status == 'Baixando…' ||
                     sync.status == 'Conectando…';
-                final corStatus =
-                    ok ? const Color(0xFF4ADE80) : (enviando ? s.onSurfaceVariant : Colors.redAccent);
+                final erro = sync.status == 'Erro';
+                final corStatus = ok
+                    ? const Color(0xFF4ADE80)
+                    : (erro ? Colors.redAccent : s.onSurfaceVariant);
                 final icone = ok
                     ? Icons.cloud_done_outlined
-                    : (enviando ? Icons.cloud_sync_outlined : Icons.cloud_off_outlined);
+                    : (erro
+                        ? Icons.cloud_off_outlined
+                        : Icons.cloud_outlined);
                 String texto = sync.status;
                 if (ok && sync.ultimoEnvio != null) {
                   final h = sync.ultimoEnvio!.hour.toString().padLeft(2, '0');
                   final m = sync.ultimoEnvio!.minute.toString().padLeft(2, '0');
-                  texto = 'Sincronizado às $h:$m';
+                  texto = 'Enviado às $h:$m';
                 }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -823,7 +828,7 @@ class _ConfigSheet extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Sincronizado como ${sync.usuario!.email ?? ''}',
+                            'Conectado como ${sync.usuario!.email ?? ''}',
                             style: const TextStyle(fontSize: 13),
                           ),
                         ),
@@ -842,8 +847,16 @@ class _ConfigSheet extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (sync.status == 'Erro' &&
-                        sync.ultimaMensagem != null) ...[
+                    if (sync.nuvemMaisNova) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'A nuvem tem uma versão mais nova que a deste celular. '
+                        'Toque em "Baixar da nuvem" para trazê-la.',
+                        style: TextStyle(
+                            color: s.onSurfaceVariant, fontSize: 12),
+                      ),
+                    ],
+                    if (erro && sync.ultimaMensagem != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         sync.ultimaMensagem!,
@@ -852,20 +865,37 @@ class _ConfigSheet extends StatelessWidget {
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          icon: const Icon(Icons.refresh, size: 16),
-                          label: const Text('Tentar de novo'),
-                          onPressed: sync.enviarAgora,
-                        ),
-                      ),
                     ],
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.cloud_download_outlined,
+                                size: 18),
+                            label: const Text('Baixar da nuvem'),
+                            onPressed: ocupado
+                                ? null
+                                : () => _confirmarBaixar(context),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.cloud_upload_outlined,
+                                size: 18),
+                            label: const Text('Enviar para a nuvem'),
+                            onPressed: ocupado ? null : sync.enviarAgora,
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     Text(
-                      'Tudo que você salvar sobe para a nuvem e volta em '
-                      'qualquer celular com a mesma conta.',
+                      'A nuvem é um backup manual: nada sobe ou desce sozinho. '
+                      '"Enviar" guarda o que está neste celular; "Baixar" '
+                      'substitui o que está aqui pelo da nuvem (ex.: ao trocar '
+                      'de celular).',
                       style:
                           TextStyle(color: s.onSurfaceVariant, fontSize: 12),
                     ),
@@ -878,6 +908,30 @@ class _ConfigSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Confirma antes de baixar da nuvem (a operação SUBSTITUI os projetos deste
+/// celular). Só é oferecida nas Configurações, sem nenhuma caixinha aberta.
+Future<void> _confirmarBaixar(BuildContext context) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Baixar da nuvem?'),
+      content: const Text(
+        'Os projetos deste celular serão SUBSTITUÍDOS pelos que estão na '
+        'nuvem. Use ao trocar de celular ou para restaurar um backup.',
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Baixar')),
+      ],
+    ),
+  );
+  if (ok == true) await SyncService.instance.baixarDaNuvem();
 }
 
 /// Faz login com o Google. Se o Firebase ainda não estiver configurado,
