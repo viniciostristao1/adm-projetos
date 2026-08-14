@@ -15,6 +15,7 @@ import 'projeto_screen.dart';
 import 'storage.dart';
 import 'sync_service.dart';
 import 'tema.dart';
+import 'versao.dart';
 
 /// Página principal: a lista de projetos.
 class ProjetosScreen extends StatefulWidget {
@@ -208,6 +209,15 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              appVersao,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],

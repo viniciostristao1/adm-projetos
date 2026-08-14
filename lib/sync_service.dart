@@ -115,6 +115,10 @@ class SyncService extends ChangeNotifier {
   Future<void> _aplicarRemoto(String json, int ms) async {
     _aplicandoRemoto = true;
     try {
+      // Defesa extra: nunca aplicar dados da nuvem que não sejam MAIS NOVOS
+      // que o conteúdo local (o arquivo guarda o horário junto com os dados).
+      final localMs = await Storage.instance.ultimaModificacaoMs();
+      if (ms <= localMs) return;
       final lista = (jsonDecode(json) as List)
           .map((e) => Projeto.fromJson(e as Map<String, dynamic>))
           .toList();

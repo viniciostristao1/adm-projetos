@@ -369,7 +369,17 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 12. Histórico de Decisões
+## 12. Fluxo de Release (versão do app)
+
+A cada publicação de APK:
+
+1. **Incrementar** `appVersao` em `lib/versao.dart` (ex.: `V0.1.22` → `V0.1.23`)
+   e o `version:` no `pubspec.yaml` (`0.1.22+22` → `0.1.23+23`).
+2. A versão aparece no topo da tela principal (ao lado de "ADM-projetos") —
+   o usuário confirma que está rodando o APK certo.
+3. **Informar o número da versão na resposta do chat** (ex.: "Versão publicada: **V0.1.23**").
+
+## 13. Histórico de Decisões
 
 | Decisão | Motivo |
 |---|---|

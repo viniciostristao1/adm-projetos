@@ -93,8 +93,11 @@ class Storage extends ChangeNotifier {
   }
 
   /// Define o horário da última modificação (quando os dados vêm da nuvem) e
-  /// regrava o arquivo para manter dados + horário consistentes.
+  /// regrava o arquivo para manter dados + horário consistentes. NUNCA volta
+  /// o relógio do arquivo: se o horário atual já é mais novo (ex.: uma tecla
+  /// salvou durante a sincronização), mantém o atual.
   Future<void> marcarModificacaoEm(int ms) async {
+    if (ms <= _atualizadoEm) return;
     _atualizadoEm = ms;
     final conteudo = jsonEncode({
       'atualizadoEm': ms,
