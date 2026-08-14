@@ -344,6 +344,7 @@ class _CaixaNota extends StatefulWidget {
 
 class _CaixaNotaState extends State<_CaixaNota> {
   late final TextEditingController _ctrl;
+  late final TextEditingController _ctrlComentario;
   final FocusNode _foco = FocusNode();
   final ScrollController _scroll = ScrollController();
   final GlobalKey _campoKey = GlobalKey();
@@ -353,6 +354,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   double? _alturaMaxima;
   bool _numerado = true;
   bool _comentarioExpandido = false;
+  bool _comentarioVisivel = false;
   ScrollPosition? _posExterna;
   double? _insetsAntes;
 
@@ -360,7 +362,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.nota.texto);
+    _ctrlComentario =
+        TextEditingController(text: widget.nota.comentario ?? '');
     _foco.addListener(_aoFocar);
+    _foco.addListener(_aoPerderFoco);
   }
 
   @override
@@ -389,11 +394,37 @@ class _CaixaNotaState extends State<_CaixaNota> {
     _timerVis?.cancel();
     _posExterna?.removeListener(_aoRolarExterno);
     _foco.removeListener(_aoFocar);
-    Storage.instance.salvar();
+    _foco.removeListener(_aoPerderFoco);
+    // Derrama o que está nos controladores direto no modelo e no disco —
+    // cobre o texto que a IME ainda não tinha confirmado (composição) quando
+    // o usuário sai rápido da tela.
+    _guardarTudo();
     _ctrl.dispose();
+    _ctrlComentario.dispose();
     _foco.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Grava o conteúdo atual dos controladores no modelo e salva no disco.
+  /// Só derrama o comentário se o campo dele está mesmo montado (senão um
+  /// controlador antigo sobrescreveria um comentário salvo por outro caminho,
+  /// ex.: título do YouTube vindo do diálogo de link).
+  void _guardarTudo() {
+    widget.nota.texto = _ctrl.text;
+    if (_comentarioVisivel) {
+      final c = _ctrlComentario.text;
+      widget.nota.comentario = c.isEmpty ? null : c;
+    }
+    Storage.instance.salvar();
+  }
+
+  /// Ao PERDER o foco (toque em outra caixinha, voltar de tela, teclado
+  /// fechando) derrama o texto na hora — é o sinal mais cedo de que o usuário
+  /// parou de digitar naquela caixinha e nada pode ficar só no teclado.
+  void _aoPerderFoco() {
+    if (_foco.hasFocus) return;
+    _guardarTudo();
   }
 
   void focarNoFim() {
@@ -423,7 +454,40 @@ class _CaixaNotaState extends State<_CaixaNota> {
     });
   }
 
-  void _aoRolarExterno() => _agendarAjuste();
+  /// Ao rolar a lista, a caixinha NÃO é puxada de volta (nada de `jumpTo`
+  /// durante o gesto do usuário — era isso que fazia a página "tremer" e
+  /// impedia de rolar para cima). Só recalcula a altura travada, e apenas
+  /// DEPOIS que a rolagem parar de verdade (o timer reinicia a cada evento
+  /// de rolagem; a lista parada não é tocada).
+  void _aoRolarExterno() {
+    if (!_foco.hasFocus) return;
+    _timerVis?.cancel();
+    _timerVis = Timer(const Duration(milliseconds: 300), () {
+      if (mounted && _foco.hasFocus) _ajustarAltura();
+    });
+  }
+
+  /// Recalcula só a altura máxima travada (sem mover a lista). Só age com a
+  /// rolagem totalmente parada para não brigar com o dedo do usuário.
+  void _ajustarAltura() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final scrollable = Scrollable.maybeOf(context);
+      if (scrollable != null &&
+          scrollable.position.isScrollingNotifier.value) {
+        return;
+      }
+      final box = context.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      final media = MediaQuery.of(context);
+      final limite = media.size.height - media.viewInsets.bottom - 100;
+      final topo = box.localToGlobal(Offset.zero).dy;
+      final nova = (limite - topo).clamp(96.0, media.size.height * 0.6);
+      if (_alturaMaxima == null || (nova - _alturaMaxima!).abs() > 1) {
+        setState(() => _alturaMaxima = nova);
+      }
+    });
+  }
 
   void _ajustarVisibilidade() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -753,6 +817,9 @@ class _CaixaNotaState extends State<_CaixaNota> {
     // Se encontrou título do YouTube, salva no comentário (se vazio).
     if (titulo != null && (widget.nota.comentario ?? '').isEmpty) {
       widget.nota.comentario = titulo;
+      // Mantém o controlador do campo de comentário em sincronia (senão o
+      // próximo flush sobrescreveria o título com texto antigo).
+      _ctrlComentario.text = titulo!;
     }
     Storage.instance.salvar();
   }
@@ -786,6 +853,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
             Brightness.dark
         ? Colors.white
         : Colors.black87;
+
+    _comentarioVisivel = _comentarioExpandido ||
+        (!widget.modoTarefas &&
+            (widget.nota.comentario?.isNotEmpty ?? false));
 
     return Caixa3D(
       cor: app.notaInicio,
@@ -969,9 +1040,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
             ),
           ),
           // Subcaixinha de comentário inline (abaixo com letra mais fraca)
-          if (_comentarioExpandido ||
-              (!widget.modoTarefas &&
-                  (widget.nota.comentario?.isNotEmpty ?? false)))
+          if (_comentarioVisivel)
            Container(
               decoration: BoxDecoration(
                 color: app.notaFim.withValues(alpha: 0.5),
@@ -980,8 +1049,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
               ),
               padding: const EdgeInsets.fromLTRB(14, 2, 14, 4),
               child: TextField(
-                controller: TextEditingController(
-                    text: widget.nota.comentario ?? ''),
+                controller: _ctrlComentario,
                 onChanged: (v) {
                   widget.nota.comentario = v.isEmpty ? null : v;
                   Storage.instance.salvar();

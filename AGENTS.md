@@ -210,6 +210,12 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   travada no espaço disponível (`_alturaMaxima`, recalculada 300ms depois para
   o teclado terminar de abrir). Assim a caixinha NUNCA cresce para trás do FAB
   e a lista NÃO rola a cada tecla (evita o "tremor" durante a digitação).
+- ⚠️ A lista NUNCA é puxada (`jumpTo`) enquanto o usuário a rola: isso brigava
+  com o dedo, impedia de rolar a página para cima e fazia a tela tremer. Ao
+  rolar a lista, só a altura travada é recalculada — e apenas DEPOIS que a
+  rolagem para (debounce de 300ms reiniciado a cada evento + checagem de
+  `isScrollingNotifier`). O `jumpTo` só acontece ao ganhar foco, ao tocar na
+  caixinha (`_toqueTexto`) e quando o teclado abre/fecha.
 - Botão `unfold_more` alterna o scroll interno entre topo e pé.
 
 ### Desfazer (undo)
@@ -262,6 +268,14 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   gravados JUNTOS e de forma SÍNCRONA (após o 1º carregamento): ao retornar de
   `salvar()`, já está no disco. O horário nunca fica "mais novo" que o conteúdo
   (senão a nuvem velha sobrescreveria o texto novo no próximo login).
+- Ao PERDER o foco e ao fechar a tela/o widget, o texto dos controladores é
+  DERRAMADO no modelo (`_guardarTudo`) antes de `Storage.instance.salvar()` —
+  cobre o texto que a IME ainda estava compondo (última palavra do GBoard) na
+  hora de sair rápido da tela. O campo de comentário usa controlador próprio
+  (`_ctrlComentario`, criado no initState) e só é derramado quando visível,
+  para não sobrescrever comentário salvo por outro caminho (ex.: título do
+  YouTube vindo do diálogo de link — `_abrirLink` mantém o controlador em
+  sincronia).
 - Ao fechar a tela ou o widget, força `Storage.instance.salvar()`.
 - `_SalvadorDeVida` (main.dart) salva quando o app sai de primeiro plano (pausa/inativo/oculto) — reforço contra perder digitação recente ao fechar o app.
 - ⚠️ **NUNCA copiar a lista do Storage para o estado das telas** (`List.of`):
@@ -295,7 +309,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (15 testes)
+# Testes (18 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -342,7 +356,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (15 testes)
+## 10. Testes (18 testes)
 
 ### `test/widget_test.dart` (4 testes)
 - Serialização de `Nota`
@@ -355,6 +369,11 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - `LinhasNumeradas`: Enter cria número, sem alteração sem newline, backspace não re-insere, Enter sem número não numera, sequência 1→2→3
 - `maiusculaAposItem`: maiúscula após prefixo, já maiúsculo, sem prefixo
 
+### `test/salvamento_test.dart` (3 testes)
+- Texto digitado sobrevive à saída imediata da tela (sem esperar timers)
+- Texto em composição do IME sobrevive à saída imediata
+- Dispose derrama o texto do controlador para o modelo (`_guardarTudo`)
+
 ---
 
 ## 11. Restrições e Cuidados
@@ -363,7 +382,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.luz.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 15 testes devem passar.
+- **Sempre rodar `flutter test`** — 18 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -391,3 +410,5 @@ A cada publicação de APK:
 | Maiúscula com debounce 2s | Não quebrar digitação por voz |
 | Abas Tarefas/Futuro | Separar ideias atuais de futuras |
 | `dart:io` em vez de `http` | Não adicionar dependência extra |
+| Sem `jumpTo` da lista durante a rolagem do usuário | Era o "tremor" ao rolar a página com uma caixinha focada |
+| Derramar controladores no modelo ao perder foco/fechar | Texto em composição da IME não se perde ao sair rápido |
