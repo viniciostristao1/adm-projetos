@@ -19,6 +19,7 @@ class Storage extends ChangeNotifier {
   static const _chaveMod = 'ultima_modificacao_ms';
   List<Projeto> _projetos = [];
   bool _carregado = false;
+  Future<void> _fila = Future.value();
 
   Future<File> _file() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -42,11 +43,24 @@ class Storage extends ChangeNotifier {
     return _projetos;
   }
 
-  Future<void> salvar() async {
-    final f = await _file();
-    await f.writeAsString(jsonEncode(_projetos.map((p) => p.toJson()).toList()));
-    await _marcarModificacao();
+  /// Salva os projetos em disco. As gravações são ENFILEIRADAS em ordem:
+  /// cada chamada captura o estado ATUAL da lista na hora e grava por último
+  /// quem foi chamado por último — sem corrida de gravações fora de ordem
+  /// (que deixava o arquivo com texto pela metade).
+  Future<void> salvar() {
+    final conteudo =
+        jsonEncode(_projetos.map((p) => p.toJson()).toList());
     notifyListeners();
+    _fila = _fila.then((_) async {
+      try {
+        final f = await _file();
+        await f.writeAsString(conteudo);
+        await _marcarModificacao();
+      } catch (e) {
+        debugPrint('storage: falha ao salvar: $e');
+      }
+    });
+    return _fila;
   }
 
   Future<void> _marcarModificacao() async {

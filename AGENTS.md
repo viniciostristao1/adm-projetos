@@ -258,6 +258,9 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - Dentro do `_CaixaNota`, o texto **salva a CADA TECLA** (`_mudou` grava na hora) —
   o debounce de 2s ficou SÓ para a correção de maiúsculas (`maiusculaAposItem`),
   nunca para o salvamento (ditado por voz não pode ser interrompido).
+- **As gravações são ENFILEIRADAS em ordem no `Storage._fila`**: cada `salvar()`
+  captura o estado atual na hora e a última chamada grava por último — evita
+  corrida de gravações fora de ordem (arquivo com texto pela metade).
 - Ao fechar a tela ou o widget, força `Storage.instance.salvar()`.
 - `_SalvadorDeVida` (main.dart) salva quando o app sai de primeiro plano (pausa/inativo/oculto) — reforço contra perder digitação recente ao fechar o app.
 - ⚠️ **NUNCA copiar a lista do Storage para o estado das telas** (`List.of`):
