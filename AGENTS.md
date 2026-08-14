@@ -255,7 +255,9 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 
 ### Salvamento automático
 - `Storage.instance.salvar()` é chamado após cada ação (criar, editar, excluir, reordenar, check, link, comentário).
-- Dentro do `_CaixaNota`, o texto salva com debounce de **2 segundos**.
+- Dentro do `_CaixaNota`, o texto **salva a CADA TECLA** (`_mudou` grava na hora) —
+  o debounce de 2s ficou SÓ para a correção de maiúsculas (`maiusculaAposItem`),
+  nunca para o salvamento (ditado por voz não pode ser interrompido).
 - Ao fechar a tela ou o widget, força `Storage.instance.salvar()`.
 - `_SalvadorDeVida` (main.dart) salva quando o app sai de primeiro plano (pausa/inativo/oculto) — reforço contra perder digitação recente ao fechar o app.
 - ⚠️ **NUNCA copiar a lista do Storage para o estado das telas** (`List.of`):

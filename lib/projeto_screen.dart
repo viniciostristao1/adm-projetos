@@ -460,6 +460,11 @@ class _CaixaNotaState extends State<_CaixaNota> {
 
   void _mudou(String novoTexto) {
     widget.nota.texto = novoTexto;
+    // GRAVA NA HORA, a cada tecla — nada se perde ao fechar/trocar de tela.
+    // (Arquivo pequeno; o custo de escrever por tecla é desprezível.)
+    Storage.instance.salvar();
+    // O debounce de 2s fica SÓ para a correção de maiúsculas — não para
+    // salvar (ditado por voz não pode ser interrompido pela correção).
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 2), () {
       final corrigido = maiusculaAposItem(_ctrl.text);
@@ -469,8 +474,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
           selection: TextSelection.collapsed(offset: corrigido.length),
         );
         widget.nota.texto = corrigido;
+        Storage.instance.salvar();
       }
-      Storage.instance.salvar();
     });
   }
 
