@@ -700,7 +700,14 @@ class _CaixaNotaState extends State<_CaixaNota> {
     // inclui os espaços casados pelo \s*).
     final idx = inicio + m.start + m.group(0)!.indexOf(m.group(1)!);
     final novoChar = texto[idx] == '☐' ? '☑' : '☐';
-    final novo = texto.substring(0, idx) + novoChar + texto.substring(idx + 1);
+    // Sempre grava o quadradinho com \uFE0E (VS15) logo depois: se o texto
+    // veio de um backup antigo (sem VS15), o ☑/☐ renderizaria como emoji
+    // colorido em alguns celulares. Descarta um VS15 perdido que exista.
+    var pos2 = idx + 1;
+    if (pos2 < texto.length && texto.codeUnitAt(pos2) == 0xFE0E) pos2++;
+    final novo = '${texto.substring(0, idx)}$novoChar'
+        '\uFE0E'
+        '${texto.substring(pos2)}';
     _ctrl.value = TextEditingValue(
       text: novo,
       selection:

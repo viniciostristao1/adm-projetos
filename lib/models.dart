@@ -26,11 +26,17 @@ class Nota {
 
   factory Nota.fromJson(Map<String, dynamic> j) => Nota(
         id: (j['id'] ?? '') as String,
-        texto: (j['texto'] ?? '') as String,
+        texto: normalizarTodos((j['texto'] ?? '') as String),
         concluida: (j['concluida'] ?? false) as bool,
         comentario: j['comentario'] as String?,
         link: j['link'] as String?,
       );
+
+  /// Garante que todo quadradinho ☐/☑ tenha o \uFE0E (VS15) logo depois —
+  /// sem ele alguns celulares desenham o quadradinho como emoji colorido.
+  /// Dados salvos antes do VS15 (backups antigos) são normalizados aqui.
+  static String normalizarTodos(String texto) => texto.replaceAllMapped(
+      RegExp('(☐|☑)\uFE0E?'), (m) => '${m.group(1)}\uFE0E');
 }
 
 /// Um projeto: nome + duas listas de caixas (tarefas atuais e ideias futuras).

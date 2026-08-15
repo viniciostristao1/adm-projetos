@@ -98,10 +98,12 @@ class LinhasNumeradas extends TextInputFormatter {
       );
     }
 
-    // Linha anterior é item de to-do ("☐ ") -> a nova linha continua com "☐ ".
-    // O \uFE0E força a apresentação em TEXTO do quadradinho (senão alguns
-    // celulares desenham o ☐/☑ como emoji colorido).
-    if (linhas[linhas.length - 2].trimLeft().startsWith('☐')) {
+    // Linha anterior é item de to-do ("☐ " ou já marcado "☑") -> a nova
+    // linha continua com "☐ " (desmarcado). O \uFE0E força a apresentação em
+    // TEXTO do quadradinho (senão alguns celulares desenham o ☐/☑ como
+    // emoji colorido).
+    final anterior = linhas[linhas.length - 2].trimLeft();
+    if (anterior.startsWith('☐') || anterior.startsWith('☑')) {
       final novoTexto = '$texto☐\uFE0E ';
       return newValue.copyWith(
         text: novoTexto,

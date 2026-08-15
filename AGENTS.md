@@ -197,9 +197,15 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - Botão `checklist` **converte a LINHA DO CURSOR** em item de to-do (ou remove
   o quadradinho se a linha já for um item) — funciona em qualquer linha, como
   o botão de numeração. Não cria mais linha no fim do texto.
-- O Enter continua com `"☐ "` nas linhas seguintes (via `LinhasNumeradas`).
+- O Enter continua com `"☐ "` nas linhas seguintes (via `LinhasNumeradas`) —
+  inclusive depois de uma linha JÁ MARCADA (`☑`), para o checkbox da próxima
+  linha sempre nascer desmarcado.
 - Os quadradinhos usam `\uFE0E` (VS15) para forçar a apresentação em TEXTO —
-  sem isso alguns celulares desenham ☐/☑ como emoji colorido.
+  sem isso alguns celulares desenham ☐/☑ como emoji colorido. O VS15 é
+  garantido em 3 pontos: ao converter com o botão `checklist`, ao tocar no
+  quadradinho (`_toqueTexto` sempre grava `☑\uFE0E`/`☐\uFE0E` e descarta um
+  VS15 perdido) e ao CARREGAR dados (`Nota.normalizarTodos` em `fromJson`
+  corrige textos salvos antes do VS15).
 - **Tocar no quadradinho** (faixa esquerda de ~40px de uma linha ☐/☑) alterna
   marcado/desmarcado — hit-test com `TextPainter` no `_toqueTexto`, detectado
   por `Listener` (eventos crus, sem disputa de gestos com o campo de texto).
@@ -323,7 +329,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (18 testes)
+# Testes (23 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -370,7 +376,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (18 testes)
+## 10. Testes (23 testes)
 
 ### `test/widget_test.dart` (4 testes)
 - Serialização de `Nota`
@@ -388,6 +394,11 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Texto em composição do IME sobrevive à saída imediata
 - Dispose derrama o texto do controlador para o modelo (`_guardarTudo`)
 
+### `test/todo_test.dart` (5 testes)
+- `LinhasNumeradas`: Enter continua `☐` depois de linha `☐` e de linha já marcada `☑` (regressão V0.1.24: só `☐` criava), e dado antigo sem VS15 ganha `☐\uFE0E `
+- `Nota.fromJson` normaliza quadradinhos antigos sem VS15 (regressão: carregava como emoji)
+- Toque no quadradinho de dado antigo (sem VS15) grava `☑\uFE0E` (não vira emoji)
+
 ---
 
 ## 11. Restrições e Cuidados
@@ -396,7 +407,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.luz.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 18 testes devem passar.
+- **Sempre rodar `flutter test`** — 23 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
