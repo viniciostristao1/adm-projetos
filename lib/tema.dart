@@ -6,7 +6,7 @@ enum Modo {
   azul('Azul'),
   escuro('Escuro'),
   neumB('Dark Game'),
-  espresso('Espresso');
+  bege('Bege');
 
   const Modo(this.rotulo);
   final String rotulo;
@@ -35,12 +35,15 @@ class TemaController extends ChangeNotifier {
   Modo get modo => _modo;
   ModoFonte get fonte => _fonte;
 
-  /// Modo usado pelo [MaterialApp] — os 4 temas são escuros (estilo Calis
-  /// Timer), então o app roda sempre em dark mode.
-  ThemeMode get themeFlutter => ThemeMode.dark;
+  /// Modo usado pelo [MaterialApp] — Bege é claro (madeira do Calis Timer);
+  /// os demais são escuros.
+  ThemeMode get themeFlutter => _modo == Modo.bege
+      ? ThemeMode.light
+      : ThemeMode.dark;
 
   /// Carrega as preferências salvas (chamar no início do app). Temas antigos
-  /// removidos migram para os novos: claro → azul, bege/begeNeum → espresso.
+  /// removidos migram para os novos: claro → azul, espresso → bege,
+  /// bege/begeNeum → bege.
   Future<void> carregar() async {
     final prefs = await SharedPreferences.getInstance();
     final antigo = prefs.getBool(_chaveAntiga);
@@ -48,7 +51,7 @@ class TemaController extends ChangeNotifier {
         (antigo == true ? 'escuro' : 'azul');
     final migrado = switch (salvo) {
       'claro' => 'azul',
-      'bege' || 'begeNeum' => 'espresso',
+      'espresso' || 'bege' || 'begeNeum' => 'bege',
       _ => salvo,
     };
     _modo = Modo.values

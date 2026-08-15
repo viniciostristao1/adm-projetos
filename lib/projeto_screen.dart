@@ -12,7 +12,7 @@ import 'models.dart';
 import 'pdf_export.dart';
 import 'storage.dart';
 
-/// Página de um projeto dividida em duas abas: "Tarefas" (atuais) e "Futuro".
+/// Página de um projeto dividida em duas abas: "Tarefas" (atuais) e "Ideias".
 class ProjetoScreen extends StatefulWidget {
   const ProjetoScreen({super.key, required this.projeto});
 
@@ -80,12 +80,12 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     );
   }
 
-  /// Move a caixinha para a OUTRA aba (Tarefas <-> Futuro), com desfazer.
+  /// Move a caixinha para a OUTRA aba (Tarefas <-> Ideias), com desfazer.
   void _moverOutraAba(int aba, int i) {
     final nota = _lista(aba).removeAt(i);
     final destino = aba == 0 ? widget.projeto.futuro : widget.projeto.tarefas;
     destino.add(nota);
-    final nomeDestino = aba == 0 ? 'Futuro' : 'Tarefas';
+    final nomeDestino = aba == 0 ? 'Ideias' : 'Tarefas';
     setState(() {});
     _salvar();
     mostrarAvisoAcao(
@@ -138,7 +138,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       }
     }
     if (p.futuro.isNotEmpty) {
-      buf.writeln('  --- Futuro ---');
+      buf.writeln('  --- Ideias ---');
       for (final n in p.futuro) {
         for (final linha in n.texto.split('\n')) {
           buf.writeln('  $linha');
@@ -201,7 +201,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                   prefixIcon: const Icon(Icons.search, size: 20),
                   hintText: ehTarefas
                       ? 'Buscar em Tarefas…'
-                      : 'Buscar no Futuro…',
+                      : 'Buscar em Ideias…',
                   isDense: true,
                   filled: preencher,
                   fillColor: preencher ? app.notaFim : null,
@@ -283,7 +283,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                   indicatorSize: TabBarIndicatorSize.tab,
                   tabs: const [
                     Tab(text: 'Tarefas'),
-                    Tab(text: 'Futuro'),
+                    Tab(text: 'Ideias'),
                   ],
                 ),
               ),
@@ -327,14 +327,14 @@ class _CaixaNota extends StatefulWidget {
   final Nota nota;
   final int indice;
 
-  /// Se false (modo Futuro), não mostra botão de lista numerada nem inicia
+  /// Se false (modo Ideias), não mostra botão de lista numerada nem inicia
   /// novas caixinhas com "1- ".
   final bool modoTarefas;
 
   final VoidCallback onCopiar;
   final VoidCallback onExcluir;
 
-  /// Move a caixinha para a outra aba (Tarefas <-> Futuro).
+  /// Move a caixinha para a outra aba (Tarefas <-> Ideias).
   final VoidCallback onMover;
 
   @override
@@ -964,7 +964,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
                               ? Icons.arrow_downward
                               : Icons.arrow_upward,
                           tooltip: widget.modoTarefas
-                              ? 'Mover para Futuro'
+                              ? 'Mover para Ideias'
                               : 'Mover para Tarefas',
                           onTap: widget.onMover,
                           cor: onBarra,

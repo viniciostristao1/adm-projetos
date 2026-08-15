@@ -9,24 +9,22 @@ AppCores _coresDe(Modo m) => switch (m) {
       Modo.azul => AppCores.azul,
       Modo.escuro => AppCores.escuro,
       Modo.neumB => AppCores.neumB,
-      Modo.espresso => AppCores.espresso,
+      Modo.bege => AppCores.bege,
     };
 
 void main() {
-  test('Modo tem exatamente 4 temas (Escuro, Dark Game, Azul, Espresso)', () {
+  test('Modo tem exatamente 4 temas (Azul, Escuro, Dark Game, Bege)', () {
     expect(Modo.values.length, 4);
     expect(
       Modo.values.map((m) => m.rotulo).toList(),
-      ['Azul', 'Escuro', 'Dark Game', 'Espresso'],
+      ['Azul', 'Escuro', 'Dark Game', 'Bege'],
     );
   });
 
-  test('Tema antigo claro migra para Azul e bege para Espresso', () async {
-    // A migração roda no carregamento; aqui validamos que os nomes antigos
-    // não existem mais (não caem no orElse silencioso).
+  test('Temas antigos migram: claro→Azul, espresso/bege→Bege', () async {
     final nomes = Modo.values.map((m) => m.name).toSet();
     expect(nomes.contains('claro'), isFalse);
-    expect(nomes.contains('bege'), isFalse);
+    expect(nomes.contains('espresso'), isFalse);
     expect(nomes.contains('begeNeum'), isFalse);
   });
 

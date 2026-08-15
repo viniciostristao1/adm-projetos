@@ -14,7 +14,7 @@ String _textoPdf(String s) {
   return t;
 }
 
-/// Gera um PDF com o projeto inteiro (Tarefas + Futuro) e abre a tela de
+/// Gera um PDF com o projeto inteiro (Tarefas + Ideias) e abre a tela de
 /// compartilhamento do Android (salvar, enviar, etc.).
 Future<void> exportarPdfProjeto(BuildContext context, Projeto p) async {
   final doc = pw.Document();
@@ -61,7 +61,7 @@ Future<void> exportarPdfProjeto(BuildContext context, Projeto p) async {
         pw.SizedBox(height: 16),
         if (p.tarefas.isNotEmpty) secao('Tarefas', p.tarefas),
         if (p.tarefas.isNotEmpty && p.futuro.isNotEmpty) pw.SizedBox(height: 16),
-        if (p.futuro.isNotEmpty) secao('Futuro', p.futuro),
+        if (p.futuro.isNotEmpty) secao('Ideias', p.futuro),
       ],
     ),
   );

@@ -85,7 +85,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         }
       }
       if (p.futuro.isNotEmpty) {
-        buf.writeln('  --- Futuro ---');
+        buf.writeln('  --- Ideias ---');
         for (final n in p.futuro) {
           for (final linha in n.texto.split('\n')) {
             buf.writeln('  $linha');

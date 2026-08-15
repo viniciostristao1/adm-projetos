@@ -21,13 +21,13 @@ App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, 
 
 ```
 lib/
-├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Espresso)
+├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege)
 ├── models.dart          # Nota, Projeto — serialização JSON
 ├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir
 ├── tema.dart            # TemaController (ChangeNotifier) + enums Modo e ModoFonte
 ├── cores.dart           # AppCores (ThemeExtension) — 8 cores/tema
 ├── projetos_screen.dart # Tela principal: lista de projetos + busca + backup (export/import)
-├── projeto_screen.dart  # Tela de 1 projeto: abas Tarefas/Futuro + _CaixaNota
+├── projeto_screen.dart  # Tela de 1 projeto: abas Tarefas/Ideias + _CaixaNota
 ├── pdf_export.dart      # Gera PDF do projeto inteiro e compartilha (printing)
 ├── editor.dart          # Utilitários: copiarTexto, mostrarAviso(Acao), capitalizarInicial,
 │                        #   proximoNumeroLista, LinhasNumeradas, maiusculaAposItem
@@ -63,17 +63,17 @@ lib/
 ## 4. Sistema de Temas
 
 ### Modo (enum em `tema.dart`)
-`azul`, `escuro`, `neumB` (Dark Game), `espresso` — **4 temas, todos escuros**
-(estilo inspirado no app Calis Timer: azul = navy plano com accent azul;
-espresso = neumórfico marrom café com accent âmbar). O app roda sempre em
-`ThemeMode.dark`.
+`azul`, `escuro`, `neumB` (Dark Game), `bege` — **4 temas** (estilo inspirado
+no app Calis Timer: azul = navy plano com accent azul; bege = claro com as
+cores do tema madeira — tons amadeirados com accent laranja-marrom). Bege é o
+único claro (roda em `ThemeMode.light`); os demais são escuros.
 
-- `themeFlutter`: sempre `ThemeMode.dark`.
+- `themeFlutter`: light para `bege`; dark para os demais.
 - Seletor de tema na engrenagem: `ChoiceChip` para cada `Modo` (usa `Modo.rotulo`).
 - **Migração de temas antigos** (`TemaController.carregar`): `claro` → `azul`;
-  `bege`/`begeNeum` → `espresso`; padrão (sem preferência) = `azul`.
+  `espresso`/`bege`/`begeNeum` → `bege`; padrão (sem preferência) = `azul`.
 
-### Dark Neumorphism (neumB, espresso)
+### Dark Neumorphism (neumB)
 - `AppCores.neumorfico == true` habilita superfícies em relevo (luz ↗ superior
   esquerda, sombra dupla difusa, SEM linhas/bordas — o highlight vem do brilho
   difuso).
@@ -82,7 +82,7 @@ espresso = neumórfico marrom café com accent âmbar). O app roda sempre em
   `projetoCardFim`); as cores das sombras/luz vêm de `sombraForte`,
   `sombraFraca`, `brilho` e `bordaLuz` (por paleta).
 - Barra de ferramentas: usa gradiente próprio (`barraFerramentas`→
-  `barraFerramentasFim`) quando difere da superfície (espresso = café);
+  `barraFerramentasFim`) quando difere da superfície;
   senão segue o gradiente da superfície.
 - `BotaoNeum` (caixa3d.dart): botão interativo com estado pressionado (inset
   simulado por gradiente) e `selecionado` (tint do acento).
@@ -108,7 +108,7 @@ espresso = neumórfico marrom café com accent âmbar). O app roda sempre em
 | `fab` | Cor de fundo do FAB (botão `+`) |
 | `fabIcone` | Cor do ícone no FAB |
 | `barraFerramentas` | Cor da barra de ícones no topo de cada caixinha |
-| `neumorfico` | bool — ativa relevo neumórfico (Dark Game/Espresso) |
+| `neumorfico` | bool — ativa relevo neumórfico (Dark Game) |
 | `fundoInicio` / `fundoFim` | Gradiente do fundo do app |
 | `sombraForte` / `sombraFraca` | Sombras duplas difusas (cores por tema) |
 | `brilho` | Luz refletida no canto superior esquerdo |
@@ -153,17 +153,17 @@ espresso = neumórfico marrom café com accent âmbar). O app roda sempre em
 | sombras | `sombraForte #C0000000`, `sombraFraca #80000000`, `brilho #08FFFFFF`, `bordaLuz #10FFFFFF` |
 | `textoUI` | `#EDEFF1` |
 
-**Espresso** — neumórfico, estilo Calis Timer (café + accent âmbar):
+**Bege** — plano, estilo Calis Timer (madeira claro + accent laranja):
 | Campo | Hex |
 |---|---|
-| `notaInicio` / `notaFim` | `#342F27` / `#26221C` |
-| `projetoCard` / `projetoCardFim` | `#322D26` / `#2A2620` |
-| `projetoTxt` | `#EFE8DC` |
-| `fab` / `fabIcone` | `#EBA84C` / `#241700` |
-| `barraFerramentas` / `barraFerramentasFim` | `#2E2923` / `#26221C` |
-| `fundoInicio` / `fundoFim` | `#2C2822` / `#201D18` |
-| sombras | `sombraForte #C0000000`, `sombraFraca #80000000`, `brilho #0CFFFFFF`, `bordaLuz #14FFFFFF` |
-| `textoUI` | `#EFE8DC` |
+| `notaInicio` / `notaFim` | `#E0D1B9` / `#CBB897` |
+| `notaBorda` | `#14000000` |
+| `projetoCard` / `projetoCardFim` | `#E0D1B9` / `#D8C7AC` |
+| `projetoTxt` | `#382E20` |
+| `fab` / `fabIcone` | `#B5652E` / `#FFF3E7` |
+| `barraFerramentas` / `barraFerramentasFim` | `#CBB897` / `#CBB897` |
+| `fundoInicio` / `fundoFim` | `#D8C7AC` / `#CDBB9D` |
+| `textoUI` | `#382E20` |
 
 ---
 
@@ -175,7 +175,7 @@ ProjetosScreen (lista de projetos)
   ├─ 🔍 → busca projetos por nome
   ├─ Card → ProjetoScreen (projeto aberto)
   │    ├─ Tab "Tarefas" → ReorderableListView de _CaixaNota
-  │    ├─ Tab "Futuro" → idem
+  │    ├─ Tab "Ideias" → idem
   │    ├─ 🔍 (ao lado das abas) → busca na aba ativa (texto + comentário)
   │    └─ PDF → gera PDF do projeto inteiro e compartilha
   └─ ⚙️ → ConfigSheet (tema, fonte, backup exportar/importar)
@@ -204,8 +204,8 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 ### Lista numerada
 - **Tarefas:** ao pressionar Enter, se a linha anterior é numerada, insere `"N- "` automaticamente.
 - O botão de numeração **alterna o número da linha do cursor**: remove o `"N- "` se existir, ou adiciona o próximo número. Não insere linhas novas (quem cria linha é o Enter).
-- **Futuro:** sem numeração automática, sem botão de lista.
-- Nova caixinha em Tarefas inicia com `"1- "`; Futuro inicia vazio.
+- **Ideias:** sem numeração automática, sem botão de lista.
+- Nova caixinha em Tarefas inicia com `"1- "`; Ideias inicia vazio.
 
 ### Itens de to-do (quadradinhos ☐/☑)
 - Botão `checklist` **converte a LINHA DO CURSOR** em item de to-do (ou remove
@@ -296,7 +296,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 
 ### Comentário
 - Em **Tarefas:** toggle (expande/recolhe sub-caixinha abaixo).
-- Em **Futuro:** sempre visível se existir.
+- Em **Ideias:** sempre visível se existir.
 - Texto em cor mais fraca (alpha 0.55).
 
 ### Backup
@@ -377,7 +377,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 ### Adicionar nova cor ao tema
 1. Adicionar campo `final Color` em `AppCores` (`cores.dart`)
 2. Atualizar construtor, `copyWith`, `lerp`
-3. Definir valor nas 4 constantes (`azul`, `escuro`, `neumB`, `espresso`)
+3. Definir valor nas 4 constantes (`azul`, `escuro`, `neumB`, `bege`)
 4. Acessar via `Theme.of(context).extension<AppCores>() ?? AppCores.azul`
 
 ### Adicionar novo botão na barra da caixinha
@@ -426,7 +426,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
 
 ### `test/tema_test.dart` (6 testes)
-- `Modo` tem exatamente os 4 temas (Azul, Escuro, Dark Game, Espresso)
+- `Modo` tem exatamente os 4 temas (Azul, Escuro, Dark Game, Bege)
 - Nomes antigos (claro/bege/begeNeum) não existem mais
 - Os 4 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
 
@@ -459,12 +459,12 @@ A cada publicação de APK:
 | Decisão | Motivo |
 |---|---|
 | JSON local em vez de Firebase | Simplicidade, offline-first, sem custo |
-| 4 temas escuros inspirados no Calis Timer (Azul/Escuro/Dark Game/Espresso) | Preferência do usuário; todos escuros (app roda sempre em dark mode) |
+| 4 temas inspirados no Calis Timer (Azul/Escuro/Dark Game/Bege) | Preferência do usuário; Bege é claro, os demais escuros |
 | Keystore fixa (não debug) | Evitar conflito de assinatura entre builds |
 | Release `v0.1.0` sobrescrita | Evitar cota de artifacts do GitHub |
 | `LinhasNumeradas` age só ao crescer texto | Impede que backspace recrie números |
 | Maiúscula com debounce 2s | Não quebrar digitação por voz |
-| Abas Tarefas/Futuro | Separar ideias atuais de futuras |
+| Abas Tarefas/Ideias | Separar tarefas de ideias futuras |
 | `dart:io` em vez de `http` | Não adicionar dependência extra |
 | Sem `jumpTo` da lista durante a rolagem do usuário | Era o "tremor" ao rolar a página com uma caixinha focada |
 | Derramar controladores no modelo ao perder foco/fechar | Texto em composição da IME não se perde ao sair rápido |

@@ -116,27 +116,22 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFFEDEFF1),
   );
 
-  /// Tema Espresso (estilo Calis Timer — neumórfico marrom escuro): fundo e
-  /// superfícies em café torrado, accent âmbar, texto creme.
-  static const AppCores espresso = AppCores(
-    notaInicio: Color(0xFF342F27),
-    notaFim: Color(0xFF26221C),
-    notaBorda: Color(0x00FFFFFF),
-    projetoCard: Color(0xFF322D26),
-    projetoCardFim: Color(0xFF2A2620),
-    projetoTxt: Color(0xFFEFE8DC),
-    fab: Color(0xFFEBA84C),
-    fabIcone: Color(0xFF241700),
-    barraFerramentas: Color(0xFF2E2923),
-    barraFerramentasFim: Color(0xFF26221C),
-    neumorfico: true,
-    fundoInicio: Color(0xFF2C2822),
-    fundoFim: Color(0xFF201D18),
-    sombraForte: Color(0xC0000000),
-    sombraFraca: Color(0x80000000),
-    brilho: Color(0x0CFFFFFF),
-    bordaLuz: Color(0x14FFFFFF),
-    textoUI: Color(0xFFEFE8DC),
+  /// Tema Bege (estilo Calis Timer — madeira): tons amadeirados claros
+  /// (bege/madeira) com accent laranja-marrom. Plano, sem relevo neumórfico.
+  static const AppCores bege = AppCores(
+    notaInicio: Color(0xFFE0D1B9),
+    notaFim: Color(0xFFCBB897),
+    notaBorda: Color(0x14000000),
+    projetoCard: Color(0xFFE0D1B9),
+    projetoCardFim: Color(0xFFD8C7AC),
+    projetoTxt: Color(0xFF382E20),
+    fab: Color(0xFFB5652E),
+    fabIcone: Color(0xFFFFF3E7),
+    barraFerramentas: Color(0xFFCBB897),
+    barraFerramentasFim: Color(0xFFCBB897),
+    fundoInicio: Color(0xFFD8C7AC),
+    fundoFim: Color(0xFFCDBB9D),
+    textoUI: Color(0xFF382E20),
   );
 
   @override

@@ -183,6 +183,96 @@ class AdmProjetosApp extends StatelessWidget {
     );
   }
 
+  /// Tema Bege (estilo Calis Timer — madeira): claro, tons amadeirados com
+  /// accent laranja-marrom, cartões arredondados (18) com borda sutil.
+  ThemeData _temaBege() {
+    const bg = Color(0xFFD8C7AC);
+    const surface = Color(0xFFE0D1B9);
+    const surface2 = Color(0xFFCBB897);
+    const text = Color(0xFF382E20);
+    const accent = Color(0xFFB5652E);
+    const onAccent = Color(0xFFFFF3E7);
+    return ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: accent,
+        brightness: Brightness.light,
+        surface: surface,
+        onSurface: text,
+      ).copyWith(primary: accent, onPrimary: onAccent),
+      scaffoldBackgroundColor: bg,
+      extensions: const [AppCores.bege],
+      appBarTheme: const AppBarTheme(
+        backgroundColor: bg,
+        foregroundColor: text,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
+          color: text,
+        ),
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: accent,
+        unselectedLabelColor: Color(0xFF8A7A60),
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+      ),
+      cardTheme: const CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+          side: BorderSide(color: Color(0x14000000)),
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: accent,
+        foregroundColor: onAccent,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: surface2,
+        hintStyle: TextStyle(color: Color(0xFFA2916F)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+      chipTheme: const ChipThemeData(
+        backgroundColor: surface,
+        selectedColor: Color(0xFFD8A878),
+        labelStyle: TextStyle(color: text, fontWeight: FontWeight.w700),
+        side: BorderSide(color: Color(0x14000000)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      dialogTheme: const DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+        titleTextStyle: TextStyle(
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
   ThemeData _temaEscuro() => _temaBase(ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E3A8A),
@@ -294,8 +384,6 @@ class AdmProjetosApp extends StatelessWidget {
 
   ThemeData _temaNeumB() => _temaNeum(AppCores.neumB);
 
-  ThemeData _temaEspresso() => _temaNeum(AppCores.espresso);
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -303,18 +391,18 @@ class AdmProjetosApp extends StatelessWidget {
       builder: (context, _) {
         final modo = temaController.modo;
         final scale = temaController.fonte.scale;
-        // Os 4 temas são escuros (estilo Calis Timer) — o app roda sempre
-        // em dark mode.
+        // Bege é claro (madeira do Calis Timer); os demais são escuros.
+        final claro = modo == Modo.bege;
         final theme = switch (modo) {
           Modo.azul => _temaAzul(),
           Modo.escuro => _temaEscuro(),
           Modo.neumB => _temaNeumB(),
-          Modo.espresso => _temaEspresso(),
+          Modo.bege => _temaBege(),
         };
         return MaterialApp(
           title: 'ADM-projetos',
           debugShowCheckedModeBanner: false,
-          themeMode: ThemeMode.dark,
+          themeMode: claro ? ThemeMode.light : ThemeMode.dark,
           theme: theme,
           darkTheme: theme,
           builder: (context, child) {
