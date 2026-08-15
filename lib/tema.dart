@@ -3,11 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Tema do aplicativo.
 enum Modo {
-  claro('Claro'),
+  azul('Azul'),
   escuro('Escuro'),
-  bege('Bege'),
   neumB('Dark Game'),
-  begeNeum('Bege Game');
+  espresso('Espresso');
 
   const Modo(this.rotulo);
   final String rotulo;
@@ -30,26 +29,30 @@ class TemaController extends ChangeNotifier {
   static const _chave = 'tema_v2';
   static const _chaveAntiga = 'tema_escuro_v1';
   static const _chaveFonte = 'fonte_v1';
-  Modo _modo = Modo.claro;
+  Modo _modo = Modo.azul;
   ModoFonte _fonte = ModoFonte.normal;
 
   Modo get modo => _modo;
   ModoFonte get fonte => _fonte;
 
-  /// Modo usado pelo [MaterialApp] (Dark Game é escuro; bege é claro).
-  ThemeMode get themeFlutter =>
-      _modo == Modo.escuro || _modo == Modo.neumB
-          ? ThemeMode.dark
-          : ThemeMode.light;
+  /// Modo usado pelo [MaterialApp] — os 4 temas são escuros (estilo Calis
+  /// Timer), então o app roda sempre em dark mode.
+  ThemeMode get themeFlutter => ThemeMode.dark;
 
-  /// Carrega as preferências salvas (chamar no início do app).
+  /// Carrega as preferências salvas (chamar no início do app). Temas antigos
+  /// removidos migram para os novos: claro → azul, bege/begeNeum → espresso.
   Future<void> carregar() async {
     final prefs = await SharedPreferences.getInstance();
     final antigo = prefs.getBool(_chaveAntiga);
     final salvo = prefs.getString(_chave) ??
-        (antigo == true ? 'escuro' : 'claro');
+        (antigo == true ? 'escuro' : 'azul');
+    final migrado = switch (salvo) {
+      'claro' => 'azul',
+      'bege' || 'begeNeum' => 'espresso',
+      _ => salvo,
+    };
     _modo = Modo.values
-        .firstWhere((m) => m.name == salvo, orElse: () => Modo.claro);
+        .firstWhere((m) => m.name == migrado, orElse: () => Modo.azul);
     final fonteSalva = prefs.getString(_chaveFonte);
     _fonte = ModoFonte.values
         .firstWhere((f) => f.name == fonteSalva, orElse: () => ModoFonte.normal);

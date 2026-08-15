@@ -21,7 +21,7 @@ App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, 
 
 ```
 lib/
-├── main.dart            # Entry point + 3 ThemeData (claro/escuro/bege)
+├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Espresso)
 ├── models.dart          # Nota, Projeto — serialização JSON
 ├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir
 ├── tema.dart            # TemaController (ChangeNotifier) + enums Modo e ModoFonte
@@ -63,13 +63,17 @@ lib/
 ## 4. Sistema de Temas
 
 ### Modo (enum em `tema.dart`)
-`claro`, `escuro`, `bege` (neumórfico com cartões/barra marrons), `neumB`
-(Dark Game), `begeNeum` (Bege Game)
+`azul`, `escuro`, `neumB` (Dark Game), `espresso` — **4 temas, todos escuros**
+(estilo inspirado no app Calis Timer: azul = navy plano com accent azul;
+espresso = neumórfico marrom café com accent âmbar). O app roda sempre em
+`ThemeMode.dark`.
 
-- `themeFlutter`: dark para `escuro`/`neumB`; light para os demais.
+- `themeFlutter`: sempre `ThemeMode.dark`.
 - Seletor de tema na engrenagem: `ChoiceChip` para cada `Modo` (usa `Modo.rotulo`).
+- **Migração de temas antigos** (`TemaController.carregar`): `claro` → `azul`;
+  `bege`/`begeNeum` → `espresso`; padrão (sem preferência) = `azul`.
 
-### Dark Neumorphism (bege, neumB, begeNeum)
+### Dark Neumorphism (neumB, espresso)
 - `AppCores.neumorfico == true` habilita superfícies em relevo (luz ↗ superior
   esquerda, sombra dupla difusa, SEM linhas/bordas — o highlight vem do brilho
   difuso).
@@ -78,7 +82,7 @@ lib/
   `projetoCardFim`); as cores das sombras/luz vêm de `sombraForte`,
   `sombraFraca`, `brilho` e `bordaLuz` (por paleta).
 - Barra de ferramentas: usa gradiente próprio (`barraFerramentas`→
-  `barraFerramentasFim`) quando difere da superfície (tema bege = marrom);
+  `barraFerramentasFim`) quando difere da superfície (espresso = café);
   senão segue o gradiente da superfície.
 - `BotaoNeum` (caixa3d.dart): botão interativo com estado pressionado (inset
   simulado por gradiente) e `selecionado` (tint do acento).
@@ -88,8 +92,8 @@ lib/
 - Fonte: **Manrope** (variável, asset local) — só nos temas neumórficos.
 - FAB: cor `fab` (acento) com elevação 8; abas com indicador "pill" do acento.
 - Texto da interface (títulos/abas/chips): `textoUI` — separado de
-  `projetoTxt` (texto DENTRO dos cartões) para o caso bege (cartão marrom com
-  texto creme + interface marrom escuro sobre fundo claro).
+  `projetoTxt` (texto DENTRO dos cartões) para os temas em que o cartão tem
+  cor própria.
 
 ### AppCores (ThemeExtension em `cores.dart`)
 8 campos de cor por tema + 3 novos:
@@ -104,7 +108,7 @@ lib/
 | `fab` | Cor de fundo do FAB (botão `+`) |
 | `fabIcone` | Cor do ícone no FAB |
 | `barraFerramentas` | Cor da barra de ícones no topo de cada caixinha |
-| `neumorfico` | bool — ativa relevo neumórfico (A/B/Bege Game) |
+| `neumorfico` | bool — ativa relevo neumórfico (Dark Game/Espresso) |
 | `fundoInicio` / `fundoFim` | Gradiente do fundo do app |
 | `sombraForte` / `sombraFraca` | Sombras duplas difusas (cores por tema) |
 | `brilho` | Luz refletida no canto superior esquerdo |
@@ -115,41 +119,51 @@ lib/
 
 ### Valores por tema
 
-**Claro:**
+**Azul** (plano, estilo Calis Timer — navy + accent azul):
 | Campo | Hex |
 |---|---|
-| `notaInicio` | `#F6FAFF` |
-| `notaFim` | `#EAF1FA` |
-| `notaBorda` | `#1A0B1220` |
-| `projetoCard` | `#1E3A8A` |
-| `projetoTxt` | `#FFFFFF` |
-| `fab` | `#4FC3F7` |
-| `fabIcone` | `#0B2E44` |
-| `barraFerramentas` | `#1E3A8A` |
+| `notaInicio` / `notaFim` | `#121A2E` / `#1B2540` |
+| `notaBorda` | `#14FFFFFF` |
+| `projetoCard` / `projetoCardFim` | `#121A2E` / `#0A0F1C` |
+| `projetoTxt` | `#EAF0FB` |
+| `fab` / `fabIcone` | `#3B82F6` / `#F2F7FF` |
+| `barraFerramentas` / `barraFerramentasFim` | `#1B2540` / `#121A2E` |
+| `fundoInicio` / `fundoFim` | `#0A0F1C` / `#070B14` |
+| `textoUI` | `#EAF0FB` |
 
 **Escuro:**
 | Campo | Hex |
 |---|---|
-| `notaInicio` | `#0A0A0A` |
-| `notaFim` | `#0A0A0A` |
+| `notaInicio` / `notaFim` | `#252525` / `#252525` |
 | `notaBorda` | `#33FFFFFF` |
 | `projetoCard` | `#000000` |
-| `projetoTxt` | `#E0E0E0` |
-| `fab` | `#F0A500` |
-| `fabIcone` | `#1A1200` |
-| `barraFerramentas` | `#000000` |
+| `projetoTxt` | `#FFFFFF` |
+| `fab` / `fabIcone` | `#D48000` / `#1A0E00` |
+| `barraFerramentas` | `#1A1A1A` |
 
-**Bege:**
+**Dark Game (neumB)** — neumórfico:
 | Campo | Hex |
 |---|---|
-| `notaInicio` | `#FFF9F0` |
-| `notaFim` | `#F1E9D7` |
-| `notaBorda` | `#336D4C2F` |
-| `projetoCard` | `#6D4C2F` |
-| `projetoTxt` | `#FBF3E8` |
-| `fab` | `#6D4C2F` |
-| `fabIcone` | `#FBF3E8` |
-| `barraFerramentas` | `#6D4C2F` |
+| `notaInicio` / `notaFim` | `#1B1D20` / `#111315` |
+| `projetoCard` / `projetoCardFim` | `#1B1D20` / `#111315` |
+| `projetoTxt` | `#EDEFF1` |
+| `fab` / `fabIcone` | `#9AA4AE` / `#0D1012` |
+| `barraFerramentas` / `barraFerramentasFim` | `#111315` / `#111315` |
+| `fundoInicio` / `fundoFim` | `#121517` / `#0A0C0D` |
+| sombras | `sombraForte #C0000000`, `sombraFraca #80000000`, `brilho #08FFFFFF`, `bordaLuz #10FFFFFF` |
+| `textoUI` | `#EDEFF1` |
+
+**Espresso** — neumórfico, estilo Calis Timer (café + accent âmbar):
+| Campo | Hex |
+|---|---|
+| `notaInicio` / `notaFim` | `#342F27` / `#26221C` |
+| `projetoCard` / `projetoCardFim` | `#322D26` / `#2A2620` |
+| `projetoTxt` | `#EFE8DC` |
+| `fab` / `fabIcone` | `#EBA84C` / `#241700` |
+| `barraFerramentas` / `barraFerramentasFim` | `#2E2923` / `#26221C` |
+| `fundoInicio` / `fundoFim` | `#2C2822` / `#201D18` |
+| sombras | `sombraForte #C0000000`, `sombraFraca #80000000`, `brilho #0CFFFFFF`, `bordaLuz #14FFFFFF` |
+| `textoUI` | `#EFE8DC` |
 
 ---
 
@@ -338,7 +352,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (24 testes)
+# Testes (30 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -363,8 +377,8 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 ### Adicionar nova cor ao tema
 1. Adicionar campo `final Color` em `AppCores` (`cores.dart`)
 2. Atualizar construtor, `copyWith`, `lerp`
-3. Definir valor nas 3 constantes (`luz`, `escuro`, `bege`)
-4. Acessar via `Theme.of(context).extension<AppCores>() ?? AppCores.luz`
+3. Definir valor nas 4 constantes (`azul`, `escuro`, `neumB`, `espresso`)
+4. Acessar via `Theme.of(context).extension<AppCores>() ?? AppCores.azul`
 
 ### Adicionar novo botão na barra da caixinha
 - Usar `_BotaoMini(icone:, tooltip:, onTap:, cor: onBarra)` dentro do `Row` da barra de ferramentas em `_CaixaNotaState.build`.
@@ -385,7 +399,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (24 testes)
+## 10. Testes (30 testes)
 
 ### `test/widget_test.dart` (4 testes)
 - Serialização de `Nota`
@@ -411,15 +425,20 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 ### `test/fonte_test.dart` (1 teste)
 - O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
 
+### `test/tema_test.dart` (6 testes)
+- `Modo` tem exatamente os 4 temas (Azul, Escuro, Dark Game, Espresso)
+- Nomes antigos (claro/bege/begeNeum) não existem mais
+- Os 4 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
+
 ---
 
 ## 11. Restrições e Cuidados
 
 - **NÃO usar `http` package** — usar `dart:io` `HttpClient` para requisições (app Android-only, não precisa de compatibilidade web).
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
-- **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.luz.fab)` — dá erro de compilação).
+- **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 24 testes devem passar.
+- **Sempre rodar `flutter test`** — 30 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -440,7 +459,7 @@ A cada publicação de APK:
 | Decisão | Motivo |
 |---|---|
 | JSON local em vez de Firebase | Simplicidade, offline-first, sem custo |
-| 3 temas (claro/escuro/bege) | Preferência do usuário |
+| 4 temas escuros inspirados no Calis Timer (Azul/Escuro/Dark Game/Espresso) | Preferência do usuário; todos escuros (app roda sempre em dark mode) |
 | Keystore fixa (não debug) | Evitar conflito de assinatura entre builds |
 | Release `v0.1.0` sobrescrita | Evitar cota de artifacts do GitHub |
 | `LinhasNumeradas` age só ao crescer texto | Impede que backspace recrie números |

@@ -64,16 +64,22 @@ class AppCores extends ThemeExtension<AppCores> {
   /// do texto dentro dos cartões quando o cartão é escuro e o fundo claro.
   final Color textoUI;
 
-  /// Tema claro (botão "+" em azul claro, pastas azuis).
-  static const AppCores luz = AppCores(
-    notaInicio: Color(0xFFF6FAFF),
-    notaFim: Color(0xFFEAF1FA),
-    notaBorda: Color(0x1A0B1220),
-    projetoCard: Color(0xFF1E3A8A),
-    projetoTxt: Colors.white,
-    fab: Color(0xFF4FC3F7),
-    fabIcone: Color(0xFF0B2E44),
-    barraFerramentas: Color(0xFF1E3A8A),
+  /// Tema Azul (estilo Calis Timer — navy + accent azul): fundo navy
+  /// profundo, superfícies azul-acinzentadas, texto claro. Plano (sem relevo).
+  static const AppCores azul = AppCores(
+    notaInicio: Color(0xFF121A2E),
+    notaFim: Color(0xFF1B2540),
+    notaBorda: Color(0x14FFFFFF),
+    projetoCard: Color(0xFF121A2E),
+    projetoCardFim: Color(0xFF0A0F1C),
+    projetoTxt: Color(0xFFEAF0FB),
+    fab: Color(0xFF3B82F6),
+    fabIcone: Color(0xFFF2F7FF),
+    barraFerramentas: Color(0xFF1B2540),
+    barraFerramentasFim: Color(0xFF121A2E),
+    fundoInicio: Color(0xFF0A0F1C),
+    fundoFim: Color(0xFF070B14),
+    textoUI: Color(0xFFEAF0FB),
   );
 
   /// Tema escuro: fundo preto, caixinha cinza escuro, barra de ferramentas mais escura.
@@ -86,29 +92,6 @@ class AppCores extends ThemeExtension<AppCores> {
     fab: Color(0xFFD48000),
     fabIcone: Color(0xFF1A0E00),
     barraFerramentas: Color(0xFF1A1A1A),
-  );
-
-  /// Tema bege: fundo creme, cartões do projeto e barra de ferramentas em
-  /// marrom, no estilo neumórfico (mesma física de luz/sombra dos temas Game).
-  static const AppCores bege = AppCores(
-    notaInicio: Color(0xFFFFF9F0),
-    notaFim: Color(0xFFF1E9D7),
-    notaBorda: Color(0x336D4C2F),
-    projetoCard: Color(0xFF6D4C2F),
-    projetoCardFim: Color(0xFF57402A),
-    projetoTxt: Color(0xFFFBF3E8),
-    fab: Color(0xFF6D4C2F),
-    fabIcone: Color(0xFFFBF3E8),
-    barraFerramentas: Color(0xFF6D4C2F),
-    barraFerramentasFim: Color(0xFF57402A),
-    neumorfico: true,
-    fundoInicio: Color(0xFFF2E9D8),
-    fundoFim: Color(0xFFE3D5B8),
-    sombraForte: Color(0x40603E1F),
-    sombraFraca: Color(0x2E603E1F),
-    brilho: Color(0xA6FFFFFF),
-    bordaLuz: Color(0xE6FFFFFF),
-    textoUI: Color(0xFF4A2A0E),
   );
 
   /// Tema B (Dark Game): grafite e pretos neutros, acento aço desaturado.
@@ -133,27 +116,27 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFFEDEFF1),
   );
 
-  /// Tema Bege Game: mesmo estilo neumórfico do Dark Game, em tons claros
-  /// de bege e marrom (sombra marrom suave, luz branca).
-  static const AppCores begeNeum = AppCores(
-    notaInicio: Color(0xFFF8F0E1),
-    notaFim: Color(0xFFEAD9BE),
+  /// Tema Espresso (estilo Calis Timer — neumórfico marrom escuro): fundo e
+  /// superfícies em café torrado, accent âmbar, texto creme.
+  static const AppCores espresso = AppCores(
+    notaInicio: Color(0xFF342F27),
+    notaFim: Color(0xFF26221C),
     notaBorda: Color(0x00FFFFFF),
-    projetoCard: Color(0xFFF8F0E1),
-    projetoCardFim: Color(0xFFEAD9BE),
-    projetoTxt: Color(0xFF4A2A0E),
-    fab: Color(0xFF6D4C2F),
-    fabIcone: Color(0xFFFBF3E8),
-    barraFerramentas: Color(0xFFEAD9BE),
-    barraFerramentasFim: Color(0xFFEAD9BE),
+    projetoCard: Color(0xFF322D26),
+    projetoCardFim: Color(0xFF2A2620),
+    projetoTxt: Color(0xFFEFE8DC),
+    fab: Color(0xFFEBA84C),
+    fabIcone: Color(0xFF241700),
+    barraFerramentas: Color(0xFF2E2923),
+    barraFerramentasFim: Color(0xFF26221C),
     neumorfico: true,
-    fundoInicio: Color(0xFFEFE5D3),
-    fundoFim: Color(0xFFE0D2B8),
-    sombraForte: Color(0x40603E1F),
-    sombraFraca: Color(0x2E603E1F),
-    brilho: Color(0xA6FFFFFF),
-    bordaLuz: Color(0xE6FFFFFF),
-    textoUI: Color(0xFF4A2A0E),
+    fundoInicio: Color(0xFF2C2822),
+    fundoFim: Color(0xFF201D18),
+    sombraForte: Color(0xC0000000),
+    sombraFraca: Color(0x80000000),
+    brilho: Color(0x0CFFFFFF),
+    bordaLuz: Color(0x14FFFFFF),
+    textoUI: Color(0xFFEFE8DC),
   );
 
   @override

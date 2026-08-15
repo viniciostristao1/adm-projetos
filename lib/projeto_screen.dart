@@ -192,9 +192,8 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
             child: Builder(builder: (ctx) {
-              final app = Theme.of(ctx).extension<AppCores>() ?? AppCores.luz;
-              final ehBege = app == AppCores.bege;
-              final preencher = ehBege || app.neumorfico;
+              final app = Theme.of(ctx).extension<AppCores>() ?? AppCores.azul;
+              final preencher = app.neumorfico;
               return TextField(
                 controller: _ctrlBusca,
                 focusNode: _focoBusca,
@@ -857,7 +856,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
 
   @override
   Widget build(BuildContext context) {
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final corFerramentas = app.barraFerramentas;
     final onBarra = ThemeData.estimateBrightnessForColor(corFerramentas) ==
             Brightness.dark
@@ -1113,7 +1112,7 @@ class _BotaoMini extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     if (!app.neumorfico) {
       return IconButton(
         icon: Icon(icone,

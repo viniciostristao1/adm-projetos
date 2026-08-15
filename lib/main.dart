@@ -39,22 +39,7 @@ class _SalvadorDeVida with WidgetsBindingObserver {
 }
 
 class AdmProjetosApp extends StatelessWidget {
-  static const _bordaCard = Color(0x1A0B1220);
-
-  static const _appbarClaro = AppBarTheme(
-    backgroundColor: Color(0xFFFFFFFF),
-    foregroundColor: Color(0xFF1E3A8A),
-    surfaceTintColor: Colors.transparent,
-    scrolledUnderElevation: 0,
-    elevation: 0,
-    centerTitle: false,
-    titleTextStyle: TextStyle(
-      fontSize: 20,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.2,
-      color: Color(0xFF1E3A8A),
-    ),
-  );
+  static const _bordaCard = Color(0x1AFFFFFF);
 
   static const _appbarEscuro = AppBarTheme(
     backgroundColor: Colors.black,
@@ -108,15 +93,95 @@ class AdmProjetosApp extends StatelessWidget {
         ),
       );
 
-  ThemeData _temaClaro() => _temaBase(ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E3A8A)),
-      extensions: const [AppCores.luz],
-      appBarTheme: _appbarClaro,
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: AppCores.luz.fab,
-        foregroundColor: AppCores.luz.fabIcone,
+  /// Tema Azul (estilo Calis Timer): navy escuro plano com accent azul,
+  /// cartões arredondados (18) com borda sutil, inputs preenchidos.
+  ThemeData _temaAzul() {
+    const bg = Color(0xFF0A0F1C);
+    const surface = Color(0xFF121A2E);
+    const surface2 = Color(0xFF1B2540);
+    const text = Color(0xFFEAF0FB);
+    const accent = Color(0xFF3B82F6);
+    const onAccent = Color(0xFFF2F7FF);
+    return ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: accent,
+        brightness: Brightness.dark,
+        surface: surface,
+        onSurface: text,
+      ).copyWith(primary: accent, onPrimary: onAccent),
+      scaffoldBackgroundColor: bg,
+      extensions: const [AppCores.azul],
+      appBarTheme: const AppBarTheme(
+        backgroundColor: bg,
+        foregroundColor: text,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
+          color: text,
+        ),
       ),
-    ));
+      tabBarTheme: const TabBarThemeData(
+        labelColor: accent,
+        unselectedLabelColor: Color(0xFF8A96AE),
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+      ),
+      cardTheme: const CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+          side: BorderSide(color: Color(0x14FFFFFF)),
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: accent,
+        foregroundColor: onAccent,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: surface2,
+        hintStyle: TextStyle(color: Color(0xFF56607A)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+      chipTheme: const ChipThemeData(
+        backgroundColor: surface,
+        selectedColor: Color(0xFF1E4A9E),
+        labelStyle: TextStyle(color: text, fontWeight: FontWeight.w700),
+        side: BorderSide(color: Color(0x14FFFFFF)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      dialogTheme: const DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+        titleTextStyle: TextStyle(
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
 
   ThemeData _temaEscuro() => _temaBase(ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -229,7 +294,7 @@ class AdmProjetosApp extends StatelessWidget {
 
   ThemeData _temaNeumB() => _temaNeum(AppCores.neumB);
 
-  ThemeData _temaBegeNeum() => _temaNeum(AppCores.begeNeum);
+  ThemeData _temaEspresso() => _temaNeum(AppCores.espresso);
 
   @override
   Widget build(BuildContext context) {
@@ -237,27 +302,21 @@ class AdmProjetosApp extends StatelessWidget {
       listenable: temaController,
       builder: (context, _) {
         final modo = temaController.modo;
-        final escuro =
-            modo == Modo.escuro || modo == Modo.neumB;
         final scale = temaController.fonte.scale;
+        // Os 4 temas são escuros (estilo Calis Timer) — o app roda sempre
+        // em dark mode.
         final theme = switch (modo) {
-          Modo.claro => _temaClaro(),
-          Modo.bege => _temaNeum(AppCores.bege),
-          Modo.escuro => _temaClaro(), // não usado (themeMode.dark)
-          Modo.neumB => _temaNeumB(),
-          Modo.begeNeum => _temaBegeNeum(),
-        };
-        final darkTheme = switch (modo) {
+          Modo.azul => _temaAzul(),
           Modo.escuro => _temaEscuro(),
           Modo.neumB => _temaNeumB(),
-          _ => _temaEscuro(),
+          Modo.espresso => _temaEspresso(),
         };
         return MaterialApp(
           title: 'ADM-projetos',
           debugShowCheckedModeBanner: false,
-          themeMode: escuro ? ThemeMode.dark : ThemeMode.light,
+          themeMode: ThemeMode.dark,
           theme: theme,
-          darkTheme: darkTheme,
+          darkTheme: theme,
           builder: (context, child) {
             final data = MediaQuery.of(context);
             return MediaQuery(

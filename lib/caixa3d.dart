@@ -31,7 +31,7 @@ class Caixa3D extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     if (!app.neumorfico) {
       return Container(
         decoration: BoxDecoration(
@@ -118,7 +118,7 @@ class _BotaoNeumState extends State<BotaoNeum> {
 
   @override
   Widget build(BuildContext context) {
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     if (!app.neumorfico) {
       return GestureDetector(onTap: widget.onTap, child: widget.child);
     }
@@ -202,7 +202,7 @@ class Fundo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.luz;
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     if (!app.neumorfico) return child;
     return DecoratedBox(
       decoration: BoxDecoration(

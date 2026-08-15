@@ -288,8 +288,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 itemBuilder: (_, i) {
                   final p = visiveis[i];
                   final app =
-                      Theme.of(context).extension<AppCores>() ?? AppCores.luz;
-                  final modo = temaController.modo;
+                      Theme.of(context).extension<AppCores>() ?? AppCores.azul;
 
                   Future<void> onTapProjeto() async {
                     await Navigator.push(
@@ -300,72 +299,6 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     );
                     await _salvar();
                     if (mounted) setState(() {});
-                  }
-
-                  if (modo == Modo.claro) {
-                    return Padding(
-                      key: ValueKey(p.id),
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Caixa3D(
-                        cor: app.projetoCard,
-                        child: Card(
-                          margin: EdgeInsets.zero,
-                          elevation: 0,
-                          color: app.projetoCard,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: ListTile(
-                            leading: q.isNotEmpty
-                                ? Icon(Icons.drag_indicator,
-                                    color: app.projetoTxt)
-                                : ReorderableDragStartListener(
-                                    index: i,
-                                    child: Icon(Icons.drag_indicator,
-                                        color: app.projetoTxt),
-                                  ),
-                            title: Text(
-                              p.nome,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: app.projetoTxt),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                      p.emAndamento
-                                          ? Icons.check_box
-                                          : Icons.check_box_outline_blank,
-                                      size: 20,
-                                      color: p.emAndamento
-                                          ? const Color(0xFF4ADE80)
-                                          : app.projetoTxt),
-                                  tooltip: p.emAndamento
-                                      ? 'Parar (não está mais em andamento)'
-                                      : 'Marcar como em andamento',
-                                  onPressed: () => _alternarAndamento(p),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.edit_outlined,
-                                      size: 20, color: app.projetoTxt),
-                                  tooltip: 'Renomear',
-                                  onPressed: () => _renomear(p),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete_outline,
-                                      size: 20, color: app.projetoTxt),
-                                  tooltip: 'Excluir',
-                                  onPressed: () => _excluir(p),
-                                ),
-                              ],
-                            ),
-                            onTap: onTapProjeto,
-                          ),
-                        ),
-                      ),
-                    );
                   }
 
                   if (app.neumorfico) {
@@ -459,13 +392,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     );
                   }
 
-                final escuro = modo == Modo.escuro;
-                final dividir =
-                    escuro ? const Color(0xFF333333) : const Color(0xFF8D7255);
-                final arrastarCor = escuro ? Colors.white : const Color(0xFF6D4C2F);
-                final txtCor = escuro ? Colors.white : const Color(0xFF4A2A0E);
-                final bolaCor = escuro ? const Color(0xFF3A3A3A) : const Color(0xFF6D4C2F);
-                final iconeCor = Colors.white;
+                // Temas planos (Azul e Escuro): linha com o nome + bolinhas.
+                // As cores vêm do AppCores para servir os dois temas.
+                final arrastarCor = app.projetoTxt;
+                final txtCor = app.projetoTxt;
+                final bolaCor = app.notaFim;
+                final iconeCor = app.projetoTxt;
+                final dividir = app.notaFim;
 
                 return Column(
                   key: ValueKey(p.id),
