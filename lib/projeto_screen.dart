@@ -1205,8 +1205,11 @@ class _DialogoLinksState extends State<_DialogoLinks> {
         .map((l) => TextEditingController(text: l.url))
         .toList();
     _titulos = widget.links.map((l) => l.titulo).toList();
-    _buscando = List.filled(_ctrls.length, false);
-    _debounces = List.filled(_ctrls.length, null);
+    // growable: true é OBRIGATÓRIO — _adicionar/_remover fazem add/removeAt
+    // (List.filled padrão é de tamanho fixo e estouraria com UnsupportedError,
+    // derrubando o app na tela branca).
+    _buscando = List.filled(_ctrls.length, false, growable: true);
+    _debounces = List.filled(_ctrls.length, null, growable: true);
     if (_ctrls.isEmpty) {
       _ctrls.add(TextEditingController());
       _titulos.add(null);

@@ -94,25 +94,6 @@ class AppCores extends ThemeExtension<AppCores> {
     barraFerramentas: Color(0xFF1A1A1A),
   );
 
-  /// Tema Creme: o FUNDO é a cor creme (mesma do interior das caixinhas do
-  /// tema Bege) e a barra de ferramentas usa o creme; caixinhas e cartões
-  /// num tom mais escuro para o tema não ficar lavado. Plano, sem relevo.
-  static const AppCores creme = AppCores(
-    notaInicio: Color(0xFFE7D6B6),
-    notaFim: Color(0xFFD9C49E),
-    notaBorda: Color(0x14000000),
-    projetoCard: Color(0xFFE4D2AF),
-    projetoCardFim: Color(0xFFD4BE97),
-    projetoTxt: Color(0xFF382E20),
-    fab: Color(0xFFB5652E),
-    fabIcone: Color(0xFFFFF3E7),
-    barraFerramentas: Color(0xFFE0D1B9),
-    barraFerramentasFim: Color(0xFFD8C7AC),
-    fundoInicio: Color(0xFFE0D1B9),
-    fundoFim: Color(0xFFD8C7AC),
-    textoUI: Color(0xFF382E20),
-  );
-
   /// Tema B (Dark Game): grafite e pretos neutros, acento aço desaturado.
   static const AppCores neumB = AppCores(
     notaInicio: Color(0xFF1B1D20),

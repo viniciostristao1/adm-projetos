@@ -6,8 +6,7 @@ enum Modo {
   azul('Azul'),
   escuro('Escuro'),
   neumB('Dark Game'),
-  bege('Bege'),
-  creme('Creme');
+  bege('Bege');
 
   const Modo(this.rotulo);
   final String rotulo;
@@ -36,11 +35,10 @@ class TemaController extends ChangeNotifier {
   Modo get modo => _modo;
   ModoFonte get fonte => _fonte;
 
-  /// Modo usado pelo [MaterialApp] — Bege e Creme são claros (madeira do
-  /// Calis Timer); os demais são escuros.
-  ThemeMode get themeFlutter => (_modo == Modo.bege || _modo == Modo.creme)
-      ? ThemeMode.light
-      : ThemeMode.dark;
+  /// Modo usado pelo [MaterialApp] — Bege é claro (madeira do Calis Timer);
+  /// os demais são escuros.
+  ThemeMode get themeFlutter =>
+      _modo == Modo.bege ? ThemeMode.light : ThemeMode.dark;
 
   /// Carrega as preferências salvas (chamar no início do app). Temas antigos
   /// removidos migram para os novos: claro → azul, espresso → bege,

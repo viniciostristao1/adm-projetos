@@ -64,16 +64,15 @@ lib/
 ## 4. Sistema de Temas
 
 ### Modo (enum em `tema.dart`)
-`azul`, `escuro`, `neumB` (Dark Game), `bege`, `creme` — **5 temas** (estilo
-inspirado no app Calis Timer: azul = navy plano com accent azul; bege e creme
-= claros com as cores do tema madeira — tons amadeirados com accent
-laranja-marrom). Bege e Creme rodam em `ThemeMode.light`; os demais são
-escuros.
+`azul`, `escuro`, `neumB` (Dark Game), `bege` — **4 temas** (estilo inspirado
+no app Calis Timer: azul = navy plano com accent azul; bege = claro com as
+cores do tema madeira — tons amadeirados com accent laranja-marrom). Bege é o
+único claro (roda em `ThemeMode.light`); os demais são escuros.
 
-- `themeFlutter`: light para `bege`/`creme`; dark para os demais.
+- `themeFlutter`: light para `bege`; dark para os demais.
 - Seletor de tema na engrenagem: `ChoiceChip` para cada `Modo` (usa `Modo.rotulo`).
 - **Migração de temas antigos** (`TemaController.carregar`): `claro` → `azul`;
-  `espresso`/`bege`/`begeNeum` → `bege`; padrão (sem preferência) = `azul`. Creme é novo.
+  `espresso`/`bege`/`begeNeum` → `bege`; padrão (sem preferência) = `azul`.
 
 ### Dark Neumorphism (neumB)
 - `AppCores.neumorfico == true` habilita superfícies em relevo (luz ↗ superior
@@ -155,18 +154,9 @@ escuros.
 | sombras | `sombraForte #C0000000`, `sombraFraca #80000000`, `brilho #08FFFFFF`, `bordaLuz #10FFFFFF` |
 | `textoUI` | `#EDEFF1` |
 
-**Creme** — plano (fundo = a cor das caixinhas do Bege, mais escuro no resto):
-| Campo | Hex |
-|---|---|
-| `notaInicio` / `notaFim` | `#E7D6B6` / `#D9C49E` |
-| `projetoCard` / `projetoCardFim` | `#E4D2AF` / `#D4BE97` |
-| `projetoTxt` | `#382E20` |
-| `fab` / `fabIcone` | `#B5652E` / `#FFF3E7` |
-| `barraFerramentas` / `barraFerramentasFim` | `#E0D1B9` / `#D8C7AC` |
-| `fundoInicio` / `fundoFim` | `#E0D1B9` / `#D8C7AC` |
-| `textoUI` | `#382E20` |
-
-**Bege** — plano, estilo Calis Timer (madeira claro + accent laranja):
+**Bege** — plano, estilo Calis Timer (madeira claro + accent laranja).
+As PASTAS de projeto usam `projetoCard` = `#E0D1B9`, a MESMA cor das
+caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 | Campo | Hex |
 |---|---|
 | `notaInicio` / `notaFim` | `#E0D1B9` / `#CBB897` |
@@ -381,7 +371,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (41 testes)
+# Testes (44 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -428,7 +418,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (41 testes)
+## 10. Testes (44 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -454,14 +444,20 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - `Nota.fromJson` normaliza quadradinhos antigos sem VS15 (regressão: carregava como emoji)
 - Toque no quadradinho de dado antigo (sem VS15) grava `☑\uFE0E` (não vira emoji)
 
+### `test/undo_link_test.dart` (4 testes)
+- Desfazer restaura a palavra digitada e apagada (composição realista do IME)
+- Desfazer restaura a rajada inteira de apagamentos
+- Diálogo de links abre sem exceção (regressão da tela branca)
+- Digitar URL e Salvar no diálogo não crasham
+
 ### `test/desfazer_test.dart` (6 testes)
 - `HistoricoTexto`: digitação não empilha; rajada de apagamento empilha uma vez; desfazer restaura o texto inteiro; várias rajadas; limpar tudo pode ser desfeito; limite da pilha
 
 ### `test/fonte_test.dart` (1 teste)
 - O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
 
-### `test/tema_test.dart` (7 testes)
-- `Modo` tem exatamente os 5 temas (Azul, Escuro, Dark Game, Bege, Creme)
+### `test/tema_test.dart` (6 testes)
+- `Modo` tem exatamente os 4 temas (Azul, Escuro, Dark Game, Bege)
 - Nomes antigos (claro/bege/begeNeum) não existem mais
 - Os 4 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
 
@@ -473,7 +469,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 41 testes devem passar.
+- **Sempre rodar `flutter test`** — 44 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 

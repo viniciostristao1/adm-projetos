@@ -286,18 +286,6 @@ class AdmProjetosApp extends StatelessWidget {
         app: AppCores.bege,
       );
 
-  /// Creme: fundo = creme (#E0D1B9, o interior das caixinhas do Bege) com
-  /// caixinhas e superfícies num tom mais escuro (tema mais "fechado").
-  ThemeData _temaCreme() => _temaClaroCalis(
-        bg: const Color(0xFFE0D1B9),
-        surface: const Color(0xFFE7D6B6),
-        surface2: const Color(0xFFD9C49E),
-        text: const Color(0xFF382E20),
-        accent: const Color(0xFFB5652E),
-        onAccent: const Color(0xFFFFF3E7),
-        app: AppCores.creme,
-      );
-
   ThemeData _temaEscuro() => _temaBase(ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E3A8A),
@@ -416,15 +404,13 @@ class AdmProjetosApp extends StatelessWidget {
       builder: (context, _) {
         final modo = temaController.modo;
         final scale = temaController.fonte.scale;
-        // Bege e Creme são claros (madeira do Calis Timer); demais escuros.
-        final claro =
-            modo == Modo.bege || modo == Modo.creme;
+        // Bege é o único claro (madeira do Calis Timer); demais escuros.
+        final claro = modo == Modo.bege;
         final theme = switch (modo) {
           Modo.azul => _temaAzul(),
           Modo.escuro => _temaEscuro(),
           Modo.neumB => _temaNeumB(),
           Modo.bege => _temaBege(),
-          Modo.creme => _temaCreme(),
         };
         return MaterialApp(
           title: 'ADM-projetos',

@@ -392,20 +392,23 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     );
                   }
 
-                // Temas planos (Azul e Escuro): linha com o nome + bolinhas.
-                // As cores vêm do AppCores para servir os dois temas.
+                // Temas planos (Azul, Escuro e Bege): cartão na cor do tema
+                // (no Bege, a mesma cor das caixinhas) com o nome + bolinhas.
                 final arrastarCor = app.projetoTxt;
                 final txtCor = app.projetoTxt;
                 final bolaCor = app.notaFim;
                 final iconeCor = app.projetoTxt;
-                final dividir = app.notaFim;
 
-                return Column(
+                return Padding(
                   key: ValueKey(p.id),
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: app.projetoCard,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 10, 4),
                       child: Row(
                         children: [
                           q.isNotEmpty
@@ -490,8 +493,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                         ],
                       ),
                     ),
-                    Divider(height: 1, thickness: 1, color: dividir),
-                  ],
+                  ),
                 );
               },
             );
