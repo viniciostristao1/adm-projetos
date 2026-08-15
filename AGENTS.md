@@ -206,6 +206,15 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   quadradinho (`_toqueTexto` sempre grava `☑\uFE0E`/`☐\uFE0E` e descarta um
   VS15 perdido) e ao CARREGAR dados (`Nota.normalizarTodos` em `fromJson`
   corrige textos salvos antes do VS15).
+- ⚠️ Além do VS15, o app embute um subset da **Noto Sans Symbols 2** (só os
+  glifos ☐/☑/☒, `assets/fonts/NotoSansSymbols2-Regular.ttf`, ~2KB, OFL) e o
+  usa como `fontFamilyFallback` no estilo do texto (campo e comentário):
+  a fonte do app (Manrope/Roboto) NÃO tem esses glifos, então sem o subset
+  alguns aparelhos caíam na fonte de emoji e o ☑ virava ✅ verde (VS15 não
+  adianta se nenhuma fonte de texto do sistema tiver o glifo).
+- O estilo do texto é montado em `build` (`_estiloCampo`: fonte do tema +
+  fallback + fontSize/height) e REUSADO no hit-test (`_toqueTexto`) — assim
+  as métricas do `TextPainter` batem com o texto renderizado.
 - **Tocar no quadradinho** (faixa esquerda de ~40px de uma linha ☐/☑) alterna
   marcado/desmarcado — hit-test com `TextPainter` no `_toqueTexto`, detectado
   por `Listener` (eventos crus, sem disputa de gestos com o campo de texto).
@@ -329,7 +338,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (23 testes)
+# Testes (24 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -376,7 +385,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (23 testes)
+## 10. Testes (24 testes)
 
 ### `test/widget_test.dart` (4 testes)
 - Serialização de `Nota`
@@ -399,6 +408,9 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - `Nota.fromJson` normaliza quadradinhos antigos sem VS15 (regressão: carregava como emoji)
 - Toque no quadradinho de dado antigo (sem VS15) grava `☑\uFE0E` (não vira emoji)
 
+### `test/fonte_test.dart` (1 teste)
+- O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
+
 ---
 
 ## 11. Restrições e Cuidados
@@ -407,7 +419,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.luz.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 23 testes devem passar.
+- **Sempre rodar `flutter test`** — 24 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 

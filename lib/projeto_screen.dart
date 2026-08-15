@@ -520,7 +520,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
   }
 
   /// Métricas exatas do texto do campo (para o hit-test do quadradinho).
+  /// Montado em `build` com a MESMA fonte do TextField (tema + fallback dos
+  /// quadradinhos) para o hit-test bater com o que é renderizado.
   static const TextStyle _estiloTexto = TextStyle(fontSize: 14.5, height: 1.35);
+  TextStyle? _estiloCampo;
 
   void _mudou(String novoTexto) {
     widget.nota.texto = novoTexto;
@@ -681,7 +684,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
     final dy = local.dy + (_scroll.hasClients ? _scroll.offset : 0.0) - 2;
     if (dy < 0) return;
     final painter = TextPainter(
-      text: TextSpan(text: texto, style: _estiloTexto),
+      text: TextSpan(text: texto, style: _estiloCampo ?? _estiloTexto),
       textDirection: TextDirection.ltr,
       textScaler: MediaQuery.textScalerOf(context),
     )..layout(maxWidth: box.size.width - 28);
@@ -861,6 +864,16 @@ class _CaixaNotaState extends State<_CaixaNota> {
         ? Colors.white
         : Colors.black87;
 
+    // Mesma fonte do tema + fallback com os glifos ☐/☑ em TEXTO (Noto Sans
+    // Symbols 2, subset embutido): sem ele alguns celulares renderizam o ☑
+    // como emoji verde. Também é o estilo usado pelo hit-test (_toqueTexto).
+    _estiloCampo = TextStyle(
+      fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+      fontFamilyFallback: const ['NotoSansSymbols2'],
+      fontSize: 14.5,
+      height: 1.35,
+    );
+
     _comentarioVisivel = _comentarioExpandido ||
         (!widget.modoTarefas &&
             (widget.nota.comentario?.isNotEmpty ?? false));
@@ -1026,9 +1039,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
                   keyboardType: TextInputType.multiline,
                   textCapitalization: TextCapitalization.sentences,
                   inputFormatters: [LinhasNumeradas()],
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    height: 1.35,
+                  style: (_estiloCampo ?? _estiloTexto).copyWith(
                     color: widget.nota.concluida
                         ? Theme.of(context).colorScheme.onSurface
                             .withValues(alpha: 0.45)
@@ -1071,6 +1082,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
                 ),
                 style: TextStyle(
                   fontSize: 13,
+                  fontFamilyFallback: const ['NotoSansSymbols2'],
                   color: Theme.of(context)
                       .colorScheme
                       .onSurface
