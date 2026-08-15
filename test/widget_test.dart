@@ -40,4 +40,41 @@ void main() {
     expect(p.tarefas.first.texto, 'velha ideia');
     expect(p.futuro, isEmpty);
   });
+
+  test('Nota serializa até 3 links com título', () {
+    final nota = Nota(id: '1', texto: 'x', links: [
+      NotaLink(url: 'https://youtu.be/abc', titulo: 'Vídeo 1'),
+      NotaLink(url: 'https://example.com'),
+    ]);
+    final deVolta = Nota.fromJson(nota.toJson());
+    expect(deVolta.links.length, 2);
+    expect(deVolta.links[0].url, 'https://youtu.be/abc');
+    expect(deVolta.links[0].titulo, 'Vídeo 1');
+    expect(deVolta.links[1].titulo, isNull);
+  });
+
+  test('Nota migra link antigo para links[0] e limpa comentário-eco', () {
+    final json = {
+      'id': '1',
+      'texto': 'x',
+      'link': 'https://youtu.be/abc',
+      'comentario': 'Título do vídeo',
+    };
+    final n = Nota.fromJson(json);
+    expect(n.links.length, 1);
+    expect(n.links[0].url, 'https://youtu.be/abc');
+    expect(n.links[0].titulo, 'Título do vídeo');
+    expect(n.comentario, isNull);
+  });
+
+  test('Nota sem links antigos mantém o comentário manual', () {
+    final n = Nota.fromJson({'id': '1', 'texto': 'x', 'comentario': 'lembrete'});
+    expect(n.links, isEmpty);
+    expect(n.comentario, 'lembrete');
+  });
+
+  test('Nota serializa centralizada', () {
+    final nota = Nota(id: '1', texto: 'título', centralizada: true);
+    expect(Nota.fromJson(nota.toJson()).centralizada, isTrue);
+  });
 }

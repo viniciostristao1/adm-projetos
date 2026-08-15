@@ -348,7 +348,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
   final ScrollController _scroll = ScrollController();
   final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
-  Timer? _debounceYT;
   Timer? _timerVis;
   double? _alturaMaxima;
   bool _numerado = true;
@@ -365,6 +364,11 @@ class _CaixaNotaState extends State<_CaixaNota> {
         TextEditingController(text: widget.nota.comentario ?? '');
     _foco.addListener(_aoFocar);
     _foco.addListener(_aoPerderFoco);
+    // Links antigos (migrados sem título) e links de vídeos novos ganham o
+    // título do YouTube automaticamente — sem precisar abrir o diálogo.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _buscarTitulosPendentes();
+    });
   }
 
   @override
@@ -389,7 +393,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
   @override
   void dispose() {
     _debounce?.cancel();
-    _debounceYT?.cancel();
     _timerVis?.cancel();
     _posExterna?.removeListener(_aoRolarExterno);
     _foco.removeListener(_aoFocar);
@@ -552,6 +555,13 @@ class _CaixaNotaState extends State<_CaixaNota> {
 
   void _alternarConcluida() {
     setState(() => widget.nota.concluida = !widget.nota.concluida);
+    Storage.instance.salvar();
+  }
+
+  /// Centraliza todo o texto da caixinha (modo "título") ou volta ao
+  /// alinhamento à esquerda.
+  void _alternarCentralizada() {
+    setState(() => widget.nota.centralizada = !widget.nota.centralizada);
     Storage.instance.salvar();
   }
 
@@ -741,96 +751,34 @@ class _CaixaNotaState extends State<_CaixaNota> {
   }
 
   Future<void> _abrirLink() async {
-    final ctrl = TextEditingController(text: widget.nota.link ?? '');
-    String? titulo;
-    bool buscando = false;
-
-    final ok = await showDialog<bool>(
+    final links = await showDialog<List<NotaLink>>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          title: const Text('Link'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: ctrl,
-                autofocus: true,
-                keyboardType: TextInputType.url,
-                onChanged: (v) {
-                  _debounceYT?.cancel();
-                  if (v.contains('youtube.com') || v.contains('youtu.be')) {
-                    setSt(() => buscando = true);
-                    _debounceYT = Timer(const Duration(milliseconds: 600), () async {
-                      try {
-                        final t = await _tituloYouTube(v);
-                        if (ctx.mounted) {
-                          setSt(() { titulo = t; buscando = false; });
-                        }
-                      } catch (_) {
-                        if (ctx.mounted) setSt(() => buscando = false);
-                      }
-                    });
-                  } else {
-                    setSt(() { titulo = null; buscando = false; });
-                  }
-                },
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'https://…',
-                ),
-              ),
-              if (buscando)
-                const Padding(
-                  padding: EdgeInsets.only(top: 12),
-                  child: SizedBox(
-                    height: 16,
-                    width: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              if (titulo != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    titulo!,
-                    style: TextStyle(
-                      fontStyle: FontStyle.italic,
-                      color: Theme.of(context).colorScheme.onSurface
-                          .withValues(alpha: 0.65),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => ctrl.clear(), child: const Text('Limpar')),
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fechar')),
-            if (widget.nota.link != null && widget.nota.link!.isNotEmpty)
-              TextButton(onPressed: () {
-                Clipboard.setData(ClipboardData(text: widget.nota.link!));
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(const SnackBar(content: Text('Link copiado!')));
-              }, child: const Text('Copiar link')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Salvar')),
-          ],
-        ),
-      ),
+      builder: (_) => _DialogoLinks(links: widget.nota.links),
     );
-    if (ok != true) return;
-    final raw = ctrl.text.trim();
-    widget.nota.link = raw.isEmpty ? null : raw;
-
-    // Se encontrou título do YouTube, salva no comentário (se vazio).
-    if (titulo != null && (widget.nota.comentario ?? '').isEmpty) {
-      widget.nota.comentario = titulo;
-      // Mantém o controlador do campo de comentário em sincronia (senão o
-      // próximo flush sobrescreveria o título com texto antigo).
-      _ctrlComentario.text = titulo!;
-    }
+    if (links == null) return;
+    widget.nota.links = links;
     Storage.instance.salvar();
+    // Links de YouTube sem título (digitados e salvos antes do debounce
+    // buscar) ganham o título agora.
+    _buscarTitulosPendentes();
+  }
+
+  /// Busca (via oEmbed) o título dos links de YouTube que ainda não têm
+  /// título e salva — aparecem nos comentários sem precisar clicar em nada.
+  Future<void> _buscarTitulosPendentes() async {
+    final links = widget.nota.links;
+    for (var i = 0; i < links.length; i++) {
+      final l = links[i];
+      if (l.titulo != null) continue;
+      final url = l.url.trim();
+      if (!url.contains('youtube.com') && !url.contains('youtu.be')) continue;
+      final t = await _tituloYouTube(url);
+      if (!mounted) return;
+      if (t != null) {
+        setState(() => l.titulo = t);
+        Storage.instance.salvar();
+      }
+    }
   }
 
   Future<String?> _tituloYouTube(String url) async {
@@ -997,6 +945,16 @@ class _CaixaNotaState extends State<_CaixaNota> {
                           cor: onBarra,
                         ),
                         _BotaoMini(
+                          icone: widget.nota.centralizada
+                              ? Icons.format_align_left
+                              : Icons.format_align_center,
+                          tooltip: widget.nota.centralizada
+                              ? 'Alinhar à esquerda'
+                              : 'Centralizar (título)',
+                          onTap: _alternarCentralizada,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
                           icone: Icons.cleaning_services,
                           tooltip: 'Limpar conteúdo',
                           onTap: _limpar,
@@ -1044,6 +1002,9 @@ class _CaixaNotaState extends State<_CaixaNota> {
                             .withValues(alpha: 0.45)
                         : Theme.of(context).colorScheme.onSurface,
                   ),
+                  textAlign: widget.nota.centralizada
+                      ? TextAlign.center
+                      : TextAlign.start,
                   onChanged: _mudou,
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -1056,37 +1017,78 @@ class _CaixaNotaState extends State<_CaixaNota> {
               ),
             ),
           ),
-          // Subcaixinha de comentário inline (abaixo com letra mais fraca)
-          if (_comentarioVisivel)
-           Container(
+          // Subcaixinha inline: títulos dos links (SEMPRE visíveis quando há
+          // links — ex.: título do vídeo do YouTube) + comentário manual.
+          if (widget.nota.links.isNotEmpty || _comentarioVisivel)
+            Container(
               decoration: BoxDecoration(
                 color: app.notaFim.withValues(alpha: 0.5),
                 borderRadius: const BorderRadius.vertical(
                     bottom: Radius.circular(14)),
               ),
-              padding: const EdgeInsets.fromLTRB(14, 2, 14, 4),
-              child: TextField(
-                controller: _ctrlComentario,
-                onChanged: (v) {
-                  widget.nota.comentario = v.isEmpty ? null : v;
-                  Storage.instance.salvar();
-                },
-                minLines: 1,
-                maxLines: 1,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                  hintText: 'Comentário…',
-                ),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontFamilyFallback: const ['NotoSansSymbols2'],
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.55),
-                ),
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final l in widget.nota.links)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            (l.titulo != null && l.url.contains('youtube'))
+                                ? Icons.play_circle_outline
+                                : Icons.link,
+                            size: 14,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.55),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              l.titulo ?? l.url,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.55),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_comentarioVisivel)
+                    TextField(
+                      controller: _ctrlComentario,
+                      onChanged: (v) {
+                        widget.nota.comentario = v.isEmpty ? null : v;
+                        Storage.instance.salvar();
+                      },
+                      minLines: 1,
+                      maxLines: 1,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        hintText: 'Comentário…',
+                      ),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontFamilyFallback: const ['NotoSansSymbols2'],
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.55),
+                      ),
+                    ),
+                ],
               ),
             ),
         ],
@@ -1138,6 +1140,215 @@ class _BotaoMini extends StatelessWidget {
       tooltip: tooltip,
       onTap: onTap,
       child: Icon(icone, size: 17, color: corIcone),
+    );
+  }
+}
+
+/// Diálogo de links da caixinha: até 3 links, cada um com campo próprio.
+/// Ao colar URL do YouTube, busca o título via oEmbed (debounce 600ms) e o
+/// mostra embaixo do campo — o título é salvo junto com o link.
+class _DialogoLinks extends StatefulWidget {
+  const _DialogoLinks({required this.links});
+
+  final List<NotaLink> links;
+
+  @override
+  State<_DialogoLinks> createState() => _DialogoLinksState();
+}
+
+class _DialogoLinksState extends State<_DialogoLinks> {
+  static const _max = 3;
+
+  late final List<TextEditingController> _ctrls;
+  late final List<String?> _titulos;
+  late final List<bool> _buscando;
+  final List<Timer> _debounces = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrls = widget.links
+        .map((l) => TextEditingController(text: l.url))
+        .toList();
+    _titulos = widget.links.map((l) => l.titulo).toList();
+    _buscando = List.filled(_ctrls.length, false);
+    if (_ctrls.isEmpty) {
+      _ctrls.add(TextEditingController());
+      _titulos.add(null);
+      _buscando.add(false);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final t in _debounces) {
+      t.cancel();
+    }
+    for (final c in _ctrls) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _remover(int i) {
+    setState(() {
+      _debounces.removeAt(i).cancel();
+      _ctrls.removeAt(i).dispose();
+      _titulos.removeAt(i);
+      _buscando.removeAt(i);
+    });
+  }
+
+  void _adicionar() {
+    if (_ctrls.length >= _max) return;
+    setState(() {
+      _ctrls.add(TextEditingController());
+      _titulos.add(null);
+      _buscando.add(false);
+    });
+  }
+
+  void _buscarTitulo(int i, String url) {
+    _debounces[i].cancel();
+    if (!url.contains('youtube.com') && !url.contains('youtu.be')) {
+      setState(() {
+        _titulos[i] = null;
+        _buscando[i] = false;
+      });
+      return;
+    }
+    setState(() => _buscando[i] = true);
+    _debounces[i] = Timer(const Duration(milliseconds: 600), () async {
+      try {
+        final t = await _tituloYouTube(url);
+        if (mounted) {
+          setState(() {
+            _titulos[i] = t;
+            _buscando[i] = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _buscando[i] = false);
+      }
+    });
+  }
+
+  Future<String?> _tituloYouTube(String url) async {
+    final uri = Uri.parse(url);
+    String? videoId;
+    if (uri.host.contains('youtu.be')) {
+      videoId = uri.pathSegments.firstOrNull;
+    } else {
+      videoId = uri.queryParameters['v'];
+    }
+    if (videoId == null || videoId.isEmpty) return null;
+    final api = Uri.parse(
+        'https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoId&format=json');
+    final req = await HttpClient().getUrl(api);
+    req.headers.set('User-Agent', 'Mozilla/5.0');
+    final res = await req.close();
+    if (res.statusCode != 200) return null;
+    final body = await res.transform(utf8.decoder).join();
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    return json['title'] as String?;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textoForte = Theme.of(context)
+        .colorScheme
+        .onSurface
+        .withValues(alpha: 0.65);
+    return AlertDialog(
+      title: const Text('Links'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < _ctrls.length; i++) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ctrls[i],
+                      autofocus: i == 0 && _ctrls.length == 1,
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        hintText: 'https://… (link ${i + 1})',
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (v) => _buscarTitulo(i, v.trim()),
+                    ),
+                  ),
+                  if (_ctrls.length > 1)
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      tooltip: 'Remover link',
+                      onPressed: () => _remover(i),
+                    ),
+                ],
+              ),
+              if (_buscando[i])
+                const Padding(
+                  padding: EdgeInsets.only(top: 4, bottom: 6),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      height: 14,
+                      width: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+              if (_titulos[i] != null && !_buscando[i])
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 6),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _titulos[i]!,
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        fontSize: 13,
+                        color: textoForte,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+            if (_ctrls.length < _max)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.add_link, size: 18),
+                  label: Text('Adicionar link (${_ctrls.length}/$_max)'),
+                  onPressed: _adicionar,
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar')),
+        FilledButton(
+          onPressed: () {
+            final links = <NotaLink>[
+              for (var i = 0; i < _ctrls.length; i++)
+                if (_ctrls[i].text.trim().isNotEmpty)
+                  NotaLink(
+                    url: _ctrls[i].text.trim(),
+                    titulo: _titulos[i],
+                  ),
+            ];
+            Navigator.pop(context, links);
+          },
+          child: const Text('Salvar'),
+        ),
+      ],
     );
   }
 }

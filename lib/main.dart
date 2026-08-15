@@ -183,15 +183,17 @@ class AdmProjetosApp extends StatelessWidget {
     );
   }
 
-  /// Tema Bege (estilo Calis Timer — madeira): claro, tons amadeirados com
-  /// accent laranja-marrom, cartões arredondados (18) com borda sutil.
-  ThemeData _temaBege() {
-    const bg = Color(0xFFD8C7AC);
-    const surface = Color(0xFFE0D1B9);
-    const surface2 = Color(0xFFCBB897);
-    const text = Color(0xFF382E20);
-    const accent = Color(0xFFB5652E);
-    const onAccent = Color(0xFFFFF3E7);
+  /// Tema claro plano (estilo Calis Timer — madeira): Bege e Creme usam a
+  /// mesma estrutura, mudando só as cores.
+  ThemeData _temaClaroCalis({
+    required Color bg,
+    required Color surface,
+    required Color surface2,
+    required Color text,
+    required Color accent,
+    required Color onAccent,
+    required AppCores app,
+  }) {
     return ThemeData(
       colorScheme: ColorScheme.fromSeed(
         seedColor: accent,
@@ -200,8 +202,8 @@ class AdmProjetosApp extends StatelessWidget {
         onSurface: text,
       ).copyWith(primary: accent, onPrimary: onAccent),
       scaffoldBackgroundColor: bg,
-      extensions: const [AppCores.bege],
-      appBarTheme: const AppBarTheme(
+      extensions: [app],
+      appBarTheme: AppBarTheme(
         backgroundColor: bg,
         foregroundColor: text,
         surfaceTintColor: Colors.transparent,
@@ -215,26 +217,26 @@ class AdmProjetosApp extends StatelessWidget {
           color: text,
         ),
       ),
-      tabBarTheme: const TabBarThemeData(
+      tabBarTheme: TabBarThemeData(
         labelColor: accent,
-        unselectedLabelColor: Color(0xFF8A7A60),
+        unselectedLabelColor: text.withValues(alpha: 0.55),
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.tab,
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: CardThemeData(
         color: surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(18)),
-          side: BorderSide(color: Color(0x14000000)),
+          side: BorderSide(color: text.withValues(alpha: 0.1)),
         ),
       ),
-      listTileTheme: const ListTileThemeData(
+      listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(18)),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: accent,
         foregroundColor: onAccent,
         elevation: 2,
@@ -242,22 +244,23 @@ class AdmProjetosApp extends StatelessWidget {
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
       ),
-      inputDecorationTheme: const InputDecorationTheme(
+      inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface2,
-        hintStyle: TextStyle(color: Color(0xFFA2916F)),
-        border: OutlineInputBorder(
+        hintStyle: TextStyle(color: text.withValues(alpha: 0.45)),
+        border: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
           borderSide: BorderSide.none,
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       ),
-      chipTheme: const ChipThemeData(
+      chipTheme: ChipThemeData(
         backgroundColor: surface,
-        selectedColor: Color(0xFFD8A878),
+        selectedColor: accent.withValues(alpha: 0.25),
         labelStyle: TextStyle(color: text, fontWeight: FontWeight.w700),
-        side: BorderSide(color: Color(0x14000000)),
-        shape: RoundedRectangleBorder(
+        side: BorderSide(color: text.withValues(alpha: 0.1)),
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
         ),
       ),
@@ -272,6 +275,28 @@ class AdmProjetosApp extends StatelessWidget {
       ),
     );
   }
+
+  ThemeData _temaBege() => _temaClaroCalis(
+        bg: const Color(0xFFD8C7AC),
+        surface: const Color(0xFFE0D1B9),
+        surface2: const Color(0xFFCBB897),
+        text: const Color(0xFF382E20),
+        accent: const Color(0xFFB5652E),
+        onAccent: const Color(0xFFFFF3E7),
+        app: AppCores.bege,
+      );
+
+  /// Creme: fundo = creme (#E0D1B9, o interior das caixinhas do Bege),
+  /// caixinhas num bege mais claro, barra de ferramentas creme.
+  ThemeData _temaCreme() => _temaClaroCalis(
+        bg: const Color(0xFFE0D1B9),
+        surface: const Color(0xFFF3E8D2),
+        surface2: const Color(0xFFE9D9BE),
+        text: const Color(0xFF382E20),
+        accent: const Color(0xFFB5652E),
+        onAccent: const Color(0xFFFFF3E7),
+        app: AppCores.creme,
+      );
 
   ThemeData _temaEscuro() => _temaBase(ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -391,13 +416,15 @@ class AdmProjetosApp extends StatelessWidget {
       builder: (context, _) {
         final modo = temaController.modo;
         final scale = temaController.fonte.scale;
-        // Bege é claro (madeira do Calis Timer); os demais são escuros.
-        final claro = modo == Modo.bege;
+        // Bege e Creme são claros (madeira do Calis Timer); demais escuros.
+        final claro =
+            modo == Modo.bege || modo == Modo.creme;
         final theme = switch (modo) {
           Modo.azul => _temaAzul(),
           Modo.escuro => _temaEscuro(),
           Modo.neumB => _temaNeumB(),
           Modo.bege => _temaBege(),
+          Modo.creme => _temaCreme(),
         };
         return MaterialApp(
           title: 'ADM-projetos',

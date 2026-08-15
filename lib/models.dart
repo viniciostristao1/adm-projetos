@@ -1,36 +1,87 @@
 // Modelos: Projeto e Nota (caixa de texto), com serialização JSON.
 
+/// Um link da caixinha (até 3). O título (ex.: do YouTube) é buscado via
+/// oEmbed e salvo AQUI — assim aparece nos comentários mesmo depois de
+/// fechar e reabrir o projeto.
+class NotaLink {
+  String url;
+  String? titulo;
+
+  NotaLink({required this.url, this.titulo});
+
+  Map<String, dynamic> toJson() => {
+        'url': url,
+        if (titulo != null) 'titulo': titulo,
+      };
+
+  factory NotaLink.fromJson(Map<String, dynamic> j) => NotaLink(
+        url: (j['url'] ?? '') as String,
+        titulo: j['titulo'] as String?,
+      );
+}
+
 /// Uma caixa de texto dentro de um projeto (minha ideia anotada).
 class Nota {
   String id;
   String texto;
   bool concluida;
   String? comentario;
-  String? link;
+  List<NotaLink> links;
+
+  /// Texto todo centralizado (modo "título").
+  bool centralizada;
 
   Nota({
     required this.id,
     required this.texto,
     this.concluida = false,
     this.comentario,
-    this.link,
-  });
+    List<NotaLink>? links,
+    this.centralizada = false,
+  }) : links = links ?? [];
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'texto': texto,
         'concluida': concluida,
         if (comentario != null) 'comentario': comentario,
-        if (link != null) 'link': link,
+        'links': links.map((l) => l.toJson()).toList(),
+        'centralizada': centralizada,
       };
 
-  factory Nota.fromJson(Map<String, dynamic> j) => Nota(
-        id: (j['id'] ?? '') as String,
-        texto: normalizarTodos((j['texto'] ?? '') as String),
-        concluida: (j['concluida'] ?? false) as bool,
-        comentario: j['comentario'] as String?,
-        link: j['link'] as String?,
-      );
+  factory Nota.fromJson(Map<String, dynamic> j) {
+    List<NotaLink> lerLinks() {
+      final ls = j['links'];
+      if (ls is List && ls.isNotEmpty) {
+        return ls.map((e) => NotaLink.fromJson(e as Map<String, dynamic>)).toList();
+      }
+      // Dados antigos: um único campo "link" (e o título do YouTube ficava
+      // no "comentario"). Migra movendo o título para o link e limpando o
+      // comentário (que era só o eco do título).
+      final antigo = j['link'] as String?;
+      if (antigo != null && antigo.isNotEmpty) {
+        final titulo = (j['comentario'] as String?)?.trim();
+        return [
+          NotaLink(
+            url: antigo,
+            titulo: (titulo == null || titulo.isEmpty) ? null : titulo,
+          ),
+        ];
+      }
+      return [];
+    }
+
+    return Nota(
+      id: (j['id'] ?? '') as String,
+      texto: normalizarTodos((j['texto'] ?? '') as String),
+      concluida: (j['concluida'] ?? false) as bool,
+      comentario: (j['link'] is String && (j['link'] as String).isNotEmpty)
+          ? null
+          : j['comentario'] as String?,
+      links: lerLinks(),
+      centralizada: (j['centralizada'] ?? false) as bool,
+    );
+  }
 
   /// Garante que todo quadradinho ☐/☑ tenha o \uFE0E (VS15) logo depois —
   /// sem ele alguns celulares desenham o quadradinho como emoji colorido.

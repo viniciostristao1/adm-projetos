@@ -45,7 +45,8 @@ lib/
 | `texto` | `String` | `texto` |
 | `concluida` | `bool` | `concluida` |
 | `comentario` | `String?` | `comentario` (omisso se null) |
-| `link` | `String?` | `link` (omisso se null) |
+| `links` | `List<NotaLink>` | `links` (`url` + `titulo` opcional — título do YouTube) |
+| `centralizada` | `bool` | `centralizada` (texto todo centralizado, modo título) |
 
 ### Projeto (`models.dart`)
 | Campo | Tipo | JSON key |
@@ -63,15 +64,16 @@ lib/
 ## 4. Sistema de Temas
 
 ### Modo (enum em `tema.dart`)
-`azul`, `escuro`, `neumB` (Dark Game), `bege` — **4 temas** (estilo inspirado
-no app Calis Timer: azul = navy plano com accent azul; bege = claro com as
-cores do tema madeira — tons amadeirados com accent laranja-marrom). Bege é o
-único claro (roda em `ThemeMode.light`); os demais são escuros.
+`azul`, `escuro`, `neumB` (Dark Game), `bege`, `creme` — **5 temas** (estilo
+inspirado no app Calis Timer: azul = navy plano com accent azul; bege e creme
+= claros com as cores do tema madeira — tons amadeirados com accent
+laranja-marrom). Bege e Creme rodam em `ThemeMode.light`; os demais são
+escuros.
 
-- `themeFlutter`: light para `bege`; dark para os demais.
+- `themeFlutter`: light para `bege`/`creme`; dark para os demais.
 - Seletor de tema na engrenagem: `ChoiceChip` para cada `Modo` (usa `Modo.rotulo`).
 - **Migração de temas antigos** (`TemaController.carregar`): `claro` → `azul`;
-  `espresso`/`bege`/`begeNeum` → `bege`; padrão (sem preferência) = `azul`.
+  `espresso`/`bege`/`begeNeum` → `bege`; padrão (sem preferência) = `azul`. Creme é novo.
 
 ### Dark Neumorphism (neumB)
 - `AppCores.neumorfico == true` habilita superfícies em relevo (luz ↗ superior
@@ -191,11 +193,12 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 4. `checklist` (inserir item de to-do "☐ ")
 5. `arrow_downward` / `arrow_upward` (mover para a outra aba)
 6. `unfold_more` (topo/pé do texto)
-7. `add_link` (link)
+7. `add_link` (link — até 3, cada um com título de vídeo)
 8. `chat_bubble` / `chat_bubble_outline` (comentário inline)
 9. `edit_outlined` (focar no fim)
-10. `cleaning_services` (limpar)
-11. `delete_outline` (excluir, vermelho)
+10. `format_align_center` / `format_align_left` (centralizar texto — modo título)
+11. `cleaning_services` (limpar)
+12. `delete_outline` (excluir, vermelho)
 
 ---
 
@@ -290,13 +293,25 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - O formatador `LinhasNumeradas` só age quando o texto CRESCE e termina com `\n` — não interfere com backspace nem com voz.
 - A correção de maiúscula (`maiusculaAposItem`) roda **2 segundos após pausa** na digitação (debounce), não durante — para não quebrar o ditado.
 
-### YouTube Link
-- No diálogo de link, ao colar URL do YouTube, após 600ms de pausa busca o título via oEmbed (`youtube.com/oembed`).
-- Se encontrado, salva no `comentario` (se vazio) e mostra preview no diálogo.
+### Links (até 3) e títulos de vídeo
+- A caixinha guarda até 3 links (`Nota.links`, cada um com `url` + `titulo`).
+- No diálogo de link, ao colar URL do YouTube, após 600ms de pausa busca o
+  título via oEmbed (`youtube.com/oembed`) e mostra o preview — o título é
+  SALVO junto com o link (não vai mais para o comentário).
+- Os títulos (ou a URL, se não for vídeo) aparecem SEMPRE abaixo da caixinha,
+  uma linha por link, mesmo sem abrir o comentário — e permanecem ao fechar e
+  reabrir o projeto.
+- `_buscarTitulosPendentes` (no initState e após salvar links) busca o título
+  de links de YouTube que ainda não têm título (ex.: dados migrados) e salva.
+- Migração de dados antigos: campo `link` → `links[0]`; o `comentario` antigo
+  que era o eco do título vira `links[0].titulo` e é limpo (comentário manual
+  sem link é mantido).
 
-### Comentário
-- Em **Tarefas:** toggle (expande/recolhe sub-caixinha abaixo).
+### Comentário e títulos dos links
+- Em **Tarefas:** o campo de comentário manual é toggle (expande/recolhe).
 - Em **Ideias:** sempre visível se existir.
+- Os TÍTULOS dos links ficam na mesma sub-caixinha, ACIMA do campo de
+  comentário, e são sempre visíveis quando há links (nos dois modos).
 - Texto em cor mais fraca (alpha 0.55).
 
 ### Backup
@@ -316,9 +331,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   cobre o texto que a IME ainda estava compondo (última palavra do GBoard) na
   hora de sair rápido da tela. O campo de comentário usa controlador próprio
   (`_ctrlComentario`, criado no initState) e só é derramado quando visível,
-  para não sobrescrever comentário salvo por outro caminho (ex.: título do
-  YouTube vindo do diálogo de link — `_abrirLink` mantém o controlador em
-  sincronia).
+  para não sobrescrever comentário salvo por outro caminho.
 - Ao fechar a tela ou o widget, força `Storage.instance.salvar()`.
 - `_SalvadorDeVida` (main.dart) salva quando o app sai de primeiro plano (pausa/inativo/oculto) — reforço contra perder digitação recente ao fechar o app.
 - ⚠️ **NUNCA copiar a lista do Storage para o estado das telas** (`List.of`):
@@ -352,7 +365,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (30 testes)
+# Testes (35 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -399,13 +412,16 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (30 testes)
+## 10. Testes (35 testes)
 
-### `test/widget_test.dart` (4 testes)
+### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
 - Serialização de `Projeto` com tarefas
 - Projeto com listas vazias
 - Migração de dados antigos (`notas` → `tarefas`)
+- Serialização de `NotaLink` (até 3 links com título)
+- Migração de `link` antigo → `links[0]` (título vindo do comentário-eco)
+- Comentário manual sem link é mantido; `centralizada` serializa
 
 ### `test/numeracao_test.dart` (11 testes)
 - `proximoNumeroLista`: vazio, sequência existente, sem números
@@ -425,8 +441,8 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 ### `test/fonte_test.dart` (1 teste)
 - O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
 
-### `test/tema_test.dart` (6 testes)
-- `Modo` tem exatamente os 4 temas (Azul, Escuro, Dark Game, Bege)
+### `test/tema_test.dart` (7 testes)
+- `Modo` tem exatamente os 5 temas (Azul, Escuro, Dark Game, Bege, Creme)
 - Nomes antigos (claro/bege/begeNeum) não existem mais
 - Os 4 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
 
@@ -438,7 +454,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 30 testes devem passar.
+- **Sempre rodar `flutter test`** — 35 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
