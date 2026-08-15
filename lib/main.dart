@@ -286,12 +286,12 @@ class AdmProjetosApp extends StatelessWidget {
         app: AppCores.bege,
       );
 
-  /// Creme: fundo = creme (#E0D1B9, o interior das caixinhas do Bege),
-  /// caixinhas num bege mais claro, barra de ferramentas creme.
+  /// Creme: fundo = creme (#E0D1B9, o interior das caixinhas do Bege) com
+  /// caixinhas e superfícies num tom mais escuro (tema mais "fechado").
   ThemeData _temaCreme() => _temaClaroCalis(
         bg: const Color(0xFFE0D1B9),
-        surface: const Color(0xFFF3E8D2),
-        surface2: const Color(0xFFE9D9BE),
+        surface: const Color(0xFFE7D6B6),
+        surface2: const Color(0xFFD9C49E),
         text: const Color(0xFF382E20),
         accent: const Color(0xFFB5652E),
         onAccent: const Color(0xFFFFF3E7),

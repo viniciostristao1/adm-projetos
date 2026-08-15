@@ -155,6 +155,17 @@ escuros.
 | sombras | `sombraForte #C0000000`, `sombraFraca #80000000`, `brilho #08FFFFFF`, `bordaLuz #10FFFFFF` |
 | `textoUI` | `#EDEFF1` |
 
+**Creme** — plano (fundo = a cor das caixinhas do Bege, mais escuro no resto):
+| Campo | Hex |
+|---|---|
+| `notaInicio` / `notaFim` | `#E7D6B6` / `#D9C49E` |
+| `projetoCard` / `projetoCardFim` | `#E4D2AF` / `#D4BE97` |
+| `projetoTxt` | `#382E20` |
+| `fab` / `fabIcone` | `#B5652E` / `#FFF3E7` |
+| `barraFerramentas` / `barraFerramentasFim` | `#E0D1B9` / `#D8C7AC` |
+| `fundoInicio` / `fundoFim` | `#E0D1B9` / `#D8C7AC` |
+| `textoUI` | `#382E20` |
+
 **Bege** — plano, estilo Calis Timer (madeira claro + accent laranja):
 | Campo | Hex |
 |---|---|
@@ -188,17 +199,18 @@ ProjetosScreen (lista de projetos)
 Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem dos botões (da esquerda para direita, após o pino):
 
 1. `copy_all_outlined` (copiar — botão mais usado, vem primeiro)
-2. `check_box` / `check_box_outline_blank` (to-do da caixinha: marcar como feito)
-3. `format_list_numbered` / `format_align_justify` (numeração — **só em Tarefas**)
-4. `checklist` (inserir item de to-do "☐ ")
-5. `arrow_downward` / `arrow_upward` (mover para a outra aba)
-6. `unfold_more` (topo/pé do texto)
-7. `add_link` (link — até 3, cada um com título de vídeo)
-8. `chat_bubble` / `chat_bubble_outline` (comentário inline)
-9. `edit_outlined` (focar no fim)
-10. `format_align_center` / `format_align_left` (centralizar texto — modo título)
-11. `cleaning_services` (limpar)
-12. `delete_outline` (excluir, vermelho)
+2. `undo` (desfazer apagar — volta o texto apagado de uma vez)
+3. `check_box` / `check_box_outline_blank` (to-do da caixinha: marcar como feito)
+4. `format_list_numbered` / `format_align_justify` (numeração — **só em Tarefas**)
+5. `checklist` (inserir item de to-do "☐ ")
+6. `arrow_downward` / `arrow_upward` (mover para a outra aba)
+7. `unfold_more` (topo/pé do texto)
+8. `add_link` (link — até 3, cada um com título de vídeo)
+9. `chat_bubble` / `chat_bubble_outline` (comentário inline)
+10. `edit_outlined` (focar no fim)
+11. `format_align_center` / `format_align_left` (centralizar texto — modo título)
+12. `cleaning_services` (limpar)
+13. `delete_outline` (excluir, vermelho)
 
 ---
 
@@ -251,6 +263,10 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - Botão `unfold_more` alterna o scroll interno entre topo e pé.
 
 ### Desfazer (undo)
+- **Botão `undo` na barra da caixinha:** restaura o texto apagado. Usa
+  `HistoricoTexto` (editor.dart): guarda o texto ANTES de cada RAJADA de
+  apagamento — um toque volta tudo o que foi apagado de uma vez (digitação
+  normal não empilha, para não desfazer tecla por tecla).
 - Excluir caixinha, excluir projeto e mover entre abas mostram aviso com **Desfazer** por 4s.
 - `mostrarAviso`/`mostrarAvisoAcao` (editor.dart) usam SnackBar **+ Timer** para forçar o fechamento mesmo com animações do sistema desativadas.
 
@@ -365,7 +381,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (35 testes)
+# Testes (41 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -412,7 +428,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (35 testes)
+## 10. Testes (41 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -438,6 +454,9 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - `Nota.fromJson` normaliza quadradinhos antigos sem VS15 (regressão: carregava como emoji)
 - Toque no quadradinho de dado antigo (sem VS15) grava `☑\uFE0E` (não vira emoji)
 
+### `test/desfazer_test.dart` (6 testes)
+- `HistoricoTexto`: digitação não empilha; rajada de apagamento empilha uma vez; desfazer restaura o texto inteiro; várias rajadas; limpar tudo pode ser desfeito; limite da pilha
+
 ### `test/fonte_test.dart` (1 teste)
 - O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
 
@@ -454,7 +473,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 35 testes devem passar.
+- **Sempre rodar `flutter test`** — 41 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 

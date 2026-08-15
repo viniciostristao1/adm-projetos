@@ -126,3 +126,45 @@ String maiusculaAposItem(String texto) {
   final pos = texto.length - (ultima.length - m.group(1)!.length);
   return texto.replaceRange(pos, pos + 1, letra);
 }
+
+/// Pilha de desfazer da caixinha: guarda o texto ANTES de cada RAJADA de
+/// apagamento — um toque no desfazer restaura tudo o que foi apagado de uma
+/// vez (digitação normal não empilha, para o botão não desfazer tecla por
+/// tecla).
+class HistoricoTexto {
+  HistoricoTexto({this.limite = 40});
+
+  final int limite;
+  final List<String> _pilha = [];
+  bool _apagando = false;
+  String _atual = '';
+
+  /// Estado inicial do texto (chamar ao abrir a caixinha).
+  void comecar(String texto) {
+    _atual = texto;
+    _apagando = false;
+    _pilha.clear();
+  }
+
+  /// Chamado a cada mudança de texto. Quando uma rajada de apagamento
+  /// COMEÇA, salva o texto anterior na pilha.
+  void registrar(String novo) {
+    final ehDelecao = novo.length < _atual.length;
+    if (ehDelecao && !_apagando) {
+      _pilha.add(_atual);
+      if (_pilha.length > limite) _pilha.removeAt(0);
+    }
+    _apagando = ehDelecao;
+    _atual = novo;
+  }
+
+  /// Restaura o último texto apagado (ou null se não houver nada).
+  String? desfazer() {
+    if (_pilha.isEmpty) return null;
+    _apagando = false;
+    _atual = _pilha.removeLast();
+    return _atual;
+  }
+
+  bool get podeDesfazer => _pilha.isNotEmpty;
+}

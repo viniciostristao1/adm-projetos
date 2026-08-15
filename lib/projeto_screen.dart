@@ -344,6 +344,7 @@ class _CaixaNota extends StatefulWidget {
 class _CaixaNotaState extends State<_CaixaNota> {
   late final TextEditingController _ctrl;
   late final TextEditingController _ctrlComentario;
+  final HistoricoTexto _historico = HistoricoTexto();
   final FocusNode _foco = FocusNode();
   final ScrollController _scroll = ScrollController();
   final GlobalKey _campoKey = GlobalKey();
@@ -360,6 +361,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.nota.texto);
+    _historico.comecar(widget.nota.texto);
     _ctrlComentario =
         TextEditingController(text: widget.nota.comentario ?? '');
     _foco.addListener(_aoFocar);
@@ -528,6 +530,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   TextStyle? _estiloCampo;
 
   void _mudou(String novoTexto) {
+    _historico.registrar(novoTexto);
     widget.nota.texto = novoTexto;
     // GRAVA NA HORA, a cada tecla — nada se perde ao fechar/trocar de tela.
     // (Arquivo pequeno; o custo de escrever por tecla é desprezível.)
@@ -551,6 +554,18 @@ class _CaixaNotaState extends State<_CaixaNota> {
   void _limpar() {
     _ctrl.clear();
     _mudou('');
+  }
+
+  /// Restaura o texto apagado (a rajada inteira de deleções de uma vez).
+  void _desfazer() {
+    final restaurado = _historico.desfazer();
+    if (restaurado == null) return;
+    setState(() {});
+    _ctrl.value = TextEditingValue(
+      text: restaurado,
+      selection: TextSelection.collapsed(offset: restaurado.length),
+    );
+    _mudou(restaurado);
   }
 
   void _alternarConcluida() {
@@ -765,41 +780,54 @@ class _CaixaNotaState extends State<_CaixaNota> {
 
   /// Busca (via oEmbed) o título dos links de YouTube que ainda não têm
   /// título e salva — aparecem nos comentários sem precisar clicar em nada.
+  /// Nunca lança: um erro aqui não pode derrubar o app.
   Future<void> _buscarTitulosPendentes() async {
-    final links = widget.nota.links;
-    for (var i = 0; i < links.length; i++) {
-      final l = links[i];
-      if (l.titulo != null) continue;
-      final url = l.url.trim();
-      if (!url.contains('youtube.com') && !url.contains('youtu.be')) continue;
-      final t = await _tituloYouTube(url);
-      if (!mounted) return;
-      if (t != null) {
-        setState(() => l.titulo = t);
-        Storage.instance.salvar();
+    try {
+      final links = widget.nota.links;
+      for (var i = 0; i < links.length; i++) {
+        final l = links[i];
+        if (l.titulo != null) continue;
+        final url = l.url.trim();
+        if (!url.contains('youtube.com') && !url.contains('youtu.be')) {
+          continue;
+        }
+        final t = await _tituloYouTube(url);
+        if (!mounted) return;
+        if (t != null) {
+          setState(() => l.titulo = t);
+          Storage.instance.salvar();
+        }
       }
+    } catch (_) {
+      // silencioso — título continua pendente para a próxima tentativa
     }
   }
 
   Future<String?> _tituloYouTube(String url) async {
-    final uri = Uri.parse(url);
-    String? videoId;
-    if (uri.host.contains('youtu.be')) {
-      videoId = uri.pathSegments.firstOrNull;
-    } else {
-      videoId = uri.queryParameters['v'];
-    }
-    if (videoId == null || videoId.isEmpty) return null;
+    // NUNCA lança: URL inválida ou falha de rede apenas devolvem null —
+    // exceção aqui derruba o app (tela branca).
+    try {
+      final uri = Uri.parse(url);
+      String? videoId;
+      if (uri.host.contains('youtu.be')) {
+        videoId = uri.pathSegments.firstOrNull;
+      } else {
+        videoId = uri.queryParameters['v'];
+      }
+      if (videoId == null || videoId.isEmpty) return null;
 
-    final api = Uri.parse(
-        'https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoId&format=json');
-    final req = await HttpClient().getUrl(api);
-    req.headers.set('User-Agent', 'Mozilla/5.0');
-    final res = await req.close();
-    if (res.statusCode != 200) return null;
-    final body = await res.transform(utf8.decoder).join();
-    final json = jsonDecode(body) as Map<String, dynamic>;
-    return json['title'] as String?;
+      final api = Uri.parse(
+          'https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoId&format=json');
+      final req = await HttpClient().getUrl(api);
+      req.headers.set('User-Agent', 'Mozilla/5.0');
+      final res = await req.close();
+      if (res.statusCode != 200) return null;
+      final body = await res.transform(utf8.decoder).join();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      return json['title'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -878,6 +906,12 @@ class _CaixaNotaState extends State<_CaixaNota> {
                           icone: Icons.copy_all_outlined,
                           tooltip: 'Copiar',
                           onTap: widget.onCopiar,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: Icons.undo,
+                          tooltip: 'Desfazer apagar',
+                          onTap: _desfazer,
                           cor: onBarra,
                         ),
                         _BotaoMini(
@@ -1162,7 +1196,7 @@ class _DialogoLinksState extends State<_DialogoLinks> {
   late final List<TextEditingController> _ctrls;
   late final List<String?> _titulos;
   late final List<bool> _buscando;
-  final List<Timer> _debounces = [];
+  late final List<Timer?> _debounces;
 
   @override
   void initState() {
@@ -1172,17 +1206,19 @@ class _DialogoLinksState extends State<_DialogoLinks> {
         .toList();
     _titulos = widget.links.map((l) => l.titulo).toList();
     _buscando = List.filled(_ctrls.length, false);
+    _debounces = List.filled(_ctrls.length, null);
     if (_ctrls.isEmpty) {
       _ctrls.add(TextEditingController());
       _titulos.add(null);
       _buscando.add(false);
+      _debounces.add(null);
     }
   }
 
   @override
   void dispose() {
     for (final t in _debounces) {
-      t.cancel();
+      t?.cancel();
     }
     for (final c in _ctrls) {
       c.dispose();
@@ -1192,7 +1228,7 @@ class _DialogoLinksState extends State<_DialogoLinks> {
 
   void _remover(int i) {
     setState(() {
-      _debounces.removeAt(i).cancel();
+      _debounces.removeAt(i)?.cancel();
       _ctrls.removeAt(i).dispose();
       _titulos.removeAt(i);
       _buscando.removeAt(i);
@@ -1205,11 +1241,12 @@ class _DialogoLinksState extends State<_DialogoLinks> {
       _ctrls.add(TextEditingController());
       _titulos.add(null);
       _buscando.add(false);
+      _debounces.add(null);
     });
   }
 
   void _buscarTitulo(int i, String url) {
-    _debounces[i].cancel();
+    _debounces[i]?.cancel();
     if (!url.contains('youtube.com') && !url.contains('youtu.be')) {
       setState(() {
         _titulos[i] = null;
@@ -1234,23 +1271,29 @@ class _DialogoLinksState extends State<_DialogoLinks> {
   }
 
   Future<String?> _tituloYouTube(String url) async {
-    final uri = Uri.parse(url);
-    String? videoId;
-    if (uri.host.contains('youtu.be')) {
-      videoId = uri.pathSegments.firstOrNull;
-    } else {
-      videoId = uri.queryParameters['v'];
+    // NUNCA lança (mesmo motivo do _CaixaNotaState): URL inválida ou falha
+    // de rede devolvem null.
+    try {
+      final uri = Uri.parse(url);
+      String? videoId;
+      if (uri.host.contains('youtu.be')) {
+        videoId = uri.pathSegments.firstOrNull;
+      } else {
+        videoId = uri.queryParameters['v'];
+      }
+      if (videoId == null || videoId.isEmpty) return null;
+      final api = Uri.parse(
+          'https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoId&format=json');
+      final req = await HttpClient().getUrl(api);
+      req.headers.set('User-Agent', 'Mozilla/5.0');
+      final res = await req.close();
+      if (res.statusCode != 200) return null;
+      final body = await res.transform(utf8.decoder).join();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      return json['title'] as String?;
+    } catch (_) {
+      return null;
     }
-    if (videoId == null || videoId.isEmpty) return null;
-    final api = Uri.parse(
-        'https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoId&format=json');
-    final req = await HttpClient().getUrl(api);
-    req.headers.set('User-Agent', 'Mozilla/5.0');
-    final res = await req.close();
-    if (res.statusCode != 200) return null;
-    final body = await res.transform(utf8.decoder).join();
-    final json = jsonDecode(body) as Map<String, dynamic>;
-    return json['title'] as String?;
   }
 
   @override

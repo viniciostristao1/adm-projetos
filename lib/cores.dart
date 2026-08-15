@@ -95,19 +95,19 @@ class AppCores extends ThemeExtension<AppCores> {
   );
 
   /// Tema Creme: o FUNDO é a cor creme (mesma do interior das caixinhas do
-  /// tema Bege), as caixinhas ficam num bege mais claro e a barra de
-  /// ferramentas usa o creme. Plano, sem relevo.
+  /// tema Bege) e a barra de ferramentas usa o creme; caixinhas e cartões
+  /// num tom mais escuro para o tema não ficar lavado. Plano, sem relevo.
   static const AppCores creme = AppCores(
-    notaInicio: Color(0xFFF3E8D2),
-    notaFim: Color(0xFFE9D9BE),
+    notaInicio: Color(0xFFE7D6B6),
+    notaFim: Color(0xFFD9C49E),
     notaBorda: Color(0x14000000),
-    projetoCard: Color(0xFFE9D9BE),
-    projetoCardFim: Color(0xFFD8C7AC),
+    projetoCard: Color(0xFFE4D2AF),
+    projetoCardFim: Color(0xFFD4BE97),
     projetoTxt: Color(0xFF382E20),
     fab: Color(0xFFB5652E),
     fabIcone: Color(0xFFFFF3E7),
     barraFerramentas: Color(0xFFE0D1B9),
-    barraFerramentasFim: Color(0xFFE0D1B9),
+    barraFerramentasFim: Color(0xFFD8C7AC),
     fundoInicio: Color(0xFFE0D1B9),
     fundoFim: Color(0xFFD8C7AC),
     textoUI: Color(0xFF382E20),
