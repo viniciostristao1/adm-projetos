@@ -414,6 +414,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     decoration: BoxDecoration(
                       color: app.projetoCard,
                       borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: app.projetoTxt.withValues(alpha: 0.08),
+                      ),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 10, 4),

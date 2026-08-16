@@ -118,6 +118,8 @@ class AppCores extends ThemeExtension<AppCores> {
 
   /// Tema Bege (estilo Calis Timer — madeira): tons amadeirados claros
   /// (bege/madeira) com accent laranja-marrom. Plano, sem relevo neumórfico.
+  /// FUNDO da página principal em bege CLARO; pastas/caixinhas em bege
+  /// escuro (#E0D1B9).
   static const AppCores bege = AppCores(
     notaInicio: Color(0xFFE0D1B9),
     notaFim: Color(0xFFCBB897),
@@ -129,8 +131,8 @@ class AppCores extends ThemeExtension<AppCores> {
     fabIcone: Color(0xFFFFF3E7),
     barraFerramentas: Color(0xFFCBB897),
     barraFerramentasFim: Color(0xFFCBB897),
-    fundoInicio: Color(0xFFD8C7AC),
-    fundoFim: Color(0xFFCDBB9D),
+    fundoInicio: Color(0xFFF2E8D6),
+    fundoFim: Color(0xFFEADFC8),
     textoUI: Color(0xFF382E20),
   );
 

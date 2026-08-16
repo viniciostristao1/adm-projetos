@@ -165,11 +165,13 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 | `projetoTxt` | `#382E20` |
 | `fab` / `fabIcone` | `#B5652E` / `#FFF3E7` |
 | `barraFerramentas` / `barraFerramentasFim` | `#CBB897` / `#CBB897` |
-| `fundoInicio` / `fundoFim` | `#D8C7AC` / `#CDBB9D` |
+| `fundoInicio` / `fundoFim` | `#F2E8D6` / `#EADFC8` |
 | `textoUI` | `#382E20` |
 
 - **Barra superior** (página principal e projeto) no Bege: `#E0D1B9` (a
   mesma cor do interior das caixinhas) — `appBarColor` no `_temaClaroCalis`.
+- **Fundo do Bege** (página principal e dentro do projeto): bege CLARO
+  `#F2E8D6` — pastas e caixinhas (`#E0D1B9`) ficam escuras sobre ele.
 - **Check "em andamento" das pastas** no Bege: bolinha PRETA com "v" bege
   (`app.notaInicio`) quando marcado, igual ao quadradinho dentro das
   caixinhas.
@@ -186,6 +188,7 @@ ProjetosScreen (lista de projetos)
   │    ├─ Tab "Tarefas" → ReorderableListView de _CaixaNota
   │    ├─ Tab "Ideias" → idem
   │    ├─ 🔍 (ao lado das abas) → busca na aba ativa (texto + comentário)
+  │    │     — o termo buscado fica GRIFADO (marcador amarelo) nas caixinhas
   │    └─ PDF → gera PDF do projeto inteiro e compartilha
   └─ ⚙️ → ConfigSheet (tema, fonte, backup exportar/importar)
 ```
@@ -325,6 +328,19 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   que era o eco do título vira `links[0].titulo` e é limpo (comentário manual
   sem link é mantido).
 
+### Busca com grifo
+- O termo ativo da busca é passado às caixinhas (`termoBusca`) e as
+  ocorrências são pintadas por cima do texto por um `CustomPaint`
+  (`_GrifoBuscaPainter`, chave `grifo-busca`) — mesmas métricas do hit-test
+  (`_estiloCampo`, contentPadding 14/2, rolagem interna `_scroll.offset`).
+  `IgnorePointer` garante que a edição não é afetada.
+
+### Menu de seleção (recortar/copiar/colar) PARA BAIXO
+- O menu de seleção abre ABAIXO da seleção (`contextMenuBuilder` +
+  `_menuSelecaoAbaixo`): o padrão abre em cima e escondia a barra de
+  ferramentas da caixinha. Usa `TextSelectionToolbar` com `anchorAbove`
+  impossível (fora da tela) para forçar o posicionamento abaixo.
+
 ### Comentário e títulos dos links
 - Em **Tarefas:** o campo de comentário manual é toggle (expande/recolhe).
 - Em **Ideias:** sempre visível se existir.
@@ -383,7 +399,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (47 testes)
+# Testes (48 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -436,7 +452,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (47 testes)
+## 10. Testes (48 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -462,13 +478,14 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - `Nota.fromJson` normaliza quadradinhos antigos sem VS15 (regressão: carregava como emoji)
 - Toque no quadradinho de dado antigo (sem VS15) grava `☑\uFE0E` (não vira emoji)
 
-### `test/undo_link_test.dart` (6 testes)
+### `test/undo_link_test.dart` (7 testes)
 - Desfazer restaura a palavra digitada e apagada (composição realista do IME)
 - Desfazer restaura a rajada inteira de apagamentos
 - Diálogo de links abre sem exceção (regressão da tela branca)
 - Digitar URL e Salvar no diálogo não crasham
 - Centralizar com seleção vira título centralizado e desfazer reverte
 - Centralizar sem seleção mostra aviso e não altera nada
+- Busca grifa o termo no texto da caixinha (e some quando não há ocorrência)
 
 ### `test/desfazer_test.dart` (7 testes)
 - `HistoricoTexto`: digitação não empilha; rajada empilha uma vez; desfazer restaura texto+título; apagar no título empilha; `empilhar`/`suprimir` para ações; várias rajadas; limpar tudo; limite da pilha
@@ -489,7 +506,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 47 testes devem passar.
+- **Sempre rodar `flutter test`** — 48 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 

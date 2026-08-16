@@ -237,6 +237,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                       nota: filtradas[i],
                       indice: _lista(aba).indexOf(filtradas[i]),
                       modoTarefas: ehTarefas,
+                      termoBusca: q,
                       onCopiar: () =>
                           copiarTexto(context, filtradas[i].texto),
                       onExcluir: () =>
@@ -322,6 +323,7 @@ class _CaixaNota extends StatefulWidget {
     required this.onCopiar,
     required this.onExcluir,
     required this.onMover,
+    this.termoBusca = '',
   });
 
   final Nota nota;
@@ -330,6 +332,9 @@ class _CaixaNota extends StatefulWidget {
   /// Se false (modo Ideias), não mostra botão de lista numerada nem inicia
   /// novas caixinhas com "1- ".
   final bool modoTarefas;
+
+  /// Termo ativo da busca na aba — as ocorrências no texto são grifadas.
+  final String termoBusca;
 
   final VoidCallback onCopiar;
   final VoidCallback onExcluir;
@@ -1113,6 +1118,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
                                 : Theme.of(context).colorScheme.onSurface,
                           ),
                           onChanged: _mudouTitulo,
+                          contextMenuBuilder: _menuSelecaoAbaixo,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
@@ -1122,31 +1128,70 @@ class _CaixaNotaState extends State<_CaixaNota> {
                           ),
                         ),
                       ),
-                    TextField(
-                  key: _campoKey,
-                  scrollController: _scroll,
-                  controller: _ctrl,
-                  focusNode: _foco,
-                  minLines: 1,
-                  maxLines: 24,
-                  keyboardType: TextInputType.multiline,
-                  textCapitalization: TextCapitalization.sentences,
-                  inputFormatters: [LinhasNumeradas()],
-                  style: (_estiloCampo ?? _estiloTexto).copyWith(
-                    color: widget.nota.concluida
-                        ? Theme.of(context).colorScheme.onSurface
-                            .withValues(alpha: 0.45)
-                        : Theme.of(context).colorScheme.onSurface,
-                  ),
-                  onChanged: _mudou,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
-                  ),
-                ),
+                    LayoutBuilder(builder: (ctx, cons) {
+                      final maxWidth = cons.maxWidth - 28;
+                      return Stack(
+                      children: [
+                        TextField(
+                          key: _campoKey,
+                          scrollController: _scroll,
+                          controller: _ctrl,
+                          focusNode: _foco,
+                          minLines: 1,
+                          maxLines: 24,
+                          keyboardType: TextInputType.multiline,
+                          textCapitalization: TextCapitalization.sentences,
+                          inputFormatters: [LinhasNumeradas()],
+                          style: (_estiloCampo ?? _estiloTexto).copyWith(
+                            color: widget.nota.concluida
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.45)
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
+                          contextMenuBuilder: _menuSelecaoAbaixo,
+                          onChanged: _mudou,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
+                            contentPadding:
+                                EdgeInsets.fromLTRB(14, 2, 14, 14),
+                          ),
+                        ),
+                        // Grifo da busca: marca as ocorrências do termo
+                        // ativo (sem interferir na edição — IgnorePointer).
+                        if (widget.termoBusca.trim().isNotEmpty &&
+                            _ctrl.text
+                                .toLowerCase()
+                                .contains(widget.termoBusca.trim().toLowerCase()))
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: ListenableBuilder(
+                                listenable:
+                                    Listenable.merge([_scroll, _ctrl]),
+                                builder: (context, _) => CustomPaint(
+                                  key: const ValueKey('grifo-busca'),
+                                  painter: _GrifoBuscaPainter(
+                                    texto: _ctrl.text,
+                                    termo: widget.termoBusca.trim(),
+                                    estilo: _estiloCampo ?? _estiloTexto,
+                                    maxWidth: maxWidth,
+                                    scrollOffset: _scroll.hasClients
+                                        ? _scroll.offset
+                                        : 0,
+                                    textScaler:
+                                        MediaQuery.textScalerOf(ctx),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -1498,4 +1543,83 @@ class _DialogoLinksState extends State<_DialogoLinks> {
       ],
     );
   }
+}
+/// Pinta as ocorrências do termo da busca por cima do texto (grifo amarelo),
+/// nas mesmas coordenadas do TextField (contentPadding 14/2 + rolagem
+/// interna). Não interage com toques (IgnorePointer).
+class _GrifoBuscaPainter extends CustomPainter {
+  _GrifoBuscaPainter({
+    required this.texto,
+    required this.termo,
+    required this.estilo,
+    required this.maxWidth,
+    required this.scrollOffset,
+    required this.textScaler,
+  });
+
+  final String texto;
+  final String termo;
+  final TextStyle estilo;
+  final double maxWidth;
+  final double scrollOffset;
+  final TextScaler textScaler;
+
+  static const _cor = Color(0x59FFC107);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final painter = TextPainter(
+      text: TextSpan(text: texto, style: estilo),
+      textDirection: TextDirection.ltr,
+      textScaler: textScaler,
+    )..layout(maxWidth: maxWidth);
+
+    final t = termo.toLowerCase();
+    final lower = texto.toLowerCase();
+    final tinta = Paint()..color = _cor;
+    var from = 0;
+    while (true) {
+      final idx = lower.indexOf(t, from);
+      if (idx < 0) break;
+      final sel = TextSelection(baseOffset: idx, extentOffset: idx + termo.length);
+      for (final box in painter.getBoxesForSelection(sel)) {
+        final r = box.toRect().shift(Offset(14, 2 - scrollOffset));
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(r, const Radius.circular(3)),
+          tinta,
+        );
+      }
+      from = idx + termo.length;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GrifoBuscaPainter old) =>
+      old.texto != texto ||
+      old.termo != termo ||
+      old.maxWidth != maxWidth ||
+      old.scrollOffset != scrollOffset;
+}
+
+
+/// Menu de seleção (recortar/copiar/colar/selecionar tudo) forçado para
+/// BAIXO da seleção: o padrão abre em cima e esconde a barra de ferramentas
+/// da caixinha. O truque é um [anchorAbove] impossível (fora da tela) — o
+/// TextSelectionToolbar só abre acima se couber, senão usa [anchorBelow].
+Widget _menuSelecaoAbaixo(
+    BuildContext context, EditableTextState editableTextState) {
+  final itens = editableTextState.contextMenuButtonItems;
+  if (itens.isEmpty) return const SizedBox.shrink();
+  return TextSelectionToolbar(
+    anchorAbove: const Offset(0, -100000),
+    anchorBelow: editableTextState.contextMenuAnchors.primaryAnchor,
+    children: [
+      for (final item in itens)
+        TextSelectionToolbarTextButton(
+          onPressed: item.onPressed,
+          padding: EdgeInsets.zero,
+          child: Text(item.label ?? ''),
+        ),
+    ],
+  );
 }

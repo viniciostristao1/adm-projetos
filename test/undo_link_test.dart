@@ -121,6 +121,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('busca grifa o termo no texto da caixinha', (tester) async {
+    final p = await projetoCom('comprar pão e leite');
+    await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, 'pão');
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('grifo-busca')), findsOneWidget,
+        reason: 'com o termo ativo, o grifo aparece sobre o texto');
+    expect(tester.takeException(), isNull);
+
+    await tester.enterText(find.byType(TextField).first, 'nada disso');
+    await tester.pump();
+    expect(find.byKey(const ValueKey('grifo-busca')), findsNothing,
+        reason: 'sem ocorrência do termo, não há grifo');
+  });
+
   testWidgets('centralizar com seleção vira título e desfazer reverte',
       (tester) async {
     final p = await projetoCom('título do texto\ncorpo do texto');

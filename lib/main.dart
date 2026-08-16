@@ -279,7 +279,8 @@ class AdmProjetosApp extends StatelessWidget {
   }
 
   ThemeData _temaBege() => _temaClaroCalis(
-        bg: const Color(0xFFD8C7AC),
+        // Fundo da página principal: bege CLARO.
+        bg: const Color(0xFFF2E8D6),
         surface: const Color(0xFFE0D1B9),
         surface2: const Color(0xFFCBB897),
         text: const Color(0xFF382E20),
