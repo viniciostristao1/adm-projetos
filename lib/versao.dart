@@ -2,4 +2,4 @@
 ///
 /// ⚠️ FLUXO DE RELEASE (ver AGENTS.md): a cada publicação, INCREMENTAR esta
 /// constante E informar o novo número na resposta ao usuário.
-const String appVersao = 'V0.1.35';
+const String appVersao = 'V0.1.36';

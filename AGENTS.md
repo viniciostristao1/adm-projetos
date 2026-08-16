@@ -254,11 +254,13 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   por `Listener` (eventos crus, sem disputa de gestos com o campo de texto).
 
 ### Voltar de outro app com o cursor
-- Ao retornar (lifecycle `resumed`) com a caixinha focada, a geometria
-  (altura travada + rolagem interna) pode estar antiga e o toque para
-  posicionar o cursor errava (ficava no meio). `_CaixaNotaState` é
-  `WidgetsBindingObserver`: no `resumed` zera `_alturaMaxima`, zera a
-  rolagem interna e recalibra — o toque volta a obedecer.
+- Ao retornar (lifecycle `resumed`), `_CaixaNotaState` (WidgetsBindingObserver)
+  recalibra: zera `_alturaMaxima`, zera a rolagem interna e recalcula (com
+  foco) — o toque para posicionar o cursor volta a obedecer.
+- Por 1s após voltar (`_recemRetomado`), o toque na caixinha NÃO re-ancora a
+  lista (`_agendarAjuste` é pulado) — o pulo da lista competia com a
+  colocação do cursor logo após a volta (bug intermitente de "cursor no
+  meio").
 
 ### Caderno (caixinha longa)
 - `maxLines: 24`; além disso o texto rola por dentro (Scrollbar).
@@ -266,6 +268,12 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   travada no espaço disponível (`_alturaMaxima`, recalculada 300ms depois para
   o teclado terminar de abrir). Assim a caixinha NUNCA cresce para trás do FAB
   e a lista NÃO rola a cada tecla (evita o "tremor" durante a digitação).
+- **Auto-cura da altura ao digitar:** `_mudou` agenda `_agendarAltura` (300ms,
+  só recalcula ALTURA, sem mover a lista) — se o texto cresce e a trava ficou
+  antiga, a caixinha é re-trava no espaço (não some atrás do "+").
+- **Teto de segurança:** com `_alturaMaxima` ainda nulo, o campo usa
+  `MediaQuery.size.height * 0.6` (o mesmo teto do cálculo) — nunca cresce sem
+  limite por trás do FAB.
 - ⚠️ A lista NUNCA é puxada (`jumpTo`) enquanto o usuário a rola: isso brigava
   com o dedo, impedia de rolar a página para cima e fazia a tela tremer. Ao
   rolar a lista, só a altura travada é recalculada — e apenas DEPOIS que a

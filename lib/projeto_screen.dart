@@ -373,6 +373,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   Timer? _debounce;
   Timer? _timerVis;
   double? _alturaMaxima;
+  bool _recemRetomado = false;
   bool _numerado = true;
   bool _comentarioExpandido = false;
   bool _comentarioVisivel = false;
@@ -396,20 +397,30 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     });
   }
 
-  /// Ao VOLTAR de outro app com a caixinha focada, a geometria do campo
-  /// (altura travada + rolagem interna) pode ter ficado antiga — o toque
-  /// para posicionar o cursor errava e ele "não obedecia" (ficava no meio).
-  /// Recalibra tudo para o toque mapear certo de novo.
+  /// Ao VOLTAR de outro app, a geometria do campo (altura travada + rolagem
+  /// interna) pode ter ficado antiga — o toque para posicionar o cursor
+  /// errava e ele "não obedecia" (ficava no meio). Recalibra tudo. Por 1s
+  /// após voltar, o toque na caixinha NÃO re-ancora a lista (evita o pulo
+  /// competir com a colocação do cursor logo na volta).
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted || !_foco.hasFocus) {
+    if (state != AppLifecycleState.resumed || !mounted) {
       return;
     }
+    _recemRetomado = true;
+    Timer(const Duration(seconds: 1), () {
+      if (mounted) _recemRetomado = false;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _alturaMaxima = null;
-      if (_scroll.hasClients) _scroll.jumpTo(0);
-      _ajustarVisibilidade();
+      if (_foco.hasFocus) {
+        _alturaMaxima = null;
+        if (_scroll.hasClients) _scroll.jumpTo(0);
+        _ajustarVisibilidade();
+      } else {
+        // Sem foco, só zera a trava — o recálculo acontece ao focar.
+        _alturaMaxima = null;
+      }
     });
   }
 
@@ -499,17 +510,19 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     });
   }
 
-  /// Ao rolar a lista, a caixinha NÃO é puxada de volta (nada de `jumpTo`
-  /// durante o gesto do usuário — era isso que fazia a página "tremer" e
-  /// impedia de rolar para cima). Só recalcula a altura travada, e apenas
-  /// DEPOIS que a rolagem parar de verdade (o timer reinicia a cada evento
-  /// de rolagem; a lista parada não é tocada).
-  void _aoRolarExterno() {
+  /// Recalcula só a altura travada (sem mover a lista) com debounce —
+  /// usado ao rolar a lista e ao DIGITAR (o texto cresce e a caixinha não
+  /// pode passar do botão "+"). Só age com a rolagem parada.
+  void _agendarAltura() {
     if (!_foco.hasFocus) return;
     _timerVis?.cancel();
     _timerVis = Timer(const Duration(milliseconds: 300), () {
       if (mounted && _foco.hasFocus) _ajustarAltura();
     });
+  }
+
+  void _aoRolarExterno() {
+    _agendarAltura();
   }
 
   /// Recalcula só a altura máxima travada (sem mover a lista). Só age com a
@@ -576,6 +589,9 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     // GRAVA NA HORA, a cada tecla — nada se perde ao fechar/trocar de tela.
     // (Arquivo pequeno; o custo de escrever por tecla é desprezível.)
     Storage.instance.salvar();
+    // Auto-cura da altura: o texto cresce e a caixinha não pode passar do
+    // botão "+" (recalcula SÓ a altura, sem mover a lista, com debounce).
+    _agendarAltura();
     // O debounce de 2s fica SÓ para a correção de maiúsculas — não para
     // salvar (ditado por voz não pode ser interrompido pela correção).
     _debounce?.cancel();
@@ -789,8 +805,9 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   /// marcado e desmarcado. O toque em qualquer outro lugar segue normal.
   void _toqueTexto(Offset posicaoGlobal) {
     // Toque na caixinha re-ancora a visibilidade (cobre o caso de ela ter
-    // sido rolada para trás do "+" enquanto já estava focada).
-    _agendarAjuste();
+    // sido rolada para trás do "+" enquanto já estava focada). Logo após
+    // voltar de outro app, não re-ancora (o pulo competiria com o cursor).
+    if (!_recemRetomado) _agendarAjuste();
     final texto = _ctrl.text;
     if (!texto.contains('☐') && !texto.contains('☑')) return;
     final ctx = _campoKey.currentContext;
@@ -1140,8 +1157,10 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
               controller: _scroll,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
+                  // Teto padrão de segurança (mesmo limite do cálculo):
+                  // a caixinha NUNCA cresce sem limite por trás do "+".
                   maxHeight: _alturaMaxima == null
-                      ? double.infinity
+                      ? MediaQuery.sizeOf(context).height * 0.6
                       : (_alturaMaxima! - 40).clamp(60.0, double.infinity),
                 ),
                 child: Column(
