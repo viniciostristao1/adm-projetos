@@ -46,7 +46,7 @@ lib/
 | `concluida` | `bool` | `concluida` |
 | `comentario` | `String?` | `comentario` (omisso se null) |
 | `links` | `List<NotaLink>` | `links` (`url` + `titulo` opcional — título do YouTube) |
-| `centralizada` | `bool` | `centralizada` (texto todo centralizado, modo título) |
+| `titulo` | `String?` | `titulo` — título centralizado da caixinha (campo próprio acima do texto) |
 
 ### Projeto (`models.dart`)
 | Campo | Tipo | JSON key |
@@ -168,6 +168,12 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 | `fundoInicio` / `fundoFim` | `#D8C7AC` / `#CDBB9D` |
 | `textoUI` | `#382E20` |
 
+- **Barra superior** (página principal e projeto) no Bege: `#E0D1B9` (a
+  mesma cor do interior das caixinhas) — `appBarColor` no `_temaClaroCalis`.
+- **Check "em andamento" das pastas** no Bege: bolinha PRETA com "v" bege
+  (`app.notaInicio`) quando marcado, igual ao quadradinho dentro das
+  caixinhas.
+
 ---
 
 ## 5. Fluxo de Telas
@@ -198,7 +204,9 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 8. `add_link` (link — até 3, cada um com título de vídeo)
 9. `chat_bubble` / `chat_bubble_outline` (comentário inline)
 10. `edit_outlined` (focar no fim)
-11. `format_align_center` / `format_align_left` (centralizar texto — modo título)
+11. `format_align_center` (centralizar SELEÇÃO como título — cria o campo
+    de título centralizado acima do texto; selecionar o título e tocar de
+    novo devolve ao texto; sem seleção mostra aviso)
 12. `cleaning_services` (limpar)
 13. `delete_outline` (excluir, vermelho)
 
@@ -253,10 +261,14 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - Botão `unfold_more` alterna o scroll interno entre topo e pé.
 
 ### Desfazer (undo)
-- **Botão `undo` na barra da caixinha:** restaura o texto apagado. Usa
-  `HistoricoTexto` (editor.dart): guarda o texto ANTES de cada RAJADA de
-  apagamento — um toque volta tudo o que foi apagado de uma vez (digitação
-  normal não empilha, para não desfazer tecla por tecla).
+- **Botão `undo` na barra da caixinha:** desfaz a ação anterior. Usa
+  `HistoricoTexto` (editor.dart): guarda o estado (texto + título) ANTES de
+  cada RAJADA de apagamento — um toque volta tudo o que foi apagado de uma
+  vez (digitação normal não empilha, para não desfazer tecla por tecla).
+- Ações da barra (centralizar, numerar, item de to-do) empilham o estado
+  ANTES de agir via `empilhar()` + `suprimir()` (o registro automático das
+  mudanças intermediárias é suspenso durante a ação) — desfazer volta ao
+  estado anterior, inclusive desfazendo a centralização.
 - Excluir caixinha, excluir projeto e mover entre abas mostram aviso com **Desfazer** por 4s.
 - `mostrarAviso`/`mostrarAvisoAcao` (editor.dart) usam SnackBar **+ Timer** para forçar o fechamento mesmo com animações do sistema desativadas.
 
@@ -371,7 +383,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (44 testes)
+# Testes (47 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -418,7 +430,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (44 testes)
+## 10. Testes (47 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -444,14 +456,16 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - `Nota.fromJson` normaliza quadradinhos antigos sem VS15 (regressão: carregava como emoji)
 - Toque no quadradinho de dado antigo (sem VS15) grava `☑\uFE0E` (não vira emoji)
 
-### `test/undo_link_test.dart` (4 testes)
+### `test/undo_link_test.dart` (6 testes)
 - Desfazer restaura a palavra digitada e apagada (composição realista do IME)
 - Desfazer restaura a rajada inteira de apagamentos
 - Diálogo de links abre sem exceção (regressão da tela branca)
 - Digitar URL e Salvar no diálogo não crasham
+- Centralizar com seleção vira título centralizado e desfazer reverte
+- Centralizar sem seleção mostra aviso e não altera nada
 
-### `test/desfazer_test.dart` (6 testes)
-- `HistoricoTexto`: digitação não empilha; rajada de apagamento empilha uma vez; desfazer restaura o texto inteiro; várias rajadas; limpar tudo pode ser desfeito; limite da pilha
+### `test/desfazer_test.dart` (7 testes)
+- `HistoricoTexto`: digitação não empilha; rajada empilha uma vez; desfazer restaura texto+título; apagar no título empilha; `empilhar`/`suprimir` para ações; várias rajadas; limpar tudo; limite da pilha
 
 ### `test/fonte_test.dart` (1 teste)
 - O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
@@ -469,7 +483,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 44 testes devem passar.
+- **Sempre rodar `flutter test`** — 47 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 

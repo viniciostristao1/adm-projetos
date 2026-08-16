@@ -28,8 +28,9 @@ class Nota {
   String? comentario;
   List<NotaLink> links;
 
-  /// Texto todo centralizado (modo "título").
-  bool centralizada;
+  /// Título centralizado da caixinha (campo próprio, acima do texto): o
+  /// usuário seleciona uma palavra/frase no texto e toca em centralizar.
+  String? titulo;
 
   Nota({
     required this.id,
@@ -37,7 +38,7 @@ class Nota {
     this.concluida = false,
     this.comentario,
     List<NotaLink>? links,
-    this.centralizada = false,
+    this.titulo,
   }) : links = links ?? [];
 
   Map<String, dynamic> toJson() => {
@@ -45,8 +46,8 @@ class Nota {
         'texto': texto,
         'concluida': concluida,
         if (comentario != null) 'comentario': comentario,
+        if (titulo != null) 'titulo': titulo,
         'links': links.map((l) => l.toJson()).toList(),
-        'centralizada': centralizada,
       };
 
   factory Nota.fromJson(Map<String, dynamic> j) {
@@ -79,7 +80,7 @@ class Nota {
           ? null
           : j['comentario'] as String?,
       links: lerLinks(),
-      centralizada: (j['centralizada'] ?? false) as bool,
+      titulo: (j['titulo'] as String?)?.trim(),
     );
   }
 

@@ -343,9 +343,11 @@ class _CaixaNota extends StatefulWidget {
 
 class _CaixaNotaState extends State<_CaixaNota> {
   late final TextEditingController _ctrl;
+  late final TextEditingController _ctrlTitulo;
   late final TextEditingController _ctrlComentario;
   final HistoricoTexto _historico = HistoricoTexto();
   final FocusNode _foco = FocusNode();
+  final FocusNode _focoTitulo = FocusNode();
   final ScrollController _scroll = ScrollController();
   final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
@@ -361,7 +363,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.nota.texto);
-    _historico.comecar(widget.nota.texto);
+    _ctrlTitulo = TextEditingController(text: widget.nota.titulo ?? '');
+    _historico.comecar(widget.nota.texto, widget.nota.titulo);
     _ctrlComentario =
         TextEditingController(text: widget.nota.comentario ?? '');
     _foco.addListener(_aoFocar);
@@ -404,8 +407,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
     // o usuário sai rápido da tela.
     _guardarTudo();
     _ctrl.dispose();
+    _ctrlTitulo.dispose();
     _ctrlComentario.dispose();
     _foco.dispose();
+    _focoTitulo.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -416,6 +421,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   /// ex.: título do YouTube vindo do diálogo de link).
   void _guardarTudo() {
     widget.nota.texto = _ctrl.text;
+    widget.nota.titulo = _ctrlTitulo.text.isEmpty ? null : _ctrlTitulo.text;
     if (_comentarioVisivel) {
       final c = _ctrlComentario.text;
       widget.nota.comentario = c.isEmpty ? null : c;
@@ -530,7 +536,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   TextStyle? _estiloCampo;
 
   void _mudou(String novoTexto) {
-    _historico.registrar(novoTexto);
+    _historico.registrar(novoTexto, _ctrlTitulo.text);
     widget.nota.texto = novoTexto;
     // GRAVA NA HORA, a cada tecla — nada se perde ao fechar/trocar de tela.
     // (Arquivo pequeno; o custo de escrever por tecla é desprezível.)
@@ -556,16 +562,31 @@ class _CaixaNotaState extends State<_CaixaNota> {
     _mudou('');
   }
 
-  /// Restaura o texto apagado (a rajada inteira de deleções de uma vez).
+  /// Mudanças no campo do TÍTULO (centralizado): salva e registra no
+  /// histórico (apagar no título também pode ser desfeito).
+  void _mudouTitulo(String novoTitulo) {
+    _historico.registrar(_ctrl.text, novoTitulo);
+    widget.nota.titulo = novoTitulo.isEmpty ? null : novoTitulo;
+    Storage.instance.salvar();
+  }
+
+  /// Restaura o último estado (texto e título) apagado/alterado — cobre
+  /// também as ações da barra (centralizar, numerar, item de to-do).
   void _desfazer() {
-    final restaurado = _historico.desfazer();
-    if (restaurado == null) return;
+    final estado = _historico.desfazer();
+    if (estado == null) return;
     setState(() {});
+    final (texto, titulo) = estado;
     _ctrl.value = TextEditingValue(
-      text: restaurado,
-      selection: TextSelection.collapsed(offset: restaurado.length),
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
     );
-    _mudou(restaurado);
+    _ctrlTitulo.value = TextEditingValue(
+      text: titulo ?? '',
+      selection: TextSelection.collapsed(offset: (titulo ?? '').length),
+    );
+    _mudou(texto);
+    _mudouTitulo(titulo ?? '');
   }
 
   void _alternarConcluida() {
@@ -573,11 +594,54 @@ class _CaixaNotaState extends State<_CaixaNota> {
     Storage.instance.salvar();
   }
 
-  /// Centraliza todo o texto da caixinha (modo "título") ou volta ao
-  /// alinhamento à esquerda.
-  void _alternarCentralizada() {
-    setState(() => widget.nota.centralizada = !widget.nota.centralizada);
-    Storage.instance.salvar();
+  /// Centraliza UMA palavra/frase selecionada: vira o TÍTULO da caixinha
+  /// (campo próprio, acima do texto, centralizado). Seleção no título move-o
+  /// de volta para o texto. Nada selecionado → aviso. Desfazer reverte.
+  void _centralizarSelecao() {
+    if (_focoTitulo.hasFocus &&
+        _ctrlTitulo.selection.isValid &&
+        !_ctrlTitulo.selection.isCollapsed) {
+      // Título selecionado → devolve para o topo do texto.
+      _historico.empilhar(_ctrl.text, _ctrlTitulo.text);
+      _historico.suprimir();
+      final t = _ctrlTitulo.text;
+      _ctrlTitulo.clear();
+      _mudouTitulo('');
+      final novo = t.isEmpty ? _ctrl.text : '$t\n${_ctrl.text}';
+      _ctrl.value = TextEditingValue(
+        text: novo,
+        selection: TextSelection.collapsed(offset: t.length),
+      );
+      _mudou(novo);
+      _historico.reativar();
+      setState(() {});
+      return;
+    }
+    final sel = _ctrl.selection;
+    if (!sel.isValid || sel.isCollapsed) {
+      mostrarAviso(context, 'Selecione uma palavra ou frase para centralizar');
+      return;
+    }
+    final frase = _ctrl.text.substring(sel.start, sel.end).trim();
+    if (frase.isEmpty) {
+      mostrarAviso(context, 'Selecione uma palavra ou frase para centralizar');
+      return;
+    }
+    _historico.empilhar(_ctrl.text, _ctrlTitulo.text);
+    _historico.suprimir();
+    final corpo = _ctrl.text
+        .replaceRange(sel.start, sel.end, '')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+    _ctrlTitulo.text = frase;
+    _mudouTitulo(frase);
+    _ctrl.value = TextEditingValue(
+      text: corpo,
+      selection: TextSelection.collapsed(offset: corpo.length),
+    );
+    _mudou(corpo);
+    _historico.reativar();
+    setState(() {});
   }
 
   /// Índice da linha que contém o cursor (ou a última linha com conteúdo,
@@ -604,6 +668,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
   /// adiciona o próximo número. Não insere linhas novas — quem cria linha é
   /// o Enter (que continua a numeração automaticamente).
   void _alternarNumero() {
+    _historico.empilhar(_ctrl.text, _ctrlTitulo.text);
+    _historico.suprimir();
     final texto = _ctrl.text;
     final linhas = texto.split('\n');
     final cursor = _ctrl.selection.isValid
@@ -634,6 +700,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
     );
     _foco.requestFocus();
     _mudou(novo);
+    _historico.reativar();
     setState(() => _numerado = adicionou);
   }
 
@@ -641,6 +708,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
   /// um item de to-do, remove o quadradinho (alterna). Funciona em qualquer
   /// linha, não só no fim do texto.
   void _inserirTodo() {
+    _historico.empilhar(_ctrl.text, _ctrlTitulo.text);
+    _historico.suprimir();
     final texto = _ctrl.text;
     final linhas = texto.split('\n');
     final cursor = _ctrl.selection.isValid
@@ -674,6 +743,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
     );
     _foco.requestFocus();
     _mudou(novo);
+    _historico.reativar();
     setState(() => _numerado = false);
   }
 
@@ -979,13 +1049,9 @@ class _CaixaNotaState extends State<_CaixaNota> {
                           cor: onBarra,
                         ),
                         _BotaoMini(
-                          icone: widget.nota.centralizada
-                              ? Icons.format_align_left
-                              : Icons.format_align_center,
-                          tooltip: widget.nota.centralizada
-                              ? 'Alinhar à esquerda'
-                              : 'Centralizar (título)',
-                          onTap: _alternarCentralizada,
+                          icone: Icons.format_align_center,
+                          tooltip: 'Centralizar (título)',
+                          onTap: _centralizarSelecao,
                           cor: onBarra,
                         ),
                         _BotaoMini(
@@ -1020,7 +1086,43 @@ class _CaixaNotaState extends State<_CaixaNota> {
                       ? double.infinity
                       : (_alturaMaxima! - 40).clamp(60.0, double.infinity),
                 ),
-                child: TextField(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Título centralizado (criado selecionando uma palavra/
+                    // frase e tocando em "centralizar"). Selecione o texto
+                    // dele e toque em centralizar de novo para devolver.
+                    if (widget.nota.titulo != null &&
+                        widget.nota.titulo!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                        child: TextField(
+                          controller: _ctrlTitulo,
+                          focusNode: _focoTitulo,
+                          minLines: 1,
+                          maxLines: 3,
+                          textAlign: TextAlign.center,
+                          style: (_estiloCampo ?? _estiloTexto).copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: widget.nota.concluida
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.45)
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
+                          onChanged: _mudouTitulo,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                    TextField(
                   key: _campoKey,
                   scrollController: _scroll,
                   controller: _ctrl,
@@ -1036,9 +1138,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
                             .withValues(alpha: 0.45)
                         : Theme.of(context).colorScheme.onSurface,
                   ),
-                  textAlign: widget.nota.centralizada
-                      ? TextAlign.center
-                      : TextAlign.start,
                   onChanged: _mudou,
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -1047,6 +1146,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
                     isDense: true,
                     contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
                   ),
+                ),
+                  ],
                 ),
               ),
             ),

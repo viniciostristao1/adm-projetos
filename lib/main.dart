@@ -183,8 +183,9 @@ class AdmProjetosApp extends StatelessWidget {
     );
   }
 
-  /// Tema claro plano (estilo Calis Timer — madeira): Bege e Creme usam a
-  /// mesma estrutura, mudando só as cores.
+  /// Tema claro plano (estilo Calis Timer — madeira): Bege usa esta
+  /// estrutura; a barra superior pode ter cor própria ([appBarColor],
+  /// padrão: mesma do fundo).
   ThemeData _temaClaroCalis({
     required Color bg,
     required Color surface,
@@ -193,6 +194,7 @@ class AdmProjetosApp extends StatelessWidget {
     required Color accent,
     required Color onAccent,
     required AppCores app,
+    Color? appBarColor,
   }) {
     return ThemeData(
       colorScheme: ColorScheme.fromSeed(
@@ -204,7 +206,7 @@ class AdmProjetosApp extends StatelessWidget {
       scaffoldBackgroundColor: bg,
       extensions: [app],
       appBarTheme: AppBarTheme(
-        backgroundColor: bg,
+        backgroundColor: appBarColor ?? bg,
         foregroundColor: text,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
@@ -284,6 +286,9 @@ class AdmProjetosApp extends StatelessWidget {
         accent: const Color(0xFFB5652E),
         onAccent: const Color(0xFFFFF3E7),
         app: AppCores.bege,
+        // Barra superior (página principal e projeto) na cor bege escuro —
+        // a mesma do interior das caixinhas.
+        appBarColor: const Color(0xFFE0D1B9),
       );
 
   ThemeData _temaEscuro() => _temaBase(ThemeData(

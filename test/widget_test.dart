@@ -73,8 +73,11 @@ void main() {
     expect(n.comentario, 'lembrete');
   });
 
-  test('Nota serializa centralizada', () {
-    final nota = Nota(id: '1', texto: 'título', centralizada: true);
-    expect(Nota.fromJson(nota.toJson()).centralizada, isTrue);
+  test('Nota serializa o título centralizado', () {
+    final nota = Nota(id: '1', texto: 'corpo', titulo: 'Meu título');
+    final deVolta = Nota.fromJson(nota.toJson());
+    expect(deVolta.titulo, 'Meu título');
+    final sem = Nota.fromJson({'id': '1', 'texto': 'x'});
+    expect(sem.titulo, isNull);
   });
 }

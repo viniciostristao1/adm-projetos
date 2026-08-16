@@ -398,6 +398,14 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 final txtCor = app.projetoTxt;
                 final bolaCor = app.notaFim;
                 final iconeCor = app.projetoTxt;
+                // No Bege, o check de "em andamento" fica como o quadradinho
+                // dentro das caixinhas: bolinha PRETA com "v" bege.
+                final ehBege = app == AppCores.bege;
+                final corBolaAndamento =
+                    ehBege ? Colors.black : bolaCor;
+                final corCheckAndamento = ehBege
+                    ? app.notaInicio
+                    : const Color(0xFF4ADE80);
 
                 return Padding(
                   key: ValueKey(p.id),
@@ -440,16 +448,18 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                             height: 36,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: bolaCor,
+                              color: p.emAndamento
+                                  ? corBolaAndamento
+                                  : bolaCor,
                             ),
                             child: IconButton(
                               icon: Icon(
                                   p.emAndamento
-                                      ? Icons.check_box
+                                      ? Icons.check
                                       : Icons.check_box_outline_blank,
                                   size: 18),
                               color: p.emAndamento
-                                  ? const Color(0xFF4ADE80)
+                                  ? corCheckAndamento
                                   : iconeCor,
                               tooltip: p.emAndamento
                                   ? 'Parar (não está mais em andamento)'

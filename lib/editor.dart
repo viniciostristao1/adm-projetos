@@ -127,43 +127,74 @@ String maiusculaAposItem(String texto) {
   return texto.replaceRange(pos, pos + 1, letra);
 }
 
-/// Pilha de desfazer da caixinha: guarda o texto ANTES de cada RAJADA de
-/// apagamento — um toque no desfazer restaura tudo o que foi apagado de uma
-/// vez (digitação normal não empilha, para o botão não desfazer tecla por
-/// tecla).
+/// Pilha de desfazer da caixinha: guarda o estado (texto + título) ANTES de
+/// cada RAJADA de apagamento — um toque no desfazer restaura tudo o que foi
+/// apagado de uma vez (digitação normal não empilha, para o botão não
+/// desfazer tecla por tecla). Ações explícitas (centralizar, numerar, item
+/// de to-do) empilham via [empilhar], virando "desfazer a ação anterior".
 class HistoricoTexto {
   HistoricoTexto({this.limite = 40});
 
   final int limite;
-  final List<String> _pilha = [];
+  final List<(String, String?)> _pilha = [];
   bool _apagando = false;
+  bool _suprimido = false;
   String _atual = '';
+  String? _tituloAtual;
 
-  /// Estado inicial do texto (chamar ao abrir a caixinha).
-  void comecar(String texto) {
+  /// Estado inicial (chamar ao abrir a caixinha).
+  void comecar(String texto, String? titulo) {
     _atual = texto;
+    _tituloAtual = titulo;
     _apagando = false;
+    _suprimido = false;
     _pilha.clear();
   }
 
+  /// Empilha o estado atual na pilha (para ações de toolbar, antes de
+  /// alterar o texto). Ignora se for idêntico ao topo (evita duplicatas).
+  void empilhar(String texto, String? titulo) {
+    if (_pilha.isNotEmpty) {
+      final topo = _pilha.last;
+      if (topo.$1 == texto && topo.$2 == titulo) return;
+    }
+    _pilha.add((texto, titulo));
+    if (_pilha.length > limite) _pilha.removeAt(0);
+  }
+
+  /// Durante uma AÇÃO da barra (centralizar, numerar, to-do): suprime o
+  /// registro automático das mudanças intermediárias (o estado já foi
+  /// empilhado por [empilhar]) para o desfazer voltar ao estado anterior.
+  void suprimir() => _suprimido = true;
+
+  void reativar() {
+    _suprimido = false;
+    _apagando = false;
+  }
+
   /// Chamado a cada mudança de texto. Quando uma rajada de apagamento
-  /// COMEÇA, salva o texto anterior na pilha.
-  void registrar(String novo) {
-    final ehDelecao = novo.length < _atual.length;
-    if (ehDelecao && !_apagando) {
-      _pilha.add(_atual);
+  /// COMEÇA (no texto ou no título), salva o estado anterior na pilha.
+  void registrar(String novo, String? novoTitulo) {
+    final tamAntes = _atual.length + (_tituloAtual?.length ?? 0);
+    final tamDepois = novo.length + (novoTitulo?.length ?? 0);
+    final ehDelecao = tamDepois < tamAntes;
+    if (ehDelecao && !_apagando && !_suprimido) {
+      _pilha.add((_atual, _tituloAtual));
       if (_pilha.length > limite) _pilha.removeAt(0);
     }
     _apagando = ehDelecao;
     _atual = novo;
+    _tituloAtual = novoTitulo;
   }
 
-  /// Restaura o último texto apagado (ou null se não houver nada).
-  String? desfazer() {
+  /// Restaura o último estado (ou null se não houver nada).
+  (String, String?)? desfazer() {
     if (_pilha.isEmpty) return null;
     _apagando = false;
-    _atual = _pilha.removeLast();
-    return _atual;
+    final estado = _pilha.removeLast();
+    _atual = estado.$1;
+    _tituloAtual = estado.$2;
+    return estado;
   }
 
   bool get podeDesfazer => _pilha.isNotEmpty;

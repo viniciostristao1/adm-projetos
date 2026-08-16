@@ -120,4 +120,58 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('centralizar com seleção vira título e desfazer reverte',
+      (tester) async {
+    final p = await projetoCom('título do texto\ncorpo do texto');
+    await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
+    await tester.pump();
+
+    final field = find.byType(TextField).first;
+    await tester.tap(field);
+    await tester.pump();
+
+    // Seleciona "título do texto" (primeira linha).
+    tester.testTextInput.updateEditingValue(const TextEditingValue(
+      text: 'título do texto\ncorpo do texto',
+      selection: TextSelection(baseOffset: 0, extentOffset: 16),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.format_align_center));
+    await tester.pump();
+
+    // Virou título centralizado (primeiro campo) e saiu do corpo.
+    final titulo = tester.widget<TextField>(find.byType(TextField).first);
+    expect(titulo.controller!.text, 'título do texto');
+    expect(titulo.textAlign, TextAlign.center);
+    final corpo = tester.widget<TextField>(find.byType(TextField).last);
+    expect(corpo.controller!.text, 'corpo do texto');
+    expect(tester.takeException(), isNull);
+
+    // Desfazer a ação de centralizar devolve tudo.
+    await tester.tap(find.byIcon(Icons.undo));
+    await tester.pump();
+    final restaurado = tester.widget<TextField>(find.byType(TextField).first);
+    expect(restaurado.controller!.text, 'título do texto\ncorpo do texto');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('centralizar sem seleção mostra aviso e não altera nada',
+      (tester) async {
+    final p = await projetoCom('só um texto');
+    await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.format_align_center));
+    await tester.pump();
+
+    expect(
+      find.text('Selecione uma palavra ou frase para centralizar'),
+      findsOneWidget,
+    );
+    expect(find.byType(TextField), findsOneWidget); // nenhum título criado
+    // Deixa o timer do aviso (4s) expirar para o teste não falhar.
+    await tester.pump(const Duration(seconds: 5));
+  });
 }
