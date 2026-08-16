@@ -32,6 +32,12 @@ android {
 
     buildTypes {
         release {
+            // ProGuard: mantém as classes do ML Kit (OCR) no release —
+            // sem isso o R8 quebra o build.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             val kp = rootProject.file("key.properties")
             if (kp.exists()) {
                 // Assinatura FIXA (upload-keystore.jks) -> permite atualizar o app
