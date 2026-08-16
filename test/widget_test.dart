@@ -73,11 +73,10 @@ void main() {
     expect(n.comentario, 'lembrete');
   });
 
-  test('Nota serializa o título centralizado', () {
-    final nota = Nota(id: '1', texto: 'corpo', titulo: 'Meu título');
-    final deVolta = Nota.fromJson(nota.toJson());
-    expect(deVolta.titulo, 'Meu título');
+  test('Nota migra o título antigo de volta para o início do texto', () {
+    final n = Nota.fromJson({'id': '1', 'texto': 'corpo', 'titulo': 'Título'});
+    expect(n.texto, 'Título\ncorpo');
     final sem = Nota.fromJson({'id': '1', 'texto': 'x'});
-    expect(sem.titulo, isNull);
+    expect(sem.texto, 'x');
   });
 }

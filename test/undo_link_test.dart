@@ -141,9 +141,9 @@ void main() {
         reason: 'sem ocorrência do termo, não há grifo');
   });
 
-  testWidgets('centralizar com seleção vira título e desfazer reverte',
+  testWidgets('centralizar com seleção centraliza a linha e desfazer reverte',
       (tester) async {
-    final p = await projetoCom('título do texto\ncorpo do texto');
+    final p = await projetoCom('comprar pão\nligar para o João');
     await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
     await tester.pump();
 
@@ -151,29 +151,32 @@ void main() {
     await tester.tap(field);
     await tester.pump();
 
-    // Seleciona "título do texto" (primeira linha).
+    // Seleciona a segunda linha.
     tester.testTextInput.updateEditingValue(const TextEditingValue(
-      text: 'título do texto\ncorpo do texto',
-      selection: TextSelection(baseOffset: 0, extentOffset: 16),
+      text: 'comprar pão\nligar para o João',
+      selection: TextSelection(baseOffset: 12, extentOffset: 16),
     ));
     await tester.pump();
 
     await tester.tap(find.byIcon(Icons.format_align_center));
     await tester.pump();
 
-    // Virou título centralizado (primeiro campo) e saiu do corpo.
-    final titulo = tester.widget<TextField>(find.byType(TextField).first);
-    expect(titulo.controller!.text, 'título do texto');
-    expect(titulo.textAlign, TextAlign.center);
-    final corpo = tester.widget<TextField>(find.byType(TextField).last);
-    expect(corpo.controller!.text, 'corpo do texto');
+    // A linha ficou centralizada (começa com espaços) e permanece no texto.
+    final tf = tester.widget<TextField>(field);
+    final novo = tf.controller!.text;
+    debugPrint('texto após centralizar: "$novo"');
+    expect(novo, startsWith('comprar pão'), reason: 'primeira linha intacta');
+    expect(novo, contains('ligar para o João'),
+        reason: 'a frase continua no texto, só que centralizada');
+    expect(tf.controller!.text.split('\n')[1].startsWith(' '), isTrue,
+        reason: 'linha centralizada ganhou espaços de centralização');
     expect(tester.takeException(), isNull);
 
-    // Desfazer a ação de centralizar devolve tudo.
+    // Desfazer a ação de centralizar devolve o texto original.
     await tester.tap(find.byIcon(Icons.undo));
     await tester.pump();
-    final restaurado = tester.widget<TextField>(find.byType(TextField).first);
-    expect(restaurado.controller!.text, 'título do texto\ncorpo do texto');
+    final restaurado = tester.widget<TextField>(field);
+    expect(restaurado.controller!.text, 'comprar pão\nligar para o João');
     expect(tester.takeException(), isNull);
   });
 
@@ -190,7 +193,8 @@ void main() {
       find.text('Selecione uma palavra ou frase para centralizar'),
       findsOneWidget,
     );
-    expect(find.byType(TextField), findsOneWidget); // nenhum título criado
+    final tf = tester.widget<TextField>(find.byType(TextField).first);
+    expect(tf.controller!.text, 'só um texto');
     // Deixa o timer do aviso (4s) expirar para o teste não falhar.
     await tester.pump(const Duration(seconds: 5));
   });

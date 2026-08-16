@@ -46,7 +46,6 @@ lib/
 | `concluida` | `bool` | `concluida` |
 | `comentario` | `String?` | `comentario` (omisso se null) |
 | `links` | `List<NotaLink>` | `links` (`url` + `titulo` opcional — título do YouTube) |
-| `titulo` | `String?` | `titulo` — título centralizado da caixinha (campo próprio acima do texto) |
 
 ### Projeto (`models.dart`)
 | Campo | Tipo | JSON key |
@@ -207,9 +206,10 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 8. `add_link` (link — até 3, cada um com título de vídeo)
 9. `chat_bubble` / `chat_bubble_outline` (comentário inline)
 10. `edit_outlined` (focar no fim)
-11. `format_align_center` (centralizar SELEÇÃO como título — cria o campo
-    de título centralizado acima do texto; selecionar o título e tocar de
-    novo devolve ao texto; sem seleção mostra aviso)
+11. `format_align_center` (centralizar a LINHA da seleção — insere espaços
+    no início calculados pela largura real do texto, pois o TextField não
+    suporta alinhamento por linha; a palavra fica centralizada NA MESMA
+    linha; desfazer reverte; sem seleção mostra aviso)
 12. `cleaning_services` (limpar)
 13. `delete_outline` (excluir, vermelho)
 
@@ -249,6 +249,13 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   marcado/desmarcado — hit-test com `TextPainter` no `_toqueTexto`, detectado
   por `Listener` (eventos crus, sem disputa de gestos com o campo de texto).
 
+### Voltar de outro app com o cursor
+- Ao retornar (lifecycle `resumed`) com a caixinha focada, a geometria
+  (altura travada + rolagem interna) pode estar antiga e o toque para
+  posicionar o cursor errava (ficava no meio). `_CaixaNotaState` é
+  `WidgetsBindingObserver`: no `resumed` zera `_alturaMaxima`, zera a
+  rolagem interna e recalibra — o toque volta a obedecer.
+
 ### Caderno (caixinha longa)
 - `maxLines: 24`; além disso o texto rola por dentro (Scrollbar).
 - Ao GANHAR FOCO, a caixinha rola para cima do botão "+" e a altura do texto é
@@ -265,9 +272,9 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 
 ### Desfazer (undo)
 - **Botão `undo` na barra da caixinha:** desfaz a ação anterior. Usa
-  `HistoricoTexto` (editor.dart): guarda o estado (texto + título) ANTES de
-  cada RAJADA de apagamento — um toque volta tudo o que foi apagado de uma
-  vez (digitação normal não empilha, para não desfazer tecla por tecla).
+  `HistoricoTexto` (editor.dart): guarda o texto ANTES de cada RAJADA de
+  apagamento — um toque volta tudo o que foi apagado de uma vez (digitação
+  normal não empilha, para não desfazer tecla por tecla).
 - Ações da barra (centralizar, numerar, item de to-do) empilham o estado
   ANTES de agir via `empilhar()` + `suprimir()` (o registro automático das
   mudanças intermediárias é suspenso durante a ação) — desfazer volta ao
@@ -340,6 +347,9 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   `_menuSelecaoAbaixo`): o padrão abre em cima e escondia a barra de
   ferramentas da caixinha. Usa `TextSelectionToolbar` com `anchorAbove`
   impossível (fora da tela) para forçar o posicionamento abaixo.
+- ⚠️ Os labels usam `AdaptiveTextSelectionToolbar.getButtonLabel` (o
+  `item.label` do `ContextMenuButtonItem` vem NULO — sem isso os botões
+  ficam em branco e o menu parece não existir).
 
 ### Comentário e títulos dos links
 - Em **Tarefas:** o campo de comentário manual é toggle (expande/recolhe).
@@ -399,7 +409,7 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 # Análise estática
 flutter analyze
 
-# Testes (48 testes)
+# Testes (50 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -452,7 +462,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (48 testes)
+## 10. Testes (50 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -483,12 +493,12 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Desfazer restaura a rajada inteira de apagamentos
 - Diálogo de links abre sem exceção (regressão da tela branca)
 - Digitar URL e Salvar no diálogo não crasham
-- Centralizar com seleção vira título centralizado e desfazer reverte
+- Centralizar com seleção centraliza a LINHA (espaços calculados) e desfazer reverte
 - Centralizar sem seleção mostra aviso e não altera nada
 - Busca grifa o termo no texto da caixinha (e some quando não há ocorrência)
 
-### `test/desfazer_test.dart` (7 testes)
-- `HistoricoTexto`: digitação não empilha; rajada empilha uma vez; desfazer restaura texto+título; apagar no título empilha; `empilhar`/`suprimir` para ações; várias rajadas; limpar tudo; limite da pilha
+### `test/desfazer_test.dart` (6 testes)
+- `HistoricoTexto`: digitação não empilha; rajada empilha uma vez; desfazer restaura o texto; `empilhar`/`suprimir` para ações; várias rajadas; limpar tudo; limite da pilha
 
 ### `test/fonte_test.dart` (1 teste)
 - O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
@@ -506,7 +516,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 48 testes devem passar.
+- **Sempre rodar `flutter test`** — 50 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 

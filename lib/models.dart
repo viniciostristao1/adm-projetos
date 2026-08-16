@@ -28,17 +28,12 @@ class Nota {
   String? comentario;
   List<NotaLink> links;
 
-  /// Título centralizado da caixinha (campo próprio, acima do texto): o
-  /// usuário seleciona uma palavra/frase no texto e toca em centralizar.
-  String? titulo;
-
   Nota({
     required this.id,
     required this.texto,
     this.concluida = false,
     this.comentario,
     List<NotaLink>? links,
-    this.titulo,
   }) : links = links ?? [];
 
   Map<String, dynamic> toJson() => {
@@ -46,7 +41,6 @@ class Nota {
         'texto': texto,
         'concluida': concluida,
         if (comentario != null) 'comentario': comentario,
-        if (titulo != null) 'titulo': titulo,
         'links': links.map((l) => l.toJson()).toList(),
       };
 
@@ -72,15 +66,23 @@ class Nota {
       return [];
     }
 
+    // Dados da versão com "título centralizado" (campo próprio): o título
+    // volta para o INÍCIO do texto — agora a centralização é por linha.
+    final tituloAntigo = (j['titulo'] as String?)?.trim();
+    final textoBase = normalizarTodos((j['texto'] ?? '') as String);
+    final texto =
+        (tituloAntigo == null || tituloAntigo.isEmpty)
+            ? textoBase
+            : (textoBase.isEmpty ? tituloAntigo : '$tituloAntigo\n$textoBase');
+
     return Nota(
       id: (j['id'] ?? '') as String,
-      texto: normalizarTodos((j['texto'] ?? '') as String),
+      texto: texto,
       concluida: (j['concluida'] ?? false) as bool,
       comentario: (j['link'] is String && (j['link'] as String).isNotEmpty)
           ? null
           : j['comentario'] as String?,
       links: lerLinks(),
-      titulo: (j['titulo'] as String?)?.trim(),
     );
   }
 

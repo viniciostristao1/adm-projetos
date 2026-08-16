@@ -346,13 +346,11 @@ class _CaixaNota extends StatefulWidget {
   State<_CaixaNota> createState() => _CaixaNotaState();
 }
 
-class _CaixaNotaState extends State<_CaixaNota> {
+class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   late final TextEditingController _ctrl;
-  late final TextEditingController _ctrlTitulo;
   late final TextEditingController _ctrlComentario;
   final HistoricoTexto _historico = HistoricoTexto();
   final FocusNode _foco = FocusNode();
-  final FocusNode _focoTitulo = FocusNode();
   final ScrollController _scroll = ScrollController();
   final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
@@ -368,16 +366,33 @@ class _CaixaNotaState extends State<_CaixaNota> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.nota.texto);
-    _ctrlTitulo = TextEditingController(text: widget.nota.titulo ?? '');
-    _historico.comecar(widget.nota.texto, widget.nota.titulo);
+    _historico.comecar(widget.nota.texto);
     _ctrlComentario =
         TextEditingController(text: widget.nota.comentario ?? '');
     _foco.addListener(_aoFocar);
     _foco.addListener(_aoPerderFoco);
+    WidgetsBinding.instance.addObserver(this);
     // Links antigos (migrados sem título) e links de vídeos novos ganham o
     // título do YouTube automaticamente — sem precisar abrir o diálogo.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _buscarTitulosPendentes();
+    });
+  }
+
+  /// Ao VOLTAR de outro app com a caixinha focada, a geometria do campo
+  /// (altura travada + rolagem interna) pode ter ficado antiga — o toque
+  /// para posicionar o cursor errava e ele "não obedecia" (ficava no meio).
+  /// Recalibra tudo para o toque mapear certo de novo.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted || !_foco.hasFocus) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _alturaMaxima = null;
+      if (_scroll.hasClients) _scroll.jumpTo(0);
+      _ajustarVisibilidade();
     });
   }
 
@@ -411,11 +426,10 @@ class _CaixaNotaState extends State<_CaixaNota> {
     // cobre o texto que a IME ainda não tinha confirmado (composição) quando
     // o usuário sai rápido da tela.
     _guardarTudo();
+    WidgetsBinding.instance.removeObserver(this);
     _ctrl.dispose();
-    _ctrlTitulo.dispose();
     _ctrlComentario.dispose();
     _foco.dispose();
-    _focoTitulo.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -426,7 +440,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
   /// ex.: título do YouTube vindo do diálogo de link).
   void _guardarTudo() {
     widget.nota.texto = _ctrl.text;
-    widget.nota.titulo = _ctrlTitulo.text.isEmpty ? null : _ctrlTitulo.text;
     if (_comentarioVisivel) {
       final c = _ctrlComentario.text;
       widget.nota.comentario = c.isEmpty ? null : c;
@@ -541,7 +554,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   TextStyle? _estiloCampo;
 
   void _mudou(String novoTexto) {
-    _historico.registrar(novoTexto, _ctrlTitulo.text);
+    _historico.registrar(novoTexto);
     widget.nota.texto = novoTexto;
     // GRAVA NA HORA, a cada tecla — nada se perde ao fechar/trocar de tela.
     // (Arquivo pequeno; o custo de escrever por tecla é desprezível.)
@@ -567,31 +580,17 @@ class _CaixaNotaState extends State<_CaixaNota> {
     _mudou('');
   }
 
-  /// Mudanças no campo do TÍTULO (centralizado): salva e registra no
-  /// histórico (apagar no título também pode ser desfeito).
-  void _mudouTitulo(String novoTitulo) {
-    _historico.registrar(_ctrl.text, novoTitulo);
-    widget.nota.titulo = novoTitulo.isEmpty ? null : novoTitulo;
-    Storage.instance.salvar();
-  }
-
-  /// Restaura o último estado (texto e título) apagado/alterado — cobre
-  /// também as ações da barra (centralizar, numerar, item de to-do).
+  /// Restaura o último texto apagado/alterado — cobre também as ações da
+  /// barra (centralizar, numerar, item de to-do).
   void _desfazer() {
-    final estado = _historico.desfazer();
-    if (estado == null) return;
+    final restaurado = _historico.desfazer();
+    if (restaurado == null) return;
     setState(() {});
-    final (texto, titulo) = estado;
     _ctrl.value = TextEditingValue(
-      text: texto,
-      selection: TextSelection.collapsed(offset: texto.length),
+      text: restaurado,
+      selection: TextSelection.collapsed(offset: restaurado.length),
     );
-    _ctrlTitulo.value = TextEditingValue(
-      text: titulo ?? '',
-      selection: TextSelection.collapsed(offset: (titulo ?? '').length),
-    );
-    _mudou(texto);
-    _mudouTitulo(titulo ?? '');
+    _mudou(restaurado);
   }
 
   void _alternarConcluida() {
@@ -599,52 +598,56 @@ class _CaixaNotaState extends State<_CaixaNota> {
     Storage.instance.salvar();
   }
 
-  /// Centraliza UMA palavra/frase selecionada: vira o TÍTULO da caixinha
-  /// (campo próprio, acima do texto, centralizado). Seleção no título move-o
-  /// de volta para o texto. Nada selecionado → aviso. Desfazer reverte.
-  void _centralizarSelecao() {
-    if (_focoTitulo.hasFocus &&
-        _ctrlTitulo.selection.isValid &&
-        !_ctrlTitulo.selection.isCollapsed) {
-      // Título selecionado → devolve para o topo do texto.
-      _historico.empilhar(_ctrl.text, _ctrlTitulo.text);
-      _historico.suprimir();
-      final t = _ctrlTitulo.text;
-      _ctrlTitulo.clear();
-      _mudouTitulo('');
-      final novo = t.isEmpty ? _ctrl.text : '$t\n${_ctrl.text}';
-      _ctrl.value = TextEditingValue(
-        text: novo,
-        selection: TextSelection.collapsed(offset: t.length),
-      );
-      _mudou(novo);
-      _historico.reativar();
-      setState(() {});
-      return;
-    }
+  /// Centraliza a LINHA que contém a seleção: insere espaços no início
+  /// calculados pela largura real do texto (o TextField não suporta
+  /// alinhamento por linha). A palavra/frase fica centralizada NA MESMA
+  /// linha, sem sair do texto. Desfazer (undo) reverte.
+  void _centralizarLinha() {
     final sel = _ctrl.selection;
     if (!sel.isValid || sel.isCollapsed) {
       mostrarAviso(context, 'Selecione uma palavra ou frase para centralizar');
       return;
     }
-    final frase = _ctrl.text.substring(sel.start, sel.end).trim();
-    if (frase.isEmpty) {
+    final texto = _ctrl.text;
+    var inicio = texto.lastIndexOf('\n', sel.start > 0 ? sel.start - 1 : 0);
+    inicio = inicio < 0 ? 0 : inicio + 1;
+    var fim = texto.indexOf('\n', sel.start);
+    if (fim < 0) fim = texto.length;
+    final limpa = texto.substring(inicio, fim).trim();
+    if (limpa.isEmpty) {
       mostrarAviso(context, 'Selecione uma palavra ou frase para centralizar');
       return;
     }
-    _historico.empilhar(_ctrl.text, _ctrlTitulo.text);
+    final box = _campoKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final maxWidth = box.size.width - 28;
+    final estilo = _estiloCampo ?? _estiloTexto;
+    final scaler = MediaQuery.textScalerOf(context);
+    final pLinha = TextPainter(
+      text: TextSpan(text: limpa, style: estilo),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+    )..layout(maxWidth: maxWidth);
+    if (pLinha.width > maxWidth - 40) {
+      mostrarAviso(context, 'Linha muito longa para centralizar');
+      return;
+    }
+    final pEspaco = TextPainter(
+      text: TextSpan(text: ' ', style: estilo),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+    )..layout();
+    final espacos =
+        ((maxWidth - pLinha.width) / 2 / pEspaco.width).floor().clamp(0, 60);
+    final novaLinha = ' ' * espacos + limpa;
+    _historico.empilhar(texto);
     _historico.suprimir();
-    final corpo = _ctrl.text
-        .replaceRange(sel.start, sel.end, '')
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-        .trim();
-    _ctrlTitulo.text = frase;
-    _mudouTitulo(frase);
+    final novo = texto.replaceRange(inicio, fim, novaLinha);
     _ctrl.value = TextEditingValue(
-      text: corpo,
-      selection: TextSelection.collapsed(offset: corpo.length),
+      text: novo,
+      selection: TextSelection.collapsed(offset: inicio + novaLinha.length),
     );
-    _mudou(corpo);
+    _mudou(novo);
     _historico.reativar();
     setState(() {});
   }
@@ -673,7 +676,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   /// adiciona o próximo número. Não insere linhas novas — quem cria linha é
   /// o Enter (que continua a numeração automaticamente).
   void _alternarNumero() {
-    _historico.empilhar(_ctrl.text, _ctrlTitulo.text);
+    _historico.empilhar(_ctrl.text);
     _historico.suprimir();
     final texto = _ctrl.text;
     final linhas = texto.split('\n');
@@ -713,7 +716,7 @@ class _CaixaNotaState extends State<_CaixaNota> {
   /// um item de to-do, remove o quadradinho (alterna). Funciona em qualquer
   /// linha, não só no fim do texto.
   void _inserirTodo() {
-    _historico.empilhar(_ctrl.text, _ctrlTitulo.text);
+    _historico.empilhar(_ctrl.text);
     _historico.suprimir();
     final texto = _ctrl.text;
     final linhas = texto.split('\n');
@@ -1055,8 +1058,8 @@ class _CaixaNotaState extends State<_CaixaNota> {
                         ),
                         _BotaoMini(
                           icone: Icons.format_align_center,
-                          tooltip: 'Centralizar (título)',
-                          onTap: _centralizarSelecao,
+                          tooltip: 'Centralizar linha (seleção)',
+                          onTap: _centralizarLinha,
                           cor: onBarra,
                         ),
                         _BotaoMini(
@@ -1094,40 +1097,6 @@ class _CaixaNotaState extends State<_CaixaNota> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Título centralizado (criado selecionando uma palavra/
-                    // frase e tocando em "centralizar"). Selecione o texto
-                    // dele e toque em centralizar de novo para devolver.
-                    if (widget.nota.titulo != null &&
-                        widget.nota.titulo!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
-                        child: TextField(
-                          controller: _ctrlTitulo,
-                          focusNode: _focoTitulo,
-                          minLines: 1,
-                          maxLines: 3,
-                          textAlign: TextAlign.center,
-                          style: (_estiloCampo ?? _estiloTexto).copyWith(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: widget.nota.concluida
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.45)
-                                : Theme.of(context).colorScheme.onSurface,
-                          ),
-                          onChanged: _mudouTitulo,
-                          contextMenuBuilder: _menuSelecaoAbaixo,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ),
                     LayoutBuilder(builder: (ctx, cons) {
                       final maxWidth = cons.maxWidth - 28;
                       return Stack(
@@ -1609,6 +1578,7 @@ class _GrifoBuscaPainter extends CustomPainter {
 Widget _menuSelecaoAbaixo(
     BuildContext context, EditableTextState editableTextState) {
   final itens = editableTextState.contextMenuButtonItems;
+  debugPrint('menu: ${itens.length} itens');
   if (itens.isEmpty) return const SizedBox.shrink();
   return TextSelectionToolbar(
     anchorAbove: const Offset(0, -100000),
@@ -1618,7 +1588,10 @@ Widget _menuSelecaoAbaixo(
         TextSelectionToolbarTextButton(
           onPressed: item.onPressed,
           padding: EdgeInsets.zero,
-          child: Text(item.label ?? ''),
+          // O label dos itens padrão vem por TIPO (item.label é nulo);
+          // getButtonLabel resolve o rótulo certo (copiar/colar/cortar…).
+          child: Text(
+              AdaptiveTextSelectionToolbar.getButtonLabel(context, item)),
         ),
     ],
   );
