@@ -29,6 +29,7 @@ lib/
 ├── projetos_screen.dart # Tela principal: lista de projetos + busca + backup (export/import)
 ├── projeto_screen.dart  # Tela de 1 projeto: abas Tarefas/Ideias + _CaixaNota
 ├── pdf_export.dart      # Gera PDF do projeto inteiro e compartilha (printing)
+├── ocr.dart             # extrairTextoDeImagem(): galeria + ML Kit (OCR local)
 ├── editor.dart          # Utilitários: copiarTexto, mostrarAviso(Acao), capitalizarInicial,
 │                        #   proximoNumeroLista, LinhasNumeradas, maiusculaAposItem
 └── caixa3d.dart         # Widget simples: Container com cor sólida + borderRadius
@@ -204,14 +205,15 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 6. `arrow_downward` / `arrow_upward` (mover para a outra aba)
 7. `unfold_more` (topo/pé do texto)
 8. `add_link` (link — até 3, cada um com título de vídeo)
-9. `chat_bubble` / `chat_bubble_outline` (comentário inline)
-10. `edit_outlined` (focar no fim)
-11. `format_align_center` (centralizar a LINHA da seleção — insere espaços
+9. `image_outlined` (Ler texto de imagem — OCR, insere na posição do cursor)
+10. `chat_bubble` / `chat_bubble_outline` (comentário inline)
+11. `edit_outlined` (focar no fim)
+12. `format_align_center` (centralizar a LINHA da seleção — insere espaços
     no início calculados pela largura real do texto, pois o TextField não
     suporta alinhamento por linha; a palavra fica centralizada NA MESMA
     linha; desfazer reverte; sem seleção mostra aviso)
-12. `cleaning_services` (limpar)
-13. `delete_outline` (excluir, vermelho)
+13. `cleaning_services` (limpar)
+14. `delete_outline` (excluir, vermelho)
 
 ---
 
@@ -457,6 +459,8 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **pdf:** `^3.11.3` + **printing:** `^5.14.2` — gerar/compartilhar PDF do projeto
 - **share_plus:** `^12.0.1` — compartilhar arquivo de backup
 - **file_picker:** `^10.3.3` — escolher arquivo de backup para importar
+- **image_picker:** `^1.1.2` — escolher imagem da galeria (OCR)
+- **google_mlkit_text_recognition:** `^0.14.0` — OCR local (ML Kit)
 - **flutter_launcher_icons:** `^0.14.4` — gerar ícones do app (dev only)
 - Não há pacote `http` — requisições HTTP usam `dart:io` `HttpClient` diretamente.
 

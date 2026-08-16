@@ -9,6 +9,7 @@ import 'caixa3d.dart';
 import 'cores.dart';
 import 'editor.dart';
 import 'models.dart';
+import 'ocr.dart';
 import 'pdf_export.dart';
 import 'storage.dart';
 
@@ -52,16 +53,28 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   List<Nota> _lista(int aba) =>
       aba == 0 ? widget.projeto.tarefas : widget.projeto.futuro;
 
-  void _adicionar(int aba) {
+  void _adicionar(int aba, {String? comTexto}) {
     final nota = Nota(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      texto: aba == 0 ? '1- ' : '',
+      texto: comTexto ?? (aba == 0 ? '1- ' : ''),
     );
     setState(() => _lista(aba).add(nota));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _chaveDa(nota.id).currentState?.focarNoFim();
     });
     _salvar();
+  }
+
+  /// Cria uma caixinha nova já com o texto extraído de uma imagem (OCR) —
+  /// acessível pelo toque LONGO no botão "+".
+  Future<void> _adicionarDeImagem() async {
+    final texto = await extrairTextoDeImagem();
+    if (!mounted) return;
+    if (texto == null) {
+      mostrarAviso(context, 'Nenhum texto encontrado na imagem');
+      return;
+    }
+    _adicionar(_tabCtrl.index, comTexto: texto);
   }
 
   void _excluir(int aba, int i) {
@@ -297,10 +310,14 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _adicionar(_tabCtrl.index),
-        tooltip: 'Nova caixa de texto',
-        child: const Icon(Icons.add),
+      floatingActionButton: GestureDetector(
+        // Toque longo no "+": nova caixinha a partir de imagem (OCR).
+        onLongPress: _adicionarDeImagem,
+        child: FloatingActionButton(
+          onPressed: () => _adicionar(_tabCtrl.index),
+          tooltip: 'Nova caixa de texto',
+          child: const Icon(Icons.add),
+        ),
       ),
       body: TabBarView(
         controller: _tabCtrl,
@@ -856,6 +873,33 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     _buscarTitulosPendentes();
   }
 
+  /// Lê o texto de uma imagem (OCR) e INSERE na caixinha na posição do
+  /// cursor — o desfazer (undo) reverte a inserção.
+  Future<void> _lerImagem() async {
+    final texto = await extrairTextoDeImagem();
+    if (!mounted) return;
+    if (texto == null) {
+      mostrarAviso(context, 'Nenhum texto encontrado na imagem');
+      return;
+    }
+    final atual = _ctrl.text;
+    final pos = _ctrl.selection.isValid
+        ? _ctrl.selection.baseOffset
+        : atual.length;
+    // Se o cursor está no fim e o texto não termina em quebra, abre linha.
+    final prefixo = (pos == atual.length && atual.isNotEmpty)
+        ? (atual.endsWith('\n') ? '' : '\n')
+        : '';
+    final novo = atual.replaceRange(pos, pos, '$prefixo$texto');
+    _historico.empilhar(atual);
+    _ctrl.value = TextEditingValue(
+      text: novo,
+      selection: TextSelection.collapsed(offset: novo.length),
+    );
+    _mudou(novo);
+    setState(() {});
+  }
+
   /// Busca (via oEmbed) o título dos links de YouTube que ainda não têm
   /// título e salva — aparecem nos comentários sem precisar clicar em nada.
   /// Nunca lança: um erro aqui não pode derrubar o app.
@@ -1039,6 +1083,12 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
                           icone: Icons.add_link,
                           tooltip: 'Link',
                           onTap: _abrirLink,
+                          cor: onBarra,
+                        ),
+                        _BotaoMini(
+                          icone: Icons.image_outlined,
+                          tooltip: 'Ler texto de imagem (OCR)',
+                          onTap: _lerImagem,
                           cor: onBarra,
                         ),
                         _BotaoMini(
