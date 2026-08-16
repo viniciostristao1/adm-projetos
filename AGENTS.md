@@ -12,7 +12,9 @@ App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, 
 - **Nome do app:** ADM-projetos
 - **Pacote Android:** `com.admprojetos.adm_projetos`
 - **Flutter:** 3.44.7 (stable) — `pubspec.yaml`: SDK `^3.12.2`
-- **Repositório:** `viniciostristao1/adm-projetos` (privado, GitHub)
+- **Repositório:** `viniciostristao1/adm-projetos` (PÚBLICO — repositórios
+  públicos têm minutos de GitHub Actions ilimitados; o CI publica o APK na
+  release `v0.1.0`)
 - **Release APK:** `https://github.com/viniciostristao1/adm-projetos/releases/tag/v0.1.0`
 
 ---
