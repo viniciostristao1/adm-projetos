@@ -397,6 +397,12 @@ cd /root/adm-projetos && git add -A && \
 # Acompanhar build
 gh run list --repo viniciostristao1/adm-projetos --limit 1 --json status,conclusion
 
+# ⚠️ REGRA OBRIGATÓRIA: SEMPRE avisar o usuário quando o build do APK
+# terminar (sucesso ou falha). Após um push, aguardar ~13 min (ou usar
+# `gh run watch <id> --exit-status`) e informar o resultado — ex.: "APK
+# publicado: V0.1.32". Se o build ficar parado (in_progress sem logs por
+# muito tempo), cancelar e re-disparar com `gh workflow run`.
+
 # Baixar APK da release
 gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 ```
