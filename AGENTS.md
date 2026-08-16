@@ -254,51 +254,39 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   por `Listener` (eventos crus, sem disputa de gestos com o campo de texto).
 
 ### Voltar de outro app com o cursor
-- Ao retornar (lifecycle `resumed`), `_CaixaNotaState` (WidgetsBindingObserver)
-  recalibra: zera `_alturaMaxima`, zera a rolagem interna e recalcula (com
-  foco) — o toque para posicionar o cursor volta a obedecer.
-- **Reabertura do teclado:** se a caixinha tinha foco ao voltar, o Android às
-  vezes fecha a conexão de entrada (IME) mas MANTÉM o foco — o teclado não
-  reabre sozinho e não dá para continuar digitando (bug intermitente ao sair
-  e voltar rápido de outro app). Fix: reafirmar o foco (`_foco.unfocus()` +
-  `requestFocus()` no próximo frame) recria a conexão e reabre o teclado; por
-  segurança também chama `SystemChannels.textInput 'TextInput.show'`. O texto
-  e a posição do cursor ficam intactos (o controlador preserva a seleção).
-- Por 1s após voltar (`_recemRetomado`), o toque na caixinha NÃO re-ancora a
-  lista (`_agendarAjuste` é pulado) — o pulo da lista competia com a
-  colocação do cursor logo após a volta (bug intermitente de "cursor no
-  meio").
+- **Reabertura do teclado (V0.1.38):** se a caixinha estava sendo editada ao
+  SAIR do app (`_tinhaFocoAoParar`, gravado em `inactive`/`paused`/`hidden`),
+  ao voltar (`resumed`) recriamos a conexão de entrada: `_foco.unfocus()` +
+  `requestFocus()` + `SystemChannels.textInput 'TextInput.show'`. ⚠️ O ATRASO
+  é essencial (`_reabrirTeclado` em 180ms e 480ms): logo no resume a janela
+  ainda não recuperou o foco do sistema e o pedido de teclado seria ignorado
+  — por isso a tentativa anterior (só `postFrame`, V0.1.37) falhava. O texto e
+  o cursor ficam intactos (o controlador preserva a seleção).
+- O Android, ao sair do app, esconde o teclado e NÃO o reabre sozinho mesmo
+  com o foco mantido — daí o bug intermitente "não consigo continuar
+  digitando ao voltar", pior nas trocas rápidas.
 
 ### Caderno (caixinha longa)
-- `maxLines: 24`; além disso o texto rola por dentro (Scrollbar).
-- Ao GANHAR FOCO, a caixinha rola para cima do botão "+" e a altura do texto é
-  travada no espaço disponível (`_alturaMaxima`, recalculada 300ms depois para
-  o teclado terminar de abrir). Assim a caixinha NUNCA cresce para trás do FAB
-  e a lista NÃO rola a cada tecla (evita o "tremor" durante a digitação).
-- **Auto-cura da altura ao digitar:** `_mudou` agenda `_agendarAltura` (300ms,
-  só recalcula ALTURA, sem mover a lista) — se o texto cresce e a trava ficou
-  antiga, a caixinha é re-trava no espaço (não some atrás do "+").
-- **Recálculo ao abrir/fechar o teclado usa timer PRÓPRIO** (`_timerInsets`,
-  60ms), separado do `_timerVis` compartilhado com a digitação. Antes os dois
-  disputavam o mesmo timer: digitar rápido enquanto o teclado subia adiava
-  indefinidamente o recálculo que encolhe a caixinha — e o texto ficava
-  escondido atrás do "+" ("muitas vezes"). Com o timer dedicado, a digitação
-  não pode mais starvar esse recálculo.
-- **Teto de segurança calculado NO BUILD** (`_maxAlturaCaixa`): além da trava
-  dinâmica `_alturaMaxima`, o `maxHeight` é derivado a cada build com os
-  insets ATUAIS (o build refaz sozinho quando o teclado abre/fecha) e o último
-  topo medido (`_topoConhecido`). Com o teclado aberto, o pé da caixinha nunca
-  passa de `(topo do teclado − 140)` — folga suficiente para o FAB (56 + 16).
-  Isso fecha a janela em que o recálculo por timer ainda não rodou; só encolhe
-  (direção segura). Com `_alturaMaxima` nulo e sem teclado, cai no teto padrão
-  `MediaQuery.size.height * 0.6`.
-- ⚠️ A lista NUNCA é puxada (`jumpTo`) enquanto o usuário a rola: isso brigava
-  com o dedo, impedia de rolar a página para cima e fazia a tela tremer. Ao
-  rolar a lista, só a altura travada é recalculada — e apenas DEPOIS que a
-  rolagem para (debounce de 300ms reiniciado a cada evento + checagem de
-  `isScrollingNotifier`). O `jumpTo` só acontece ao ganhar foco, ao tocar na
-  caixinha (`_toqueTexto`) e quando o teclado abre/fecha.
-- Botão `unfold_more` alterna o scroll interno entre topo e pé.
+- `maxLines: 24`; além disso o texto rola por dentro (Scrollbar). Botão
+  `unfold_more` alterna o scroll interno entre topo e pé.
+- **Cursor sempre acima do teclado E do "+" (V0.1.38):** o `TextField` usa
+  `scrollPadding: fromLTRB(20, 20, 20, 108)`. Ao mover o cursor (a cada
+  tecla), o Flutter rola a PÁGINA (a `ReorderableListView`, que o Scaffold já
+  encolhe para cima do teclado com `resizeToAvoidBottomInset`) para deixar o
+  cursor a ≥108px da borda inferior — folga do FAB (56 + 16). É o mecanismo
+  NATIVO do Flutter para manter o cursor visível ao digitar.
+- ⚠️ **Toda a antiga maquinaria de trava de altura por timers/medições foi
+  REMOVIDA na V0.1.38** (`_alturaMaxima`, `_topoConhecido`, `_maxAlturaCaixa`,
+  `_ajustarVisibilidade`, `_ajustarAltura`, `_agendarAltura`, `_agendarAjuste`,
+  `_agendarAjusteInsets`, `_aoFocar`, `_timerVis`, `_timerInsets`,
+  `_posExterna`, `_recemRetomado`, o `didChangeDependencies` e a `ConstrainedBox`).
+  Motivo: enquanto a caixinha rola por DENTRO, o Flutter acha o cursor visível
+  dentro dela e não rola a página — então o cursor sumia atrás do "+". As duas
+  tentativas de encolher a caixinha por timer (V0.1.36/V0.1.37) eram frágeis e
+  falhavam "muitas vezes"; essa maquinaria também era a origem histórica do
+  "tremor" e do "cursor no meio". A rolagem da PÁGINA + `scrollPadding` resolve
+  tudo isso sem timers nem medições.
+- Sem `ConstrainedBox`, a altura da caixinha é limitada só por `maxLines: 24`.
 
 ### Desfazer (undo)
 - **Botão `undo` na barra da caixinha:** desfaz o "movimento" anterior, em
@@ -379,14 +367,20 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   (`_estiloCampo`, contentPadding 14/2, rolagem interna `_scroll.offset`).
   `IgnorePointer` garante que a edição não é afetada.
 
-### Menu de seleção (recortar/copiar/colar) PARA BAIXO
-- O menu de seleção abre ABAIXO da seleção (`contextMenuBuilder` +
-  `_menuSelecaoAbaixo`): o padrão abre em cima e escondia a barra de
-  ferramentas da caixinha. Usa `TextSelectionToolbar` com `anchorAbove`
-  impossível (fora da tela) para forçar o posicionamento abaixo.
-- ⚠️ Os labels usam `AdaptiveTextSelectionToolbar.getButtonLabel` (o
-  `item.label` do `ContextMenuButtonItem` vem NULO — sem isso os botões
-  ficam em branco e o menu parece não existir).
+### Menu de seleção (recortar/copiar/colar) ACIMA
+- O menu de seleção usa o posicionamento PADRÃO do Flutter
+  (`contextMenuBuilder: _menuSelecao` → `AdaptiveTextSelectionToolbar.editableText`),
+  que abre ACIMA da seleção quando cabe.
+- **Por que mudou (V0.1.38):** antes era forçado ABAIXO (`_menuSelecaoAbaixo`,
+  `anchorAbove` impossível) para não cobrir a barra da caixinha. Mas abaixo da
+  seleção o menu ficava em cima das ALÇAS de arrastar (que ficam abaixo do
+  texto) — não dava para estender a seleção para várias palavras. Acima da
+  seleção as alças ficam livres. Compensação: para seleções na 1ª linha o menu
+  pode ficar perto da barra da caixinha (aceitável perto de não conseguir
+  selecionar).
+- Os labels (Copiar/Colar/…) e a posição já vêm resolvidos pelo
+  `AdaptiveTextSelectionToolbar.editableText` — não precisa mais montar os
+  botões na mão.
 
 ### Comentário e títulos dos links
 - Em **Tarefas:** o campo de comentário manual é toggle (expande/recolhe).
@@ -592,4 +586,6 @@ A cada publicação de APK:
 | Nuvem 100% manual (por botão), sem sync automático | Auto-apply da nuvem trocava os objetos do modelo durante a digitação → perda de texto / caixinha excluída voltando (V0.1.24) |
 | Reabrir o teclado ao voltar de outro app (unfocus+refocus) | Android fecha a conexão de IME mas mantém o foco → teclado não reabria sozinho (V0.1.37) |
 | Undo multi-nível por movimento (pausa / troca de sentido) | Digitar não criava ponto de desfazer e o undo só voltava 1 movimento (V0.1.37) |
-| Recálculo de altura ao abrir teclado em timer próprio + teto no build | A digitação starvava o recálculo compartilhado → texto ficava atrás do "+" (V0.1.37) |
+| **Reabrir teclado com ATRASO (180/480ms) + flag `_tinhaFocoAoParar`** | O `postFrame` da V0.1.37 era cedo demais (janela ainda sem foco do sistema) → teclado seguia sem reabrir (V0.1.38) |
+| **`scrollPadding` (rola a PÁGINA) no lugar da trava de altura por timers** | A rolagem INTERNA da caixinha fazia o Flutter achar o cursor visível → cursor atrás do "+"; toda a maquinaria de altura (V0.1.36/37) era frágil e era origem do "tremor"/"cursor no meio" (V0.1.38) |
+| **Menu de seleção ACIMA (padrão) no lugar de forçado abaixo** | Abaixo cobria as alças de arrastar → não dava para selecionar várias palavras (V0.1.38) |

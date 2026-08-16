@@ -8,7 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Regressão do menu de seleção: os botões (copiar/colar/cortar) têm label
-/// e o menu abre ABAIXO da seleção (não cobrindo a barra da caixinha).
+/// e o menu abre ACIMA da seleção (não cobrindo as ALÇAS de arrastar, que
+/// ficam abaixo do texto — senão não dá para estender a seleção).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -24,7 +25,7 @@ void main() {
     });
   });
 
-  testWidgets('selecionar texto mostra o menu de copiar/colar abaixo',
+  testWidgets('selecionar texto mostra o menu de copiar/colar acima',
       (tester) async {
     final p = Projeto(
       id: 'p1',
@@ -50,12 +51,12 @@ void main() {
     final botao = find.text('Copy');
     expect(botao, findsOneWidget, reason: 'botão copiar com label');
 
-    // Menu ABAIXO da seleção (fora da área da caixinha/barra): o topo do
-    // botão fica abaixo do campo de texto.
+    // Menu ACIMA da seleção: o menu fica acima do ponto tocado (onde nascem
+    // as alças de arrastar), deixando-as livres para estender a seleção.
     final rect = tester.getRect(botao.first);
-    final rectCampo = tester.getRect(field);
-    debugPrint('rect campo: $rectCampo | rect botão: $rect');
-    expect(rect.top, greaterThan(rectCampo.bottom),
-        reason: 'menu abaixo do campo (não sobre a barra)');
+    final pontoSelecao = tester.getTopLeft(field).dy + 20;
+    debugPrint('ponto seleção y: $pontoSelecao | rect botão: $rect');
+    expect(rect.top, lessThan(pontoSelecao),
+        reason: 'menu acima da seleção (não cobre as alças de arrastar)');
   });
 }

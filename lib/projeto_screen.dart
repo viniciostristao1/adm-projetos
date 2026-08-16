@@ -371,16 +371,10 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   final ScrollController _scroll = ScrollController();
   final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
-  Timer? _timerVis;
-  Timer? _timerInsets;
-  double? _alturaMaxima;
-  double? _topoConhecido;
-  bool _recemRetomado = false;
+  bool _tinhaFocoAoParar = false;
   bool _numerado = true;
   bool _comentarioExpandido = false;
   bool _comentarioVisivel = false;
-  ScrollPosition? _posExterna;
-  double? _insetsAntes;
 
   @override
   void initState() {
@@ -389,7 +383,6 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     _historico.comecar(widget.nota.texto);
     _ctrlComentario =
         TextEditingController(text: widget.nota.comentario ?? '');
-    _foco.addListener(_aoFocar);
     _foco.addListener(_aoPerderFoco);
     WidgetsBinding.instance.addObserver(this);
     // Links antigos (migrados sem título) e links de vídeos novos ganham o
@@ -399,77 +392,45 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     });
   }
 
-  /// Ao VOLTAR de outro app, a geometria do campo (altura travada + rolagem
-  /// interna) pode ter ficado antiga — o toque para posicionar o cursor
-  /// errava e ele "não obedecia" (ficava no meio). Recalibra tudo. Por 1s
-  /// após voltar, o toque na caixinha NÃO re-ancora a lista (evita o pulo
-  /// competir com a colocação do cursor logo na volta).
+  /// Reabre o teclado ao VOLTAR de outro app. O Android, ao sair, esconde o
+  /// teclado e NÃO o reabre sozinho — mesmo que o foco continue na caixinha —
+  /// então não dava para continuar digitando (bug intermitente, pior nas
+  /// trocas rápidas). Guardamos que a caixinha estava sendo editada ao sair
+  /// (`_tinhaFocoAoParar`) e, ao voltar, recriamos a conexão de entrada.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted) {
+    if (!mounted) return;
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      if (_foco.hasFocus) _tinhaFocoAoParar = true;
       return;
     }
-    _recemRetomado = true;
-    Timer(const Duration(seconds: 1), () {
-      if (mounted) _recemRetomado = false;
-    });
-    final tinhaFoco = _foco.hasFocus;
-    if (tinhaFoco) {
-      // Ao voltar de outro app o Android às vezes FECHA a conexão de entrada
-      // (o teclado) mas MANTÉM o foco — resultado: o teclado não reabre
-      // sozinho e não dá para continuar digitando. Reafirmar o foco recria a
-      // conexão e reabre o teclado. O texto e a posição do cursor ficam
-      // intactos (o controlador preserva a seleção); por segurança mandamos
-      // o teclado aparecer também via canal do sistema.
-      _foco.unfocus();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _foco.requestFocus();
-        SystemChannels.textInput.invokeMethod('TextInput.show');
-      });
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (tinhaFoco) {
-        _alturaMaxima = null;
-        if (_scroll.hasClients) _scroll.jumpTo(0);
-        _ajustarVisibilidade();
-      } else {
-        // Sem foco, só zera a trava — o recálculo acontece ao focar.
-        _alturaMaxima = null;
-      }
-    });
+    if (state != AppLifecycleState.resumed) return;
+    if (!_tinhaFocoAoParar) return;
+    _tinhaFocoAoParar = false;
+    // Solta e repede o foco (recria a conexão de IME) e manda mostrar o
+    // teclado. O ATRASO é essencial: logo no resume a janela ainda não
+    // recuperou o foco do sistema e o pedido de teclado seria ignorado —
+    // por isso o postFrame anterior falhava. Duas tentativas cobrem o resume
+    // lento. O texto e o cursor ficam intactos (o controlador preserva a
+    // seleção).
+    _foco.unfocus();
+    _reabrirTeclado(180);
+    _reabrirTeclado(480);
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Recalcula quando o teclado abre/fecha durante a digitação. Usa um
-    // timer PRÓPRIO (não o _timerVis compartilhado): assim a digitação
-    // contínua não adia o recálculo que precisa encolher a caixinha quando o
-    // teclado sobe — era isso que deixava o texto escondido atrás do "+".
-    final insets = MediaQuery.viewInsetsOf(context).bottom;
-    if (_insetsAntes != null && _insetsAntes != insets && _foco.hasFocus) {
-      _agendarAjusteInsets();
-    }
-    _insetsAntes = insets;
-    // Recalcula quando a LISTA rola (a caixinha pode ir parar atrás do "+").
-    final sc = Scrollable.maybeOf(context);
-    final pos = sc?.position;
-    if (!identical(pos, _posExterna)) {
-      _posExterna?.removeListener(_aoRolarExterno);
-      _posExterna = pos;
-      _posExterna?.addListener(_aoRolarExterno);
-    }
+  void _reabrirTeclado(int ms) {
+    Future.delayed(Duration(milliseconds: ms), () {
+      if (!mounted) return;
+      _foco.requestFocus();
+      SystemChannels.textInput.invokeMethod('TextInput.show');
+    });
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _timerVis?.cancel();
-    _timerInsets?.cancel();
-    _posExterna?.removeListener(_aoRolarExterno);
-    _foco.removeListener(_aoFocar);
     _foco.removeListener(_aoPerderFoco);
     // Derrama o que está nos controladores direto no modelo e no disco —
     // cobre o texto que a IME ainda não tinha confirmado (composição) quando
@@ -509,134 +470,6 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     _foco.requestFocus();
   }
 
-  /// Ao ganhar foco: rola a lista para a caixinha ficar acima do botão "+"
-  /// e trava a altura máxima do texto no espaço disponível. Só roda nesse
-  /// momento (e 300ms depois, para o teclado terminar de abrir) — nunca a
-  /// cada tecla, para a lista não "tremer" durante a digitação.
-  void _aoFocar() {
-    if (!_foco.hasFocus) return;
-    _ajustarVisibilidade();
-    _timerVis?.cancel();
-    _timerVis = Timer(const Duration(milliseconds: 300), () {
-      if (mounted) _ajustarVisibilidade();
-    });
-  }
-
-  /// Ajuste com um pequeno atraso (evita rajada de recalculos ao rolar).
-  void _agendarAjuste() {
-    if (!_foco.hasFocus) return;
-    _timerVis?.cancel();
-    _timerVis = Timer(const Duration(milliseconds: 120), () {
-      if (mounted && _foco.hasFocus) _ajustarVisibilidade();
-    });
-  }
-
-  /// Recálculo disparado pela abertura/fechamento do teclado, em um timer
-  /// SEPARADO do _timerVis — a digitação (que usa o _timerVis) não pode
-  /// starvá-lo. Dispara logo depois de os insets pararem de mudar (teclado
-  /// assentado), reposicionando a caixinha acima do "+".
-  void _agendarAjusteInsets() {
-    if (!_foco.hasFocus) return;
-    _timerInsets?.cancel();
-    _timerInsets = Timer(const Duration(milliseconds: 60), () {
-      if (mounted && _foco.hasFocus) _ajustarVisibilidade();
-    });
-  }
-
-  /// Recalcula só a altura travada (sem mover a lista) com debounce —
-  /// usado ao rolar a lista e ao DIGITAR (o texto cresce e a caixinha não
-  /// pode passar do botão "+"). Só age com a rolagem parada.
-  void _agendarAltura() {
-    if (!_foco.hasFocus) return;
-    _timerVis?.cancel();
-    _timerVis = Timer(const Duration(milliseconds: 300), () {
-      if (mounted && _foco.hasFocus) _ajustarAltura();
-    });
-  }
-
-  void _aoRolarExterno() {
-    _agendarAltura();
-  }
-
-  /// Recalcula só a altura máxima travada (sem mover a lista). Só age com a
-  /// rolagem totalmente parada para não brigar com o dedo do usuário.
-  void _ajustarAltura() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final scrollable = Scrollable.maybeOf(context);
-      if (scrollable != null &&
-          scrollable.position.isScrollingNotifier.value) {
-        return;
-      }
-      final box = context.findRenderObject() as RenderBox?;
-      if (box == null || !box.hasSize) return;
-      final media = MediaQuery.of(context);
-      final limite = media.size.height - media.viewInsets.bottom - 100;
-      final topo = box.localToGlobal(Offset.zero).dy;
-      _topoConhecido = topo;
-      final nova = (limite - topo).clamp(96.0, media.size.height * 0.6);
-      if (_alturaMaxima == null || (nova - _alturaMaxima!).abs() > 1) {
-        setState(() => _alturaMaxima = nova);
-      }
-    });
-  }
-
-  void _ajustarVisibilidade() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final box = context.findRenderObject() as RenderBox?;
-      if (box == null || !box.hasSize) return;
-      final media = MediaQuery.of(context);
-      final limite =
-          media.size.height - media.viewInsets.bottom - 100;
-      var topo = box.localToGlobal(Offset.zero).dy;
-      if (limite - topo < 160) {
-        final scrollable = Scrollable.of(context);
-        if (scrollable.position.hasContentDimensions) {
-          scrollable.position.jumpTo(
-            (scrollable.position.pixels + (160 - (limite - topo)))
-                .clamp(
-              scrollable.position.minScrollExtent,
-              scrollable.position.maxScrollExtent,
-            ),
-          );
-        }
-        topo = limite - 160;
-      }
-      _topoConhecido = topo;
-      final nova =
-          (limite - topo).clamp(96.0, media.size.height * 0.6);
-      if (_alturaMaxima == null || (nova - _alturaMaxima!).abs() > 1) {
-        setState(() => _alturaMaxima = nova);
-      }
-    });
-  }
-
-  /// Altura máxima da caixinha, calculada NO BUILD (portanto sempre com os
-  /// insets atuais — o build refaz sozinho quando o teclado abre/fecha).
-  /// Além da trava dinâmica [_alturaMaxima], aplica um teto de segurança:
-  /// com o teclado aberto, o pé da caixinha nunca passa de
-  /// (topo do teclado − folga do botão "+"), usando o último topo medido.
-  /// Isso fecha a janela em que o recálculo por timer ainda não rodou — o
-  /// texto deixa de ficar escondido atrás do "+".
-  double _maxAlturaCaixa(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final base = _alturaMaxima == null
-        ? media.size.height * 0.6
-        : (_alturaMaxima! - 40).clamp(60.0, double.infinity);
-    if (media.viewInsets.bottom > 0 && _topoConhecido != null) {
-      // 140 = mesma folga do cálculo dinâmico (100 do limite + 40 da caixa),
-      // suficiente para o FloatingActionButton (56 + 16 de margem).
-      final teto = (media.size.height -
-              media.viewInsets.bottom -
-              140 -
-              _topoConhecido!)
-          .clamp(60.0, double.infinity);
-      return base < teto ? base : teto;
-    }
-    return base;
-  }
-
   /// Métricas exatas do texto do campo (para o hit-test do quadradinho).
   /// Montado em `build` com a MESMA fonte do TextField (tema + fallback dos
   /// quadradinhos) para o hit-test bater com o que é renderizado.
@@ -649,9 +482,6 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     // GRAVA NA HORA, a cada tecla — nada se perde ao fechar/trocar de tela.
     // (Arquivo pequeno; o custo de escrever por tecla é desprezível.)
     Storage.instance.salvar();
-    // Auto-cura da altura: o texto cresce e a caixinha não pode passar do
-    // botão "+" (recalcula SÓ a altura, sem mover a lista, com debounce).
-    _agendarAltura();
     // O debounce de 2s fica SÓ para a correção de maiúsculas — não para
     // salvar (ditado por voz não pode ser interrompido pela correção).
     _debounce?.cancel();
@@ -867,10 +697,6 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   /// Ao tocar no quadradinho (☐/☑) de uma linha de to-do, alterna entre
   /// marcado e desmarcado. O toque em qualquer outro lugar segue normal.
   void _toqueTexto(Offset posicaoGlobal) {
-    // Toque na caixinha re-ancora a visibilidade (cobre o caso de ela ter
-    // sido rolada para trás do "+" enquanto já estava focada). Logo após
-    // voltar de outro app, não re-ancora (o pulo competiria com o cursor).
-    if (!_recemRetomado) _agendarAjuste();
     final texto = _ctrl.text;
     if (!texto.contains('☐') && !texto.contains('☑')) return;
     final ctx = _campoKey.currentContext;
@@ -1218,18 +1044,10 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
             onPointerUp: _pointerUp,
             child: Scrollbar(
               controller: _scroll,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  // Teto calculado no build (sempre com os insets atuais) +
-                  // teto de segurança do "+": a caixinha NUNCA cresce por
-                  // trás do botão, mesmo enquanto o recálculo por timer não
-                  // rodou.
-                  maxHeight: _maxAlturaCaixa(context),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    LayoutBuilder(builder: (ctx, cons) {
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LayoutBuilder(builder: (ctx, cons) {
                       final maxWidth = cons.maxWidth - 28;
                       return Stack(
                       children: [
@@ -1243,6 +1061,14 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
                           keyboardType: TextInputType.multiline,
                           textCapitalization: TextCapitalization.sentences,
                           inputFormatters: [LinhasNumeradas()],
+                          // Mantém o cursor sempre visível ACIMA do teclado e
+                          // do botão "+" enquanto se digita: ao mover o cursor,
+                          // o Flutter rola a PÁGINA para deixá-lo a esta
+                          // distância da borda inferior. 108 = altura do FAB
+                          // (56) + margem (16) + folga. É o mecanismo nativo
+                          // que substituiu a antiga trava de altura por timers.
+                          scrollPadding:
+                              const EdgeInsets.fromLTRB(20, 20, 20, 108),
                           style: (_estiloCampo ?? _estiloTexto).copyWith(
                             color: widget.nota.concluida
                                 ? Theme.of(context)
@@ -1251,7 +1077,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
                                     .withValues(alpha: 0.45)
                                 : Theme.of(context).colorScheme.onSurface,
                           ),
-                          contextMenuBuilder: _menuSelecaoAbaixo,
+                          contextMenuBuilder: _menuSelecao,
                           onChanged: _mudou,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
@@ -1295,7 +1121,6 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
                     }),
                   ],
                 ),
-              ),
             ),
           ),
           // Subcaixinha inline: títulos dos links (SEMPRE visíveis quando há
@@ -1703,28 +1528,17 @@ class _GrifoBuscaPainter extends CustomPainter {
 }
 
 
-/// Menu de seleção (recortar/copiar/colar/selecionar tudo) forçado para
-/// BAIXO da seleção: o padrão abre em cima e esconde a barra de ferramentas
-/// da caixinha. O truque é um [anchorAbove] impossível (fora da tela) — o
-/// TextSelectionToolbar só abre acima se couber, senão usa [anchorBelow].
-Widget _menuSelecaoAbaixo(
+/// Menu de seleção (recortar/copiar/colar/selecionar tudo). Usa o
+/// posicionamento PADRÃO do Flutter, que abre ACIMA da seleção quando cabe.
+///
+/// Antes ele era forçado para BAIXO (para não cobrir a barra da caixinha),
+/// mas abaixo da seleção o menu ficava em cima das ALÇAS de arrastar — não
+/// dava para estender a seleção para várias palavras. Acima da seleção as
+/// alças (que ficam abaixo do texto) ficam livres. O `AdaptiveTextSelection
+/// Toolbar.editableText` já resolve rótulos (Copiar/Colar/…) e a posição.
+Widget _menuSelecao(
     BuildContext context, EditableTextState editableTextState) {
-  final itens = editableTextState.contextMenuButtonItems;
-  debugPrint('menu: ${itens.length} itens');
-  if (itens.isEmpty) return const SizedBox.shrink();
-  return TextSelectionToolbar(
-    anchorAbove: const Offset(0, -100000),
-    anchorBelow: editableTextState.contextMenuAnchors.primaryAnchor,
-    children: [
-      for (final item in itens)
-        TextSelectionToolbarTextButton(
-          onPressed: item.onPressed,
-          padding: EdgeInsets.zero,
-          // O label dos itens padrão vem por TIPO (item.label é nulo);
-          // getButtonLabel resolve o rótulo certo (copiar/colar/cortar…).
-          child: Text(
-              AdaptiveTextSelectionToolbar.getButtonLabel(context, item)),
-        ),
-    ],
+  return AdaptiveTextSelectionToolbar.editableText(
+    editableTextState: editableTextState,
   );
 }
