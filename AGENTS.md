@@ -257,6 +257,13 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - Ao retornar (lifecycle `resumed`), `_CaixaNotaState` (WidgetsBindingObserver)
   recalibra: zera `_alturaMaxima`, zera a rolagem interna e recalcula (com
   foco) — o toque para posicionar o cursor volta a obedecer.
+- **Reabertura do teclado:** se a caixinha tinha foco ao voltar, o Android às
+  vezes fecha a conexão de entrada (IME) mas MANTÉM o foco — o teclado não
+  reabre sozinho e não dá para continuar digitando (bug intermitente ao sair
+  e voltar rápido de outro app). Fix: reafirmar o foco (`_foco.unfocus()` +
+  `requestFocus()` no próximo frame) recria a conexão e reabre o teclado; por
+  segurança também chama `SystemChannels.textInput 'TextInput.show'`. O texto
+  e a posição do cursor ficam intactos (o controlador preserva a seleção).
 - Por 1s após voltar (`_recemRetomado`), o toque na caixinha NÃO re-ancora a
   lista (`_agendarAjuste` é pulado) — o pulo da lista competia com a
   colocação do cursor logo após a volta (bug intermitente de "cursor no
@@ -271,9 +278,20 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - **Auto-cura da altura ao digitar:** `_mudou` agenda `_agendarAltura` (300ms,
   só recalcula ALTURA, sem mover a lista) — se o texto cresce e a trava ficou
   antiga, a caixinha é re-trava no espaço (não some atrás do "+").
-- **Teto de segurança:** com `_alturaMaxima` ainda nulo, o campo usa
-  `MediaQuery.size.height * 0.6` (o mesmo teto do cálculo) — nunca cresce sem
-  limite por trás do FAB.
+- **Recálculo ao abrir/fechar o teclado usa timer PRÓPRIO** (`_timerInsets`,
+  60ms), separado do `_timerVis` compartilhado com a digitação. Antes os dois
+  disputavam o mesmo timer: digitar rápido enquanto o teclado subia adiava
+  indefinidamente o recálculo que encolhe a caixinha — e o texto ficava
+  escondido atrás do "+" ("muitas vezes"). Com o timer dedicado, a digitação
+  não pode mais starvar esse recálculo.
+- **Teto de segurança calculado NO BUILD** (`_maxAlturaCaixa`): além da trava
+  dinâmica `_alturaMaxima`, o `maxHeight` é derivado a cada build com os
+  insets ATUAIS (o build refaz sozinho quando o teclado abre/fecha) e o último
+  topo medido (`_topoConhecido`). Com o teclado aberto, o pé da caixinha nunca
+  passa de `(topo do teclado − 140)` — folga suficiente para o FAB (56 + 16).
+  Isso fecha a janela em que o recálculo por timer ainda não rodou; só encolhe
+  (direção segura). Com `_alturaMaxima` nulo e sem teclado, cai no teto padrão
+  `MediaQuery.size.height * 0.6`.
 - ⚠️ A lista NUNCA é puxada (`jumpTo`) enquanto o usuário a rola: isso brigava
   com o dedo, impedia de rolar a página para cima e fazia a tela tremer. Ao
   rolar a lista, só a altura travada é recalculada — e apenas DEPOIS que a
@@ -283,10 +301,17 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - Botão `unfold_more` alterna o scroll interno entre topo e pé.
 
 ### Desfazer (undo)
-- **Botão `undo` na barra da caixinha:** desfaz a ação anterior. Usa
-  `HistoricoTexto` (editor.dart): guarda o texto ANTES de cada RAJADA de
-  apagamento — um toque volta tudo o que foi apagado de uma vez (digitação
-  normal não empilha, para não desfazer tecla por tecla).
+- **Botão `undo` na barra da caixinha:** desfaz o "movimento" anterior, em
+  VÁRIOS níveis. Usa `HistoricoTexto` (editor.dart): guarda o texto ANTES de
+  cada movimento. Um novo movimento (novo ponto de desfazer) começa quando:
+  (1) é a 1ª mudança desde que a caixinha abriu, (2) houve uma PAUSA na edição
+  (`pausaMs`, 600ms), ou (3) o SENTIDO mudou (digitar ↔ apagar). Assim tanto
+  DIGITAR quanto APAGAR são desfazíveis, e o desfazer volta bloco a bloco (não
+  tecla por tecla). ⚠️ Corrige o bug histórico em que digitar NÃO criava ponto
+  de desfazer e o undo só voltava o último apagamento.
+- A correção automática de maiúscula (feita direto no controlador, fora de
+  `_mudou`) chama `_historico.sincronizar()` — alinha o estado atual SEM criar
+  um passo de undo espúrio.
 - Ações da barra (centralizar, numerar, item de to-do) empilham o estado
   ANTES de agir via `empilhar()` + `suprimir()` (o registro automático das
   mudanças intermediárias é suspenso durante a ação) — desfazer volta ao
@@ -476,7 +501,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (50 testes)
+## 10. Testes (49 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -511,8 +536,12 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Centralizar sem seleção mostra aviso e não altera nada
 - Busca grifa o termo no texto da caixinha (e some quando não há ocorrência)
 
-### `test/desfazer_test.dart` (6 testes)
-- `HistoricoTexto`: digitação não empilha; rajada empilha uma vez; desfazer restaura o texto; `empilhar`/`suprimir` para ações; várias rajadas; limpar tudo; limite da pilha
+### `test/desfazer_test.dart` (7 testes)
+- `HistoricoTexto` (undo multi-nível): digitar uma rajada cria UM ponto de
+  desfazer; rajada de apagamento empilha uma vez; apagar/digitar/apagar cria
+  movimentos separados (troca de sentido); PAUSA entre digitações cria níveis
+  separados; `empilhar`/`suprimir` para ações da barra; limpar tudo é
+  desfazível; `comecar` zera o histórico
 
 ### `test/fonte_test.dart` (1 teste)
 - O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
@@ -530,7 +559,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 50 testes devem passar.
+- **Sempre rodar `flutter test`** — 49 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -561,3 +590,6 @@ A cada publicação de APK:
 | Sem `jumpTo` da lista durante a rolagem do usuário | Era o "tremor" ao rolar a página com uma caixinha focada |
 | Derramar controladores no modelo ao perder foco/fechar | Texto em composição da IME não se perde ao sair rápido |
 | Nuvem 100% manual (por botão), sem sync automático | Auto-apply da nuvem trocava os objetos do modelo durante a digitação → perda de texto / caixinha excluída voltando (V0.1.24) |
+| Reabrir o teclado ao voltar de outro app (unfocus+refocus) | Android fecha a conexão de IME mas mantém o foco → teclado não reabria sozinho (V0.1.37) |
+| Undo multi-nível por movimento (pausa / troca de sentido) | Digitar não criava ponto de desfazer e o undo só voltava 1 movimento (V0.1.37) |
+| Recálculo de altura ao abrir teclado em timer próprio + teto no build | A digitação starvava o recálculo compartilhado → texto ficava atrás do "+" (V0.1.37) |

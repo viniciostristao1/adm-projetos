@@ -372,7 +372,9 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
   Timer? _timerVis;
+  Timer? _timerInsets;
   double? _alturaMaxima;
+  double? _topoConhecido;
   bool _recemRetomado = false;
   bool _numerado = true;
   bool _comentarioExpandido = false;
@@ -411,9 +413,24 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     Timer(const Duration(seconds: 1), () {
       if (mounted) _recemRetomado = false;
     });
+    final tinhaFoco = _foco.hasFocus;
+    if (tinhaFoco) {
+      // Ao voltar de outro app o Android às vezes FECHA a conexão de entrada
+      // (o teclado) mas MANTÉM o foco — resultado: o teclado não reabre
+      // sozinho e não dá para continuar digitando. Reafirmar o foco recria a
+      // conexão e reabre o teclado. O texto e a posição do cursor ficam
+      // intactos (o controlador preserva a seleção); por segurança mandamos
+      // o teclado aparecer também via canal do sistema.
+      _foco.unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _foco.requestFocus();
+        SystemChannels.textInput.invokeMethod('TextInput.show');
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_foco.hasFocus) {
+      if (tinhaFoco) {
         _alturaMaxima = null;
         if (_scroll.hasClients) _scroll.jumpTo(0);
         _ajustarVisibilidade();
@@ -427,10 +444,13 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Recalcula quando o teclado abre/fecha durante a digitação.
+    // Recalcula quando o teclado abre/fecha durante a digitação. Usa um
+    // timer PRÓPRIO (não o _timerVis compartilhado): assim a digitação
+    // contínua não adia o recálculo que precisa encolher a caixinha quando o
+    // teclado sobe — era isso que deixava o texto escondido atrás do "+".
     final insets = MediaQuery.viewInsetsOf(context).bottom;
     if (_insetsAntes != null && _insetsAntes != insets && _foco.hasFocus) {
-      _agendarAjuste();
+      _agendarAjusteInsets();
     }
     _insetsAntes = insets;
     // Recalcula quando a LISTA rola (a caixinha pode ir parar atrás do "+").
@@ -447,6 +467,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   void dispose() {
     _debounce?.cancel();
     _timerVis?.cancel();
+    _timerInsets?.cancel();
     _posExterna?.removeListener(_aoRolarExterno);
     _foco.removeListener(_aoFocar);
     _foco.removeListener(_aoPerderFoco);
@@ -510,6 +531,18 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     });
   }
 
+  /// Recálculo disparado pela abertura/fechamento do teclado, em um timer
+  /// SEPARADO do _timerVis — a digitação (que usa o _timerVis) não pode
+  /// starvá-lo. Dispara logo depois de os insets pararem de mudar (teclado
+  /// assentado), reposicionando a caixinha acima do "+".
+  void _agendarAjusteInsets() {
+    if (!_foco.hasFocus) return;
+    _timerInsets?.cancel();
+    _timerInsets = Timer(const Duration(milliseconds: 60), () {
+      if (mounted && _foco.hasFocus) _ajustarVisibilidade();
+    });
+  }
+
   /// Recalcula só a altura travada (sem mover a lista) com debounce —
   /// usado ao rolar a lista e ao DIGITAR (o texto cresce e a caixinha não
   /// pode passar do botão "+"). Só age com a rolagem parada.
@@ -540,6 +573,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
       final media = MediaQuery.of(context);
       final limite = media.size.height - media.viewInsets.bottom - 100;
       final topo = box.localToGlobal(Offset.zero).dy;
+      _topoConhecido = topo;
       final nova = (limite - topo).clamp(96.0, media.size.height * 0.6);
       if (_alturaMaxima == null || (nova - _alturaMaxima!).abs() > 1) {
         setState(() => _alturaMaxima = nova);
@@ -569,12 +603,38 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
         }
         topo = limite - 160;
       }
+      _topoConhecido = topo;
       final nova =
           (limite - topo).clamp(96.0, media.size.height * 0.6);
       if (_alturaMaxima == null || (nova - _alturaMaxima!).abs() > 1) {
         setState(() => _alturaMaxima = nova);
       }
     });
+  }
+
+  /// Altura máxima da caixinha, calculada NO BUILD (portanto sempre com os
+  /// insets atuais — o build refaz sozinho quando o teclado abre/fecha).
+  /// Além da trava dinâmica [_alturaMaxima], aplica um teto de segurança:
+  /// com o teclado aberto, o pé da caixinha nunca passa de
+  /// (topo do teclado − folga do botão "+"), usando o último topo medido.
+  /// Isso fecha a janela em que o recálculo por timer ainda não rodou — o
+  /// texto deixa de ficar escondido atrás do "+".
+  double _maxAlturaCaixa(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final base = _alturaMaxima == null
+        ? media.size.height * 0.6
+        : (_alturaMaxima! - 40).clamp(60.0, double.infinity);
+    if (media.viewInsets.bottom > 0 && _topoConhecido != null) {
+      // 140 = mesma folga do cálculo dinâmico (100 do limite + 40 da caixa),
+      // suficiente para o FloatingActionButton (56 + 16 de margem).
+      final teto = (media.size.height -
+              media.viewInsets.bottom -
+              140 -
+              _topoConhecido!)
+          .clamp(60.0, double.infinity);
+      return base < teto ? base : teto;
+    }
+    return base;
   }
 
   /// Métricas exatas do texto do campo (para o hit-test do quadradinho).
@@ -603,6 +663,9 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
           selection: TextSelection.collapsed(offset: corrigido.length),
         );
         widget.nota.texto = corrigido;
+        // Alinha o histórico sem criar um passo de desfazer (a correção não
+        // passou por _mudou/registrar).
+        _historico.sincronizar(corrigido);
         Storage.instance.salvar();
       }
     });
@@ -1157,11 +1220,11 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
               controller: _scroll,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  // Teto padrão de segurança (mesmo limite do cálculo):
-                  // a caixinha NUNCA cresce sem limite por trás do "+".
-                  maxHeight: _alturaMaxima == null
-                      ? MediaQuery.sizeOf(context).height * 0.6
-                      : (_alturaMaxima! - 40).clamp(60.0, double.infinity),
+                  // Teto calculado no build (sempre com os insets atuais) +
+                  // teto de segurança do "+": a caixinha NUNCA cresce por
+                  // trás do botão, mesmo enquanto o recálculo por timer não
+                  // rodou.
+                  maxHeight: _maxAlturaCaixa(context),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

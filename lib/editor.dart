@@ -127,26 +127,35 @@ String maiusculaAposItem(String texto) {
   return texto.replaceRange(pos, pos + 1, letra);
 }
 
-/// Pilha de desfazer da caixinha: guarda o texto ANTES de cada RAJADA de
-/// apagamento — um toque no desfazer restaura tudo o que foi apagado de uma
-/// vez (digitação normal não empilha, para o botão não desfazer tecla por
-/// tecla). Ações da barra (centralizar, numerar, item de to-do) empilham via
-/// [empilhar], virando "desfazer a ação anterior".
+/// Pilha de desfazer da caixinha. Guarda o texto ANTES de cada "movimento"
+/// de edição — um toque no desfazer volta o movimento inteiro (não tecla por
+/// tecla). Um novo movimento começa quando: é a 1ª mudança desde que a
+/// caixinha abriu, houve uma PAUSA na edição, ou o sentido mudou
+/// (digitar <-> apagar). Assim tanto DIGITAR quanto APAGAR criam pontos de
+/// desfazer, em vários níveis. Ações da barra (centralizar, numerar, item de
+/// to-do) empilham via [empilhar], virando "desfazer a ação anterior".
 class HistoricoTexto {
-  HistoricoTexto({this.limite = 40});
+  HistoricoTexto({this.limite = 200, this.pausaMs = 600});
 
   final int limite;
+
+  /// Intervalo (ms) sem editar que fecha o movimento atual — a próxima
+  /// mudança vira um novo ponto de desfazer.
+  final int pausaMs;
+
   final List<String> _pilha = [];
-  bool _apagando = false;
   bool _suprimido = false;
   String _atual = '';
+  int _tipo = 0; // 0 = nenhum ainda, 1 = inserção, -1 = deleção
+  int _ultimoMs = 0;
 
   /// Estado inicial (chamar ao abrir a caixinha).
   void comecar(String texto) {
     _atual = texto;
-    _apagando = false;
     _suprimido = false;
+    _tipo = 0;
     _pilha.clear();
+    _ultimoMs = DateTime.now().millisecondsSinceEpoch;
   }
 
   /// Empilha o estado atual na pilha (para ações de toolbar, antes de
@@ -164,26 +173,39 @@ class HistoricoTexto {
 
   void reativar() {
     _suprimido = false;
-    _apagando = false;
+    _tipo = 0;
   }
 
-  /// Chamado a cada mudança de texto. Quando uma rajada de apagamento
-  /// COMEÇA, salva o texto anterior na pilha.
+  /// Alinha o estado atual SEM criar um ponto de desfazer. Usado pela
+  /// correção automática de maiúscula (feita direto no controlador, sem
+  /// passar por [registrar]) para não virar um passo de undo espúrio.
+  void sincronizar(String texto) => _atual = texto;
+
+  /// Chamado a cada mudança de texto vinda da digitação.
   void registrar(String novo) {
-    final ehDelecao = novo.length < _atual.length;
-    if (ehDelecao && !_apagando && !_suprimido) {
-      _pilha.add(_atual);
-      if (_pilha.length > limite) _pilha.removeAt(0);
+    if (_suprimido) {
+      _atual = novo;
+      return;
     }
-    _apagando = ehDelecao;
+    if (novo == _atual) return;
+    final tipo = novo.length >= _atual.length ? 1 : -1;
+    final agora = DateTime.now().millisecondsSinceEpoch;
+    final pausou = agora - _ultimoMs > pausaMs;
+    final trocouSentido = _tipo != 0 && tipo != _tipo;
+    if (_tipo == 0 || pausou || trocouSentido) {
+      empilhar(_atual);
+    }
+    _tipo = tipo;
     _atual = novo;
+    _ultimoMs = agora;
   }
 
-  /// Restaura o último estado (ou null se não houver nada).
+  /// Restaura o último estado (ou null se não houver nada). A próxima
+  /// digitação recomeça um movimento novo.
   String? desfazer() {
     if (_pilha.isEmpty) return null;
-    _apagando = false;
     _atual = _pilha.removeLast();
+    _tipo = 0;
     return _atual;
   }
 

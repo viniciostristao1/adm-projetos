@@ -2,13 +2,16 @@ import 'package:adm_projetos/editor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('digitar normalmente não empilha nada no histórico', () {
+  test('digitar uma rajada (sem pausa) cria UM ponto de desfazer', () {
     final h = HistoricoTexto()..comecar('');
     h.registrar('a');
     h.registrar('ab');
     h.registrar('abc');
+    // Teclas seguidas do mesmo tipo e sem pausa são um só movimento — o
+    // desfazer volta o bloco inteiro para o estado anterior.
+    expect(h.podeDesfazer, isTrue);
+    expect(h.desfazer(), '');
     expect(h.podeDesfazer, isFalse);
-    expect(h.desfazer(), isNull);
   });
 
   test('rajada de apagamentos empilha uma vez e desfazer restaura tudo', () {
@@ -22,13 +25,25 @@ void main() {
     expect(h.podeDesfazer, isFalse);
   });
 
-  test('apagar e digitar de novo empilha outra rajada', () {
+  test('apagar, digitar e apagar de novo cria movimentos separados', () {
     final h = HistoricoTexto()..comecar('123456');
-    h.registrar('123');
-    h.registrar('123x'); // digitou de novo
-    h.registrar('12'); // nova rajada de apagamento
+    h.registrar('123'); // apagou (1º movimento)
+    h.registrar('123x'); // digitou de novo (trocou o sentido)
+    h.registrar('12'); // apagou de novo (trocou o sentido)
+    // Cada troca de sentido é um novo movimento desfazível.
     expect(h.desfazer(), '123x');
+    expect(h.desfazer(), '123');
     expect(h.desfazer(), '123456');
+  });
+
+  test('pausa entre digitações cria níveis de desfazer separados', () async {
+    final h = HistoricoTexto(pausaMs: 5)..comecar('');
+    h.registrar('ola'); // 1º movimento (empilha '')
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    h.registrar('ola mundo'); // pausa -> novo movimento (empilha 'ola')
+    expect(h.desfazer(), 'ola');
+    expect(h.desfazer(), '');
+    expect(h.podeDesfazer, isFalse);
   });
 
   test('limpar tudo (texto vazio) pode ser desfeito', () {
