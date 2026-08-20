@@ -6,7 +6,8 @@ enum Modo {
   azul('Azul'),
   escuro('Escuro'),
   neumB('Dark Game'),
-  bege('Bege');
+  bege('Bege'),
+  claude('Claude Code');
 
   const Modo(this.rotulo);
   final String rotulo;

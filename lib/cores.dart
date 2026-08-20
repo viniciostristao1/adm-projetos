@@ -136,6 +136,25 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFF382E20),
   );
 
+  /// Tema Claude Code: preto-quente sólido (#0C0C0D), superfícies #161617
+  /// com borda de 1px (#2A2A2B), acento terracota (#D97757) e fonte
+  /// monoespaçada (JetBrains Mono). Plano, sem sombras, estilo terminal.
+  static const AppCores claude = AppCores(
+    notaInicio: Color(0xFF161617),
+    notaFim: Color(0xFF161617),
+    notaBorda: Color(0xFF2A2A2B),
+    projetoCard: Color(0xFF161617),
+    projetoCardFim: Color(0xFF161617),
+    projetoTxt: Color(0xFFF0EEE9),
+    fab: Color(0xFFD97757),
+    fabIcone: Color(0xFF120806),
+    barraFerramentas: Color(0xFF161617),
+    barraFerramentasFim: Color(0xFF161617),
+    fundoInicio: Color(0xFF0C0C0D),
+    fundoFim: Color(0xFF0C0C0D),
+    textoUI: Color(0xFFF0EEE9),
+  );
+
   @override
   AppCores copyWith({
     Color? notaInicio,

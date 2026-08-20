@@ -25,7 +25,7 @@ App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, 
 lib/
 ├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege)
 ├── models.dart          # Nota, Projeto — serialização JSON
-├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir
+├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir + recentes (últimos abertos)
 ├── tema.dart            # TemaController (ChangeNotifier) + enums Modo e ModoFonte
 ├── cores.dart           # AppCores (ThemeExtension) — 8 cores/tema
 ├── projetos_screen.dart # Tela principal: lista de projetos + busca + backup (export/import)
@@ -66,15 +66,29 @@ lib/
 ## 4. Sistema de Temas
 
 ### Modo (enum em `tema.dart`)
-`azul`, `escuro`, `neumB` (Dark Game), `bege` — **4 temas** (estilo inspirado
-no app Calis Timer: azul = navy plano com accent azul; bege = claro com as
-cores do tema madeira — tons amadeirados com accent laranja-marrom). Bege é o
-único claro (roda em `ThemeMode.light`); os demais são escuros.
+`azul`, `escuro`, `neumB` (Dark Game), `bege`, `claude` (Claude Code) —
+**5 temas** (estilo inspirado no app Calis Timer: azul = navy plano com accent
+azul; bege = claro com as cores do tema madeira — tons amadeirados com accent
+laranja-marrom). Bege é o único claro (roda em `ThemeMode.light`); os demais
+são escuros. `claude` é o tema terminal (Claude Code): preto-quente #0C0C0D,
+superfícies #161617 com borda de 1px #2A2A2B, acento terracota #D97757 e fonte
+monoespaçada JetBrains Mono (sem sombras).
 
 - `themeFlutter`: light para `bege`; dark para os demais.
 - Seletor de tema na engrenagem: `ChoiceChip` para cada `Modo` (usa `Modo.rotulo`).
 - **Migração de temas antigos** (`TemaController.carregar`): `claro` → `azul`;
   `espresso`/`bege`/`begeNeum` → `bege`; padrão (sem preferência) = `azul`.
+
+### Claude Code (claude)
+- Plano (sem sombras, `neumorfico: false`): cartões com borda de 1px
+  `#2A2A2B`, cantos 10px, FAB terracota `#D97757` com ícone escuro.
+- Fonte **JetBrains Mono** (Regular/Medium/Bold, assets locais) aplicada via
+  `ThemeData.fontFamily` em `_temaClaude()` — vale para todo o app (a caixinha
+  herda via `_estiloCampo`, que usa `textTheme.bodyMedium.fontFamily`).
+- `projetoScreen`: no tema Claude o cartão de projeto vira "linha" — borda
+  de 1px, e o projeto em andamento ganha uma **barra terracota de 3px à
+  esquerda** com o "v" terracota (em vez de verde); bolinhas invisíveis com
+  ícones apagados (alpha 0.45); nome em mono.
 
 ### Dark Neumorphism (neumB)
 - `AppCores.neumorfico == true` habilita superfícies em relevo (luz ↗ superior
@@ -170,6 +184,24 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 | `fundoInicio` / `fundoFim` | `#F2E8D6` / `#EADFC8` |
 | `textoUI` | `#382E20` |
 
+**Claude Code** — plano, estilo terminal (preto-quente + terracota + mono):
+| Campo | Hex |
+|---|---|
+| `notaInicio` / `notaFim` | `#161617` / `#161617` |
+| `notaBorda` | `#FF2A2A2B` (borda de 1px dos cartões) |
+| `projetoCard` / `projetoCardFim` | `#161617` / `#161617` |
+| `projetoTxt` | `#F0EEE9` |
+| `fab` / `fabIcone` | `#D97757` / `#120806` |
+| `barraFerramentas` / `barraFerramentasFim` | `#161617` / `#161617` |
+| `fundoInicio` / `fundoFim` | `#0C0C0D` / `#0C0C0D` |
+| `textoUI` | `#F0EEE9` |
+
+- **Cartão de projeto (linha):** borda 1px `#2A2A2B` (usa `notaBorda`), cantos
+  10px; em andamento = barra esquerda de 3px `#D97757` + "v" terracota
+  (`corCheckAndamento = app.fab`); bolinhas invisíveis, ícones com alpha 0.45.
+- **Barra superior:** fundo `#0C0C0D` igual ao da página; tabs com label
+  terracota.
+
 - **Barra superior** (página principal e projeto) no Bege: `#E0D1B9` (a
   mesma cor do interior das caixinhas) — `appBarColor` no `_temaClaroCalis`.
 - **Fundo do Bege** (página principal e dentro do projeto): bege CLARO
@@ -186,6 +218,9 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 ProjetosScreen (lista de projetos)
   ├─ FAB [+] → criar projeto
   ├─ 🔍 → busca projetos por nome
+  ├─ "ÚLTIMOS ABERTOS" → prateleira rolante horizontal com os 3 projetos
+  │    mais recentemente abertos (nome + contagem de caixinhas + barra de
+  │    progresso feitas/total); tocar abre o projeto
   ├─ Card → ProjetoScreen (projeto aberto)
   │    ├─ Tab "Tarefas" → ReorderableListView de _CaixaNota
   │    ├─ Tab "Ideias" → idem
@@ -194,6 +229,19 @@ ProjetosScreen (lista de projetos)
   │    └─ PDF → gera PDF do projeto inteiro e compartilha
   └─ ⚙️ → ConfigSheet (tema, fonte, backup exportar/importar)
 ```
+
+### Prateleira "Últimos abertos" (página principal)
+- Mostra os `Storage.maxRecentes` (3) projetos mais recentemente abertos, em
+  cartões compactos roláveis na horizontal, com contagem de caixinhas e barra
+  de progresso (`feitas/total`, preenchimento na cor `fab`).
+- Rastreio em `Storage` via SharedPreferences (chave `recentes_v1`):
+  `registrarAbertura(id)` (move pro topo, máx. 3), `recentesIds()`,
+  `removerRecente(id)` (ao excluir a pasta; "Desfazer" re-registra).
+- `_recarregarRecentes()` remonta a lista a partir dos IDs (só projetos que
+  ainda existem) — chamado ao abrir a tela, ao voltar de um projeto, após
+  "Baixar da nuvem" e após excluir/desfazer.
+- Some durante a busca (campo `🔍` aberto). No tema Claude, os cartões usam
+  borda de 1px `#2A2A2B`; em temas neumórficos usa `Caixa3D`.
 
 ### Barra de ferramentas da caixinha (`_CaixaNota`)
 
@@ -471,7 +519,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 ### Adicionar nova cor ao tema
 1. Adicionar campo `final Color` em `AppCores` (`cores.dart`)
 2. Atualizar construtor, `copyWith`, `lerp`
-3. Definir valor nas 4 constantes (`azul`, `escuro`, `neumB`, `bege`)
+3. Definir valor nas 5 constantes (`azul`, `escuro`, `neumB`, `bege`, `claude`)
 4. Acessar via `Theme.of(context).extension<AppCores>() ?? AppCores.azul`
 
 ### Adicionar novo botão na barra da caixinha
@@ -495,7 +543,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (49 testes)
+## 10. Testes (50 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -540,10 +588,10 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 ### `test/fonte_test.dart` (1 teste)
 - O subset embutido (Noto Sans Symbols 2) carrega e renderiza ☐/☑/☒ com glifo real (métrica diferente da fonte de teste — garante que o fallback consulta a fonte e não cai no tofu/emoji)
 
-### `test/tema_test.dart` (6 testes)
-- `Modo` tem exatamente os 4 temas (Azul, Escuro, Dark Game, Bege)
+### `test/tema_test.dart` (7 testes)
+- `Modo` tem exatamente os 5 temas (Azul, Escuro, Dark Game, Bege, Claude Code)
 - Nomes antigos (claro/bege/begeNeum) não existem mais
-- Os 4 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
+- Os 5 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
 
 ---
 
@@ -553,7 +601,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 49 testes devem passar.
+- **Sempre rodar `flutter test`** — 50 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -574,7 +622,9 @@ A cada publicação de APK:
 | Decisão | Motivo |
 |---|---|
 | JSON local em vez de Firebase | Simplicidade, offline-first, sem custo |
-| 4 temas inspirados no Calis Timer (Azul/Escuro/Dark Game/Bege) | Preferência do usuário; Bege é claro, os demais escuros |
+| 5 temas (Azul/Escuro/Dark Game/Bege/Claude Code) | Preferência do usuário; Bege é claro, os demais escuros |
+| Tema Claude Code (terminal) com JetBrains Mono | Escolha do usuário: preto-quente + terracota + fonte mono, cartões como linhas de 1px |
+| Prateleira "Últimos abertos" (3 projetos) na página principal | Ideia do usuário (prateleira rolante) aplicada aos projetos mais recentes |
 | Keystore fixa (não debug) | Evitar conflito de assinatura entre builds |
 | Release `v0.1.0` sobrescrita | Evitar cota de artifacts do GitHub |
 | `LinhasNumeradas` age só ao crescer texto | Impede que backspace recrie números |

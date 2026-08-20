@@ -27,6 +27,7 @@ class ProjetosScreen extends StatefulWidget {
 
 class _ProjetosScreenState extends State<ProjetosScreen> {
   List<Projeto> _projetos = [];
+  List<Projeto> _recentes = [];
   final TextEditingController _ctrlBusca = TextEditingController();
   final FocusNode _focoBusca = FocusNode();
   bool _buscando = false;
@@ -36,6 +37,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     super.initState();
     Storage.instance.carregar().then((p) {
       if (mounted) setState(() => _projetos = p);
+      _recarregarRecentes();
     });
     // Quando a nuvem baixa dados, recarrega a lista.
     Storage.instance.addListener(_aoMudarStorage);
@@ -49,12 +51,26 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     super.dispose();
   }
 
+  /// Reconstroi a prateleira "Últimos abertos" a partir dos IDs salvos
+  /// (apenas projetos que ainda existem, na ordem: mais recente primeiro).
+  Future<void> _recarregarRecentes() async {
+    final ids = await Storage.instance.recentesIds();
+    if (!mounted) return;
+    setState(() {
+      _recentes = ids
+          .map((id) => _projetos.where((p) => p.id == id).firstOrNull)
+          .whereType<Projeto>()
+          .toList();
+    });
+  }
+
   Future<void> _aoMudarStorage() async {
     // IMPORTANTE: sem List.of — a tela precisa apontar para a MESMA lista
     // interna do Storage; copiar desliga as edições do salvamento (bug de
     // "dados que somem").
     final p = await Storage.instance.carregar();
     if (mounted) setState(() => _projetos = p);
+    _recarregarRecentes();
   }
 
   Future<void> _salvar() => Storage.instance.salvar();
@@ -158,6 +174,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       final idx = _projetos.indexOf(p);
       setState(() => _projetos.remove(p));
       await _salvar();
+      Storage.instance.removerRecente(p.id);
+      _recarregarRecentes();
       if (!mounted) return;
       mostrarAvisoAcao(
         context,
@@ -166,10 +184,25 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         () {
           setState(() => _projetos.insert(
               idx > _projetos.length ? _projetos.length : idx, p));
+          Storage.instance.registrarAbertura(p.id);
+          _recarregarRecentes();
           _salvar();
         },
       );
     }
+  }
+
+  /// Abre o projeto (também registra na prateleira "Últimos abertos").
+  Future<void> _abrirProjeto(Projeto p) async {
+    await Storage.instance.registrarAbertura(p.id);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ProjetoScreen(projeto: p)),
+    );
+    await _salvar();
+    if (mounted) setState(() {});
+    _recarregarRecentes();
   }
 
   /// Abre/fecha o campo de busca por nome dos projetos.
@@ -266,6 +299,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 onChanged: (_) => setState(() {}),
               ),
             ),
+          if (!_buscando && _recentes.isNotEmpty) _PrateleiraRecentes(
+            projetos: _recentes,
+            onAbrir: _abrirProjeto,
+          ),
           Expanded(
             child: Builder(builder: (ctx) {
               final q = _ctrlBusca.text.trim().toLowerCase();
@@ -290,16 +327,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   final app =
                       Theme.of(context).extension<AppCores>() ?? AppCores.azul;
 
-                  Future<void> onTapProjeto() async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProjetoScreen(projeto: p),
-                      ),
-                    );
-                    await _salvar();
-                    if (mounted) setState(() {});
-                  }
+                  Future<void> onTapProjeto() => _abrirProjeto(p);
 
                   if (app.neumorfico) {
                     return Padding(
@@ -392,20 +420,33 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     );
                   }
 
-                // Temas planos (Azul, Escuro e Bege): cartão na cor do tema
-                // (no Bege, a mesma cor das caixinhas) com o nome + bolinhas.
-                final arrastarCor = app.projetoTxt;
-                final txtCor = app.projetoTxt;
-                final bolaCor = app.notaFim;
-                final iconeCor = app.projetoTxt;
+                // Temas planos (Azul, Escuro, Bege e Claude): cartão na cor
+                // do tema (no Bege, a mesma cor das caixinhas) com o nome +
+                // bolinhas. No Claude, vira "linha": borda de 1px, sem
+                // sombras, e o projeto em andamento ganha uma BARRA TERRACOTA
+                // à esquerda com o "v" terracota (em vez de verde).
                 // No Bege, o check de "em andamento" fica como o quadradinho
                 // dentro das caixinhas: bolinha PRETA com "v" bege.
                 final ehBege = app == AppCores.bege;
-                final corBolaAndamento =
-                    ehBege ? Colors.black : bolaCor;
+                // No Claude: bolinhas invisíveis (ícones apagados), borda
+                // 1px #2A2A2B e acento terracota no "em andamento".
+                final ehClaude = app == AppCores.claude;
+                final arrastarCor = ehClaude
+                    ? app.projetoTxt.withValues(alpha: 0.45)
+                    : app.projetoTxt;
+                final txtCor = app.projetoTxt;
+                final bolaCor = app.notaFim;
+                final iconeCor = ehClaude
+                    ? app.projetoTxt.withValues(alpha: 0.45)
+                    : app.projetoTxt;
+                final corBolaAndamento = ehBege
+                    ? Colors.black
+                    : (ehClaude ? Colors.transparent : bolaCor);
                 final corCheckAndamento = ehBege
                     ? app.notaInicio
-                    : const Color(0xFF4ADE80);
+                    : (ehClaude
+                        ? app.fab
+                        : const Color(0xFF4ADE80));
 
                 return Padding(
                   key: ValueKey(p.id),
@@ -413,10 +454,25 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: app.projetoCard,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: app.projetoTxt.withValues(alpha: 0.08),
-                      ),
+                      borderRadius: BorderRadius.circular(ehClaude ? 10 : 14),
+                      border: ehClaude
+                          ? Border(
+                              // Barra terracota à esquerda = projeto
+                              // em andamento.
+                              left: BorderSide(
+                                color: p.emAndamento ? app.fab : app.notaBorda,
+                                width: p.emAndamento ? 3 : 1,
+                              ),
+                              top: const BorderSide(
+                                  color: Color(0xFF2A2A2B)),
+                              right: const BorderSide(
+                                  color: Color(0xFF2A2A2B)),
+                              bottom: const BorderSide(
+                                  color: Color(0xFF2A2A2B)),
+                            )
+                          : Border.all(
+                              color: app.projetoTxt.withValues(alpha: 0.08),
+                            ),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 10, 4),
@@ -926,6 +982,141 @@ class _Vazio extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Prateleira rolante "Últimos abertos": os [Storage.maxRecentes] projetos
+/// mais recentemente abertos, em cartões compactos com contagem de caixinhas
+/// e barra de progresso (feitas/total). Visual acompanha o tema (no Claude,
+/// borda 1px estilo terminal).
+class _PrateleiraRecentes extends StatelessWidget {
+  const _PrateleiraRecentes({
+    required this.projetos,
+    required this.onAbrir,
+  });
+
+  final List<Projeto> projetos;
+  final ValueChanged<Projeto> onAbrir;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    final ehClaude = app == AppCores.claude;
+    final rotuloCor = app.textoUI.withValues(alpha: 0.55);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ÚLTIMOS ABERTOS',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+              color: rotuloCor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 92,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: projetos.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final p = projetos[i];
+                final total = p.tarefas.length + p.futuro.length;
+                final feitas = (p.tarefas + p.futuro)
+                    .where((n) => n.concluida)
+                    .length;
+                final fracao = total == 0 ? 0.0 : feitas / total;
+
+                Widget cartao = Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        p.nome,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                          color: app.projetoTxt,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '$total caixinhas',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: app.projetoTxt.withValues(alpha: 0.55),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: Container(
+                          height: 3,
+                          color: ehClaude
+                              ? const Color(0xFF2A2A2B)
+                              : app.projetoTxt.withValues(alpha: 0.15),
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: fracao,
+                            child: Container(color: app.fab),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (app.neumorfico) {
+                  cartao = Caixa3D(
+                    cor: app.projetoCard,
+                    corInicio: app.projetoCard,
+                    corFim: app.projetoCardFim,
+                    raio: 12,
+                    child: cartao,
+                  );
+                } else {
+                  cartao = Container(
+                    width: 130,
+                    decoration: BoxDecoration(
+                      color: app.projetoCard,
+                      borderRadius: BorderRadius.circular(ehClaude ? 10 : 14),
+                      border: ehClaude
+                          ? const Border(
+                              top: BorderSide(color: Color(0xFF2A2A2B)),
+                              left: BorderSide(color: Color(0xFF2A2A2B)),
+                              right: BorderSide(color: Color(0xFF2A2A2B)),
+                              bottom: BorderSide(color: Color(0xFF2A2A2B)),
+                            )
+                          : Border.all(
+                              color: app.projetoTxt.withValues(alpha: 0.08),
+                            ),
+                    ),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(ehClaude ? 10 : 14),
+                        onTap: () => onAbrir(p),
+                        child: cartao,
+                      ),
+                    ),
+                  );
+                }
+                return cartao;
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

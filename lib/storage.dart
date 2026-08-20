@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 
@@ -126,5 +127,33 @@ class Storage extends ChangeNotifier {
     await carregar();
     _projetos = List.of(projetos);
     await salvar();
+  }
+
+  /// Quantos projetos a prateleira "Últimos abertos" mostra.
+  static const int maxRecentes = 3;
+  static const _chaveRecentes = 'recentes_v1';
+
+  /// IDs dos projetos mais recentemente abertos (primeiro = mais recente).
+  Future<List<String>> recentesIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_chaveRecentes) ?? [];
+  }
+
+  /// Move o projeto para o topo da lista de recentes (máx. [maxRecentes]).
+  Future<void> registrarAbertura(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList(_chaveRecentes) ?? [];
+    lista.remove(id);
+    lista.insert(0, id);
+    await prefs.setStringList(
+        _chaveRecentes, lista.take(maxRecentes).toList());
+  }
+
+  /// Remove o projeto dos recentes (usado ao excluir a pasta).
+  Future<void> removerRecente(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList(_chaveRecentes) ?? [];
+    lista.remove(id);
+    await prefs.setStringList(_chaveRecentes, lista);
   }
 }
