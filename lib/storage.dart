@@ -21,10 +21,22 @@ class Storage extends ChangeNotifier {
   static final Storage instance = Storage._();
 
   static const _arquivo = 'adm_projetos.json';
+  /// Backup automático: guarda a versão ANTERIOR do arquivo a cada gravação;
+  /// o `carregar()` restaura dele se o principal sumir ou corromper.
+  static const _arquivoBak = 'adm_projetos.bak.json';
   List<Projeto> _projetos = [];
   bool _carregado = false;
   int _atualizadoEm = 0;
   String? _dir;
+
+  /// Só para testes: zera o estado do singleton (diretório, flag e dados).
+  @visibleForTesting
+  void reiniciarParaTeste() {
+    _carregado = false;
+    _projetos = [];
+    _atualizadoEm = 0;
+    _dir = null;
+  }
 
   Future<String> _dirPath() async {
     if (_dir == null) {
@@ -52,18 +64,59 @@ class Storage extends ChangeNotifier {
 
   Future<List<Projeto>> carregar() async {
     if (_carregado) return _projetos;
+    String? lerSeExiste(File f) {
+      if (!f.existsSync()) return null;
+      final conteudo = f.readAsStringSync();
+      if (conteudo.trim().isEmpty) return null;
+      return conteudo;
+    }
+
     try {
       final dir = await _dirPath();
-      final f = File('$dir/$_arquivo');
-      if (f.existsSync()) {
-        _lerConteudo(f.readAsStringSync());
+      var raw = lerSeExiste(File('$dir/$_arquivo'));
+      if (raw == null) {
+        // Arquivo principal ausente/vazio: tenta o backup automático.
+        raw = lerSeExiste(File('$dir/$_arquivoBak'));
+        if (raw != null) {
+          debugPrint('storage: dados restaurados do backup (.bak)');
+        }
       }
+      if (raw != null) _lerConteudo(raw);
     } catch (_) {
+      // Principal corrompido: tenta o backup automático.
       _projetos = [];
       _atualizadoEm = 0;
+      try {
+        final dir = await _dirPath();
+        final bak = File('$dir/$_arquivoBak');
+        if (bak.existsSync()) {
+          _lerConteudo(bak.readAsStringSync());
+          debugPrint('storage: restaurado do backup após corrupção (.bak)');
+        }
+      } catch (_) {
+        _projetos = [];
+        _atualizadoEm = 0;
+      }
     }
     _carregado = true;
     return _projetos;
+  }
+
+  /// Grava no arquivo principal, ANTES guardando a versão anterior no `.bak`
+  /// (só quando o conteúdo muda) — proteção contra escrita corrompida ou
+  /// sobrescrita acidental.
+  void _gravar(String conteudo) {
+    final dir = _dir;
+    if (dir == null) return;
+    final f = File('$dir/$_arquivo');
+    final bak = File('$dir/$_arquivoBak');
+    if (f.existsSync()) {
+      try {
+        final anterior = f.readAsStringSync();
+        if (anterior != conteudo) bak.writeAsStringSync(anterior);
+      } catch (_) {}
+    }
+    f.writeAsStringSync(conteudo);
   }
 
   /// Grava dados + horário JUNTOS no disco. No fluxo normal (após o primeiro
@@ -77,10 +130,7 @@ class Storage extends ChangeNotifier {
     });
     notifyListeners();
     try {
-      final dir = _dir;
-      if (dir != null) {
-        File('$dir/$_arquivo').writeAsStringSync(conteudo);
-      }
+      _gravar(conteudo);
     } catch (e) {
       debugPrint('storage: falha ao salvar: $e');
     }
@@ -105,10 +155,7 @@ class Storage extends ChangeNotifier {
       'projetos': _projetos.map((p) => p.toJson()).toList(),
     });
     try {
-      final dir = _dir;
-      if (dir != null) {
-        File('$dir/$_arquivo').writeAsStringSync(conteudo);
-      }
+      _gravar(conteudo);
     } catch (e) {
       debugPrint('storage: falha ao marcar modificação: $e');
     }

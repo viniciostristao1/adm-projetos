@@ -28,7 +28,7 @@ App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, 
 lib/
 ├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege)
 ├── models.dart          # Nota, Projeto — serialização JSON
-├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir + recentes (últimos abertos)
+├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir + recentes (últimos abertos) + backup .bak
 ├── tema.dart            # TemaController (ChangeNotifier) + enums Modo e ModoFonte
 ├── cores.dart           # AppCores (ThemeExtension) — 8 cores/tema
 ├── projetos_screen.dart # Tela principal: lista de projetos + busca + backup (export/import)
@@ -409,6 +409,20 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 - **Exportar:** gera `adm-projetos-backup-AAAA-MM-DD-hhmm.json` (mesmo JSON do Storage) e abre o menu de compartilhamento (`share_plus`).
 - **Importar:** escolhe arquivo (`file_picker`), valida o JSON e pergunta: **Substituir tudo** ou **Somar ao que existe** (mescla por id).
 
+### Backup automático (.bak) + backup do Google (V0.1.42)
+- **`.bak` no disco:** cada gravação (`salvar`/`marcarModificacaoEm`) guarda a
+  versão ANTERIOR do `adm_projetos.json` em `adm_projetos.bak.json` (só quando
+  o conteúdo muda). O `carregar()` RESTAURA do `.bak` se o principal estiver
+  ausente, vazio ou corrompido (auto-cura — protege contra "apagou tudo" por
+  escrita ruim; o .bak é o estado anterior bom). Se o principal existe e é um
+  JSON válido vazio (usuário apagou de propósito), o `.bak` NÃO sobrepõe.
+- **Google Drive:** `AndroidManifest.xml` com `allowBackup="true"` +
+  `fullBackupContent="true"` + `dataExtractionRules` (xml que inclui tudo:
+  arquivos, sharedprefs, banco) — o Android passa a subir os dados do app
+  para a conta Google do usuário e RESTAURA automaticamente ao reinstalar.
+  ⚠️ Antes da V0.1.42 o atributo não existia e, com targetSdk 36, o backup do
+  Google ficava DESLIGADO por padrão (perda irreversível ao desinstalar).
+
 ### Sincronização com a nuvem (Firebase) — 100% MANUAL (por botão)
 - **`SyncService`** (sync_service.dart, ChangeNotifier): doc `usuarios/{uid}` no
   Firestore com `{dados: JSON, atualizadoEm: ms, email}`.
@@ -553,7 +567,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 # Análise estática
 flutter analyze
 
-# Testes (50 testes)
+# Testes (58 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -608,7 +622,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (53 testes)
+## 10. Testes (58 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -666,6 +680,12 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Nomes antigos (claro/bege/begeNeum) não existem mais
 - Os 5 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
 
+### `test/backup_test.dart` (4 testes — V0.1.43)
+- `salvar` guarda a versão anterior no `.bak`
+- `carregar` restaura do `.bak` quando o principal está corrompido
+- `carregar` restaura do `.bak` quando o principal sumiu
+- Principal válido vazio (usuário apagou de propósito) não é substituído pelo `.bak`
+
 ---
 
 ## 11. Restrições e Cuidados
@@ -674,7 +694,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 50 testes devem passar.
+- **Sempre rodar `flutter test`** — 58 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup automático completo (Google Drive + transferência entre
+     aparelhos): arquivos do app (adm_projetos.json, .bak) e preferências. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="." />
+        <include domain="sharedpref" path="." />
+        <include domain="database" path="." />
+        <include domain="external" path="." />
+        <include domain="root" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="." />
+        <include domain="sharedpref" path="." />
+        <include domain="database" path="." />
+        <include domain="external" path="." />
+        <include domain="root" path="." />
+    </device-transfer>
+</data-extraction-rules>
