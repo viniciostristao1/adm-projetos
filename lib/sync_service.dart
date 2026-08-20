@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 import 'storage.dart';
@@ -38,7 +39,11 @@ class SyncService extends ChangeNotifier {
   /// 'Enviando…', 'Baixando…', 'Sincronizado' ou 'Erro' (com [ultimaMensagem]).
   String status = 'desligado';
   String? ultimaMensagem;
+
+  /// Data/hora do ÚLTIMO envio à nuvem bem-sucedido — persistida (aparece na
+  /// prateleira "RECENTES" da página inicial).
   DateTime? ultimoEnvio;
+  static const _chaveUltimoEnvio = 'ultimo_envio_v1';
 
   /// true quando a nuvem tem uma versão MAIS NOVA que a deste celular — apenas
   /// uma DICA para o usuário tocar em "Baixar da nuvem". Nunca aplica sozinho.
@@ -47,6 +52,11 @@ class SyncService extends ChangeNotifier {
   bool get conectado => usuario != null;
 
   Future<void> iniciar() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ms = prefs.getInt(_chaveUltimoEnvio);
+      ultimoEnvio = ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+    } catch (_) {}
     _auth.authStateChanges().listen(_aoMudarAuth);
   }
 
@@ -110,6 +120,11 @@ class SyncService extends ChangeNotifier {
         'email': u.email ?? '',
       });
       ultimoEnvio = DateTime.now();
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(
+            _chaveUltimoEnvio, ultimoEnvio!.millisecondsSinceEpoch);
+      } catch (_) {}
       // Alinha o relógio local ao envio para o próximo login não achar que a
       // nuvem está "mais nova" que o que já está aqui.
       await Storage.instance.marcarModificacaoEm(ms);

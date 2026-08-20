@@ -13,6 +13,7 @@ import 'models.dart';
 import 'ocr.dart';
 import 'pdf_export.dart';
 import 'storage.dart';
+import 'tema.dart';
 
 /// Página de um projeto dividida em duas abas: "Tarefas" (atuais) e "Ideias".
 class ProjetoScreen extends StatefulWidget {
@@ -284,7 +285,8 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                   child: Text('Nada encontrado.',
                       style: TextStyle(color: Colors.grey)))
               : ReorderableListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 150),
+                  padding: EdgeInsets.fromLTRB(
+                      16, 4, 16, temaController.compacto ? 110 : 150),
                   itemCount: filtradas.length,
                   buildDefaultDragHandles: false,
                   onReorderItem: (a, n) {
@@ -295,7 +297,8 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                   },
                   itemBuilder: (_, i) => Padding(
                     key: ValueKey(filtradas[i].id),
-                    padding: const EdgeInsets.only(bottom: 10),
+                    padding: EdgeInsets.only(
+                        bottom: temaController.compacto ? 5 : 10),
                     child: _CaixaNota(
                       key: _chaveDa(filtradas[i].id),
                       nota: filtradas[i],

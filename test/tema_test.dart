@@ -30,6 +30,13 @@ void main() {
     expect(nomes.contains('begeNeum'), isFalse);
   });
 
+  test('Densidade tem Confortável e Compacto', () {
+    expect(
+      Densidade.values.map((d) => d.rotulo).toList(),
+      ['Confortável', 'Compacto'],
+    );
+  });
+
   for (final m in Modo.values) {
     testWidgets('tema ${m.rotulo} constrói as superfícies sem erro',
         (tester) async {

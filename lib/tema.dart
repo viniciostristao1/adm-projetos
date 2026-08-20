@@ -25,16 +25,33 @@ enum ModoFonte {
   final double scale;
 }
 
-/// Controla o tema (claro/escuro/bege) e tamanho da fonte, salvando as escolhas.
+/// Densidade da interface: Confortável (atual) ou Compacto (linhas e cartões
+/// mais próximos, mais conteúdo por tela).
+enum Densidade {
+  confortavel('Confortável'),
+  compacto('Compacto');
+
+  const Densidade(this.rotulo);
+  final String rotulo;
+}
+
+/// Controla o tema (claro/escuro/bege), tamanho da fonte e densidade,
+/// salvando as escolhas.
 class TemaController extends ChangeNotifier {
   static const _chave = 'tema_v2';
   static const _chaveAntiga = 'tema_escuro_v1';
   static const _chaveFonte = 'fonte_v1';
+  static const _chaveDensidade = 'densidade_v1';
   Modo _modo = Modo.azul;
   ModoFonte _fonte = ModoFonte.normal;
+  Densidade _densidade = Densidade.confortavel;
 
   Modo get modo => _modo;
   ModoFonte get fonte => _fonte;
+  Densidade get densidade => _densidade;
+
+  /// true no modo Compacto (linhas/cartões mais próximos).
+  bool get compacto => _densidade == Densidade.compacto;
 
   /// Modo usado pelo [MaterialApp] — Bege é claro (madeira do Calis Timer);
   /// os demais são escuros.
@@ -59,6 +76,10 @@ class TemaController extends ChangeNotifier {
     final fonteSalva = prefs.getString(_chaveFonte);
     _fonte = ModoFonte.values
         .firstWhere((f) => f.name == fonteSalva, orElse: () => ModoFonte.normal);
+    final densidadeSalva = prefs.getString(_chaveDensidade);
+    _densidade = Densidade.values
+        .firstWhere((d) => d.name == densidadeSalva,
+            orElse: () => Densidade.confortavel);
     notifyListeners();
   }
 
@@ -76,6 +97,14 @@ class TemaController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_chaveFonte, fonte.name);
+  }
+
+  Future<void> definirDensidade(Densidade densidade) async {
+    if (_densidade == densidade) return;
+    _densidade = densidade;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_chaveDensidade, densidade.name);
   }
 }
 

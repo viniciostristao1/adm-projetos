@@ -92,6 +92,46 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     _salvar();
   }
 
+  /// Reordena quando a lista está em SEÇÕES (EM ANDAMENTO / OUTROS): só
+  /// permite mover DENTRO da seção do projeto arrastado — não deixa
+  /// atravessar o cabeçalho.
+  void _reordenarComSecoes(int oldIndex, int newIndex) {
+    final ativos = _projetos.where((p) => p.emAndamento).toList();
+    final outros = _projetos.where((p) => !p.emAndamento).toList();
+    final linhas = <Object>[
+      'EM ANDAMENTO · ${ativos.length}',
+      ...ativos,
+      if (outros.isNotEmpty) 'OUTROS · ${outros.length}',
+      ...outros,
+    ];
+    final alvo = linhas[oldIndex];
+    if (alvo is! Projeto) return;
+    if (newIndex > oldIndex) newIndex--;
+    if (newIndex == oldIndex) return;
+    // Limites visuais da seção (só posições de projeto).
+    var ini = oldIndex;
+    while (ini > 0 && linhas[ini - 1] is Projeto) {
+      ini--;
+    }
+    var fim = oldIndex;
+    while (fim < linhas.length - 1 && linhas[fim + 1] is Projeto) {
+      fim++;
+    }
+    if (newIndex < ini || newIndex > fim) return;
+    final grupo = alvo.emAndamento ? ativos : outros;
+    final grupoSem = grupo.where((p) => p.id != alvo.id).toList();
+    final dest = (newIndex - ini).clamp(0, grupoSem.length);
+    final novoGrupo = [...grupoSem]..insert(dest, alvo);
+    setState(() {
+      var gi = 0;
+      _projetos = [
+        for (final p in _projetos)
+          if (grupo.any((g) => g.id == p.id)) novoGrupo[gi++] else p,
+      ];
+    });
+    _salvar();
+  }
+
   void _copiarTudo() {
     final buf = StringBuffer()
       ..writeln('ADM-projetos  —  Backup')
@@ -580,22 +620,61 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
               // lista normal de projetos (arrastável).
               if (_buscando && q.isNotEmpty) return _resultadosBusca(q);
               final visiveis = _projetos;
+              final compacto = temaController.compacto;
+              // Seções: projetos em andamento primeiro, depois os demais.
+              final ativos = visiveis.where((p) => p.emAndamento).toList();
+              final outros = visiveis.where((p) => !p.emAndamento).toList();
+              final temSecoes = ativos.isNotEmpty;
+              final linhas = <Object>[];
+              if (temSecoes) {
+                linhas.add('EM ANDAMENTO · ${ativos.length}');
+                linhas.addAll(ativos);
+                if (outros.isNotEmpty) {
+                  linhas.add('OUTROS · ${outros.length}');
+                  linhas.addAll(outros);
+                }
+              } else {
+                linhas.addAll(outros);
+              }
+              final app =
+                  Theme.of(context).extension<AppCores>() ?? AppCores.azul;
               return ReorderableListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 150),
-                itemCount: visiveis.length,
+                padding: EdgeInsets.fromLTRB(
+                    16, compacto ? 6 : 12, 16, 150),
+                itemCount: linhas.length,
                 buildDefaultDragHandles: false,
-                onReorderItem: _reordenar,
+                onReorderItem:
+                    temSecoes ? _reordenarComSecoes : _reordenar,
                 itemBuilder: (_, i) {
-                  final p = visiveis[i];
-                  final app =
-                      Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+                  final item = linhas[i];
+                  if (item is String) {
+                    // Cabeçalho de seção (não é arrastável).
+                    final ehAndamento = item.startsWith('EM ANDAMENTO');
+                    return Padding(
+                      key: ValueKey('sec-$item'),
+                      padding: EdgeInsets.fromLTRB(
+                          2, compacto ? 8 : 14, 2, 6),
+                      child: Text(
+                        item,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                          color: ehAndamento
+                              ? app.fab
+                              : app.textoUI.withValues(alpha: 0.55),
+                        ),
+                      ),
+                    );
+                  }
+                  final p = item as Projeto;
 
                   Future<void> onTapProjeto() => _abrirProjeto(p);
 
                   if (app.neumorfico) {
                     return Padding(
                       key: ValueKey(p.id),
-                      padding: const EdgeInsets.only(bottom: 16),
+                      padding: EdgeInsets.only(bottom: compacto ? 8 : 16),
                       child: Caixa3D(
                         cor: app.projetoCard,
                         corInicio: app.projetoCard,
@@ -713,7 +792,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
 
                 return Padding(
                   key: ValueKey(p.id),
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.only(bottom: compacto ? 5 : 10),
                   child: Container(
                     decoration: BoxDecoration(
                       color: app.projetoCard,
@@ -1054,6 +1133,34 @@ class _ConfigSheet extends StatelessWidget {
               'Ajusta texto e ícones do app.',
               style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
             ),
+            const SizedBox(height: 12),
+            const Text('Densidade',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            ListenableBuilder(
+              listenable: temaController,
+              builder: (context, _) {
+                return SegmentedButton<Densidade>(
+                  segments: [
+                    for (final d in Densidade.values)
+                      ButtonSegment(
+                        value: d,
+                        label: Text(d.rotulo),
+                      ),
+                  ],
+                  selected: {temaController.densidade},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) =>
+                      temaController.definirDensidade(s.first),
+                );
+              },
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Compacto aproxima os cartões e deixa mais conteúdo por tela '
+              '(vale também para as caixinhas do projeto).',
+              style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
+            ),
             const SizedBox(height: 16),
             const Text('Barra de ferramentas das caixinhas',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -1322,24 +1429,51 @@ class _PrateleiraRecentes extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final ehClaude = app == AppCores.claude;
+    final compacto = temaController.compacto;
     final rotuloCor = app.textoUI.withValues(alpha: 0.55);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      padding: EdgeInsets.fromLTRB(16, compacto ? 6 : 10, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'RECENTES',
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-              color: rotuloCor,
-            ),
+          Row(
+            children: [
+              Text(
+                'RECENTES',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                  color: rotuloCor,
+                ),
+              ),
+              const Spacer(),
+              // Data do último envio à nuvem (mesma linha do rótulo).
+              ListenableBuilder(
+                listenable: SyncService.instance,
+                builder: (context, _) {
+                  final envio = SyncService.instance.ultimoEnvio;
+                  final data = envio == null
+                      ? 'nunca enviado'
+                      : 'último envio '
+                          '${envio.day.toString().padLeft(2, '0')}/'
+                          '${envio.month.toString().padLeft(2, '0')}/'
+                          '${(envio.year % 100).toString().padLeft(2, '0')}';
+                  return Text(
+                    data,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: rotuloCor,
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 72,
+            height: compacto ? 58 : 72,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: projetos.length,
@@ -1353,7 +1487,7 @@ class _PrateleiraRecentes extends StatelessWidget {
                 final fracao = total == 0 ? 0.0 : feitas / total;
 
                 Widget cartao = Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(compacto ? 6 : 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1363,7 +1497,7 @@ class _PrateleiraRecentes extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          fontSize: 12.5,
+                          fontSize: compacto ? 11.5 : 12.5,
                           color: app.projetoTxt,
                         ),
                       ),

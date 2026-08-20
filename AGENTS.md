@@ -64,7 +64,7 @@ lib/
 ├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege)
 ├── models.dart          # Nota, Projeto — serialização JSON
 ├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir + recentes (últimos abertos) + backup .bak
-├── tema.dart            # TemaController (ChangeNotifier) + enums Modo e ModoFonte
+├── tema.dart            # TemaController (ChangeNotifier) + enums Modo, ModoFonte e Densidade (Confortável/Compacto)
 ├── cores.dart           # AppCores (ThemeExtension) — 8 cores/tema
 ├── projetos_screen.dart # Tela principal: lista de projetos + busca + backup (export/import)
 ├── projeto_screen.dart  # Tela de 1 projeto: abas Tarefas/Ideias + _CaixaNota
@@ -270,15 +270,27 @@ ProjetosScreen (lista de projetos)
   │       Tarefas/Ideias); tocar num resultado abre a caixinha
   ├─ "RECENTES" → prateleira rolante horizontal com os 5 projetos
   │    mais recentemente abertos (nome + contagem de caixinhas + barra de
-  │    progresso feitas/total); tocar abre o projeto
+  │    progresso feitas/total); tocar abre o projeto. Na MESMA LINHA do
+  │    rótulo, no canto direito: data do último envio à nuvem
+  │    (SyncService.ultimoEnvio, persistida — "nunca enviado" se nunca)
+  ├─ SEÇÕES (V0.1.46): com ≥1 projeto em andamento, a lista vira
+  │    "EM ANDAMENTO · N" (acento) + "OUTROS · N"; arrastar só move DENTRO
+  │    da seção (_reordenarComSecoes)
   ├─ Card → ProjetoScreen (projeto aberto)
   │    ├─ Tab "Tarefas" → ReorderableListView de _CaixaNota
   │    ├─ Tab "Ideias" → idem
   │    ├─ 🔍 (ao lado das abas) → busca na aba ativa (texto + comentário)
   │    │     — o termo buscado fica GRIFADO (marcador amarelo) nas caixinhas
   │    └─ PDF → gera PDF do projeto inteiro e compartilha
-  └─ ⚙️ → ConfigSheet (tema, fonte, ORDEM dos botões da barra, backup, nuvem)
+  └─ ⚙️ → ConfigSheet (tema, fonte, DENSIDADE, ORDEM dos botões da barra,
+       backup, nuvem)
 ```
+
+> **Densidade (V0.1.46):** `Densidade` (Confortável/Compacto) no `TemaController`
+> (SharedPreferences `densidade_v1`). Compacto aproxima: cartões da lista
+> (bottom 5 vs 10), cabeçalhos, prateleira RECENTES (altura 58 vs 72) e as
+> caixinhas do projeto (bottom 5 vs 10, padding inferior da lista menor).
+> Seletor nas Configurações (SegmentedButton).
 
 > **ConfigSheet fecha arrastando para baixo (V0.1.42):** o
 > `showModalBottomSheet` usa `showDragHandle: true` — a alça no topo virou um
@@ -612,7 +624,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 # Análise estática
 flutter analyze
 
-# Testes (64 testes)
+# Testes (65 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -667,7 +679,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (64 testes)
+## 10. Testes (65 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -749,7 +761,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 64 testes devem passar.
+- **Sempre rodar `flutter test`** — 65 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -773,6 +785,9 @@ A cada publicação de APK:
 | 5 temas (Azul/Escuro/Dark Game/Bege/Claude Code) | Preferência do usuário; Bege é claro, os demais escuros |
 | Tema Claude Code (terminal) com JetBrains Mono | Escolha do usuário: preto-quente + terracota + fonte mono, cartões como linhas de 1px |
 | Prateleira "Recentes" (5 projetos) na página principal | Ideia do usuário (prateleira rolante) aplicada aos projetos mais recentes |
+| Seções "EM ANDAMENTO"/"OUTROS" na lista de projetos | Ideia do usuário: o marcador de em andamento vira agrupamento; arrastar só dentro da seção |
+| Densidade Confortável/Compacto nas Configurações | Ideia do usuário: mais conteúdo por tela, valendo para lista e caixinhas |
+| Data do último envio à nuvem na linha "RECENTES" | Pedido do usuário: saber quando o backup na nuvem foi feito |
 | Keystore fixa (não debug) | Evitar conflito de assinatura entre builds |
 | Release `v0.1.0` sobrescrita | Evitar cota de artifacts do GitHub |
 | `LinhasNumeradas` age só ao crescer texto | Impede que backspace recrie números |
