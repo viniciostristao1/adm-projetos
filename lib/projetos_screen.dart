@@ -201,8 +201,17 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   }
 
   /// Alterna o "em andamento" do projeto (✓ verde no cartão da lista).
+  /// Ao DESMARCAR no projeto, desmarca também as caixinhas marcadas como
+  /// feitas lá dentro (espelho nos dois sentidos).
   void _alternarAndamento(Projeto p) {
-    setState(() => p.emAndamento = !p.emAndamento);
+    setState(() {
+      p.emAndamento = !p.emAndamento;
+      if (!p.emAndamento) {
+        for (final n in [...p.tarefas, ...p.futuro]) {
+          n.concluida = false;
+        }
+      }
+    });
     _salvar();
   }
 
@@ -1448,24 +1457,38 @@ class _PrateleiraRecentes extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              // Data do último envio à nuvem (mesma linha do rótulo).
+              // Último envio à nuvem: ícone de nuvem com flecha para cima +
+              // data (terracota no tema Claude Code).
               ListenableBuilder(
                 listenable: SyncService.instance,
                 builder: (context, _) {
                   final envio = SyncService.instance.ultimoEnvio;
+                  final cor = ehClaude
+                      ? app.fab
+                      : rotuloCor;
                   final data = envio == null
-                      ? 'nunca enviado'
-                      : 'último envio '
-                          '${envio.day.toString().padLeft(2, '0')}/'
+                      ? 'nunca'
+                      : '${envio.day.toString().padLeft(2, '0')}/'
                           '${envio.month.toString().padLeft(2, '0')}/'
                           '${(envio.year % 100).toString().padLeft(2, '0')}';
-                  return Text(
-                    data,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
-                      color: rotuloCor,
-                    ),
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 13,
+                        color: cor,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        data,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          color: cor,
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),

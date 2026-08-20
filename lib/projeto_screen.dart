@@ -1566,29 +1566,38 @@ class _DialogoLinksState extends State<_DialogoLinks> {
         ),
       ),
       actions: [
-        // Uma linha só: Colar · Limpar · Fechar · Salvar (sem ícones para
-        // caberem lado a lado em qualquer tela).
-        Row(
+        // Linha 1: Colar · Limpar · Fechar. Linha 2 (alinhada à direita,
+        // embaixo de "Fechar"): Salvar.
+        Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            TextButton(
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              onPressed: _colar,
-              child: const Text('Colar'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                  onPressed: _colar,
+                  child: const Text('Colar'),
+                ),
+                const SizedBox(width: 2),
+                TextButton(
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                  onPressed: _limpar,
+                  child: const Text('Limpar'),
+                ),
+                const SizedBox(width: 2),
+                TextButton(
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Fechar'),
+                ),
+              ],
             ),
-            const SizedBox(width: 2),
-            TextButton(
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              onPressed: _limpar,
-              child: const Text('Limpar'),
-            ),
-            const SizedBox(width: 2),
-            TextButton(
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Fechar'),
-            ),
-            const SizedBox(width: 2),
+            const SizedBox(height: 4),
             FilledButton(
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
