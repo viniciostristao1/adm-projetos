@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:adm_projetos/editor.dart';
 import 'package:adm_projetos/models.dart';
 import 'package:adm_projetos/projeto_screen.dart';
 import 'package:adm_projetos/storage.dart';
@@ -121,7 +122,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('busca grifa o termo no texto da caixinha', (tester) async {
+  testWidgets('busca destaca o termo no texto da caixinha', (tester) async {
     final p = await projetoCom('comprar pão e leite');
     await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
     await tester.pump();
@@ -131,14 +132,27 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'pão');
     await tester.pump();
 
-    expect(find.byKey(const ValueKey('grifo-busca')), findsOneWidget,
-        reason: 'com o termo ativo, o grifo aparece sobre o texto');
+    // A caixinha usa um BuscaController que pinta o destaque DENTRO do próprio
+    // layout do texto (buildTextSpan) — sempre alinhado, sem overlay.
+    final campo = tester.widget<TextField>(
+      find.byWidgetPredicate((w) =>
+          w is TextField &&
+          w.controller is BuscaController &&
+          w.controller!.text == 'comprar pão e leite'),
+    );
+    expect((campo.controller as BuscaController).termo, 'pão',
+        reason: 'o termo ativo é passado ao controlador da caixinha');
     expect(tester.takeException(), isNull);
 
     await tester.enterText(find.byType(TextField).first, 'nada disso');
     await tester.pump();
-    expect(find.byKey(const ValueKey('grifo-busca')), findsNothing,
-        reason: 'sem ocorrência do termo, não há grifo');
+    // Sem ocorrência, a caixinha é filtrada da lista (não fica visível).
+    expect(
+      find.byWidgetPredicate(
+          (w) => w is TextField && w.controller?.text == 'comprar pão e leite'),
+      findsNothing,
+      reason: 'sem ocorrência do termo, a caixinha some da busca',
+    );
   });
 
   testWidgets('centralizar com seleção centraliza a linha e desfazer reverte',

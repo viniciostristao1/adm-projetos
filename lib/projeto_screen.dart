@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'barra_config.dart';
 import 'caixa3d.dart';
 import 'cores.dart';
 import 'editor.dart';
@@ -15,9 +16,26 @@ import 'storage.dart';
 
 /// Página de um projeto dividida em duas abas: "Tarefas" (atuais) e "Ideias".
 class ProjetoScreen extends StatefulWidget {
-  const ProjetoScreen({super.key, required this.projeto});
+  const ProjetoScreen({
+    super.key,
+    required this.projeto,
+    this.abaInicial = 0,
+    this.termoInicial,
+    this.notaAlvo,
+  });
 
   final Projeto projeto;
+
+  /// Aba em que a tela abre (0 = Tarefas, 1 = Ideias). Usado pela busca
+  /// global da tela inicial para cair direto na aba certa.
+  final int abaInicial;
+
+  /// Termo de busca já aplicado ao abrir (deixa a busca da aba aberta e o
+  /// texto destacado). Usado pela busca global.
+  final String? termoInicial;
+
+  /// Id da caixinha para a qual rolar automaticamente ao abrir (busca global).
+  final String? notaAlvo;
 
   @override
   State<ProjetoScreen> createState() => _ProjetoScreenState();
@@ -34,7 +52,40 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(
+        length: 2, vsync: this, initialIndex: widget.abaInicial.clamp(0, 1));
+    // Vindo da busca global: já abre com a busca ativa (texto destacado) e
+    // rola até a caixinha encontrada.
+    final termo = widget.termoInicial?.trim() ?? '';
+    if (termo.isNotEmpty) {
+      _buscando = true;
+      _ctrlBusca.text = termo;
+    }
+    if (widget.notaAlvo != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _irParaNota(widget.notaAlvo!);
+      });
+    }
+  }
+
+  /// Rola a lista até a caixinha [id] ficar visível (com pequenas tentativas,
+  /// caso ela ainda não tenha sido construída no primeiro quadro).
+  void _irParaNota(String id, {int tentativa = 0}) {
+    final ctx = _chaves[id]?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.15,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+      return;
+    }
+    if (tentativa < 5) {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) _irParaNota(id, tentativa: tentativa + 1);
+      });
+    }
   }
 
   @override
@@ -364,7 +415,7 @@ class _CaixaNota extends StatefulWidget {
 }
 
 class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
-  late final TextEditingController _ctrl;
+  late final BuscaController _ctrl;
   late final TextEditingController _ctrlComentario;
   final HistoricoTexto _historico = HistoricoTexto();
   final FocusNode _foco = FocusNode();
@@ -372,6 +423,9 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
   bool _tinhaFocoAoParar = false;
+  // Última altura do teclado (viewInsets.bottom) que vimos — usado para
+  // detectar o instante em que o teclado FECHA (>0 → 0) e soltar o foco.
+  double _insetBottomAnterior = 0;
   bool _numerado = true;
   bool _comentarioExpandido = false;
   bool _comentarioVisivel = false;
@@ -379,11 +433,11 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    _ctrl = TextEditingController(text: widget.nota.texto);
+    _ctrl = BuscaController(text: widget.nota.texto);
     _historico.comecar(widget.nota.texto);
     _ctrlComentario =
         TextEditingController(text: widget.nota.comentario ?? '');
-    _foco.addListener(_aoPerderFoco);
+    _foco.addListener(_aoMudarFoco);
     WidgetsBinding.instance.addObserver(this);
     // Links antigos (migrados sem título) e links de vídeos novos ganham o
     // título do YouTube automaticamente — sem precisar abrir o diálogo.
@@ -428,10 +482,34 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     });
   }
 
+  /// Solta o foco quando o usuário ESCONDE o teclado (setinha para baixo) com
+  /// o app em primeiro plano. O Android some com o teclado mas o Flutter
+  /// mantém o foco na caixinha — aí qualquer reconstrução (ou a correção de
+  /// maiúscula em debounce) reabria o teclado, dando o efeito chato de "sai e
+  /// volta". Ao detectar o teclado fechando (altura >0 → 0), largamos o foco:
+  /// o cursor some e o teclado fica fora até tocar na caixinha de novo.
+  ///
+  /// ⚠️ Só age com o app `resumed` — ao SAIR para outro app o teclado também
+  /// fecha, mas aí queremos PRESERVAR o foco para reabri-lo ao voltar
+  /// (`didChangeAppLifecycleState`/`_reabrirTeclado`).
+  @override
+  void didChangeMetrics() {
+    if (!mounted) return;
+    final bottom = View.of(context).viewInsets.bottom;
+    final fechou = _insetBottomAnterior > 0 && bottom == 0;
+    _insetBottomAnterior = bottom;
+    if (fechou &&
+        _foco.hasFocus &&
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      _debounce?.cancel();
+      _foco.unfocus();
+    }
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
-    _foco.removeListener(_aoPerderFoco);
+    _foco.removeListener(_aoMudarFoco);
     // Derrama o que está nos controladores direto no modelo e no disco —
     // cobre o texto que a IME ainda não tinha confirmado (composição) quando
     // o usuário sai rápido da tela.
@@ -457,11 +535,18 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     Storage.instance.salvar();
   }
 
-  /// Ao PERDER o foco (toque em outra caixinha, voltar de tela, teclado
-  /// fechando) derrama o texto na hora — é o sinal mais cedo de que o usuário
-  /// parou de digitar naquela caixinha e nada pode ficar só no teclado.
-  void _aoPerderFoco() {
-    if (_foco.hasFocus) return;
+  /// Reage à mudança de foco da caixinha.
+  /// - Ao GANHAR foco: semeia o rastreio da altura do teclado com o valor
+  ///   atual. Assim, se o teclado JÁ estava aberto (troca entre caixinhas), o
+  ///   próximo fechamento é detectado corretamente por [didChangeMetrics].
+  /// - Ao PERDER foco (toque em outra caixinha, voltar de tela, teclado
+  ///   fechando): derrama o texto na hora — é o sinal mais cedo de que o
+  ///   usuário parou de digitar e nada pode ficar só no teclado.
+  void _aoMudarFoco() {
+    if (_foco.hasFocus) {
+      if (mounted) _insetBottomAnterior = View.of(context).viewInsets.bottom;
+      return;
+    }
     _guardarTudo();
   }
 
@@ -578,8 +663,12 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     setState(() {});
   }
 
-  /// Índice da linha que contém o cursor (ou a última linha com conteúdo,
-  /// se o cursor estiver depois de um "\n" final).
+  /// Índice da linha que contém o cursor.
+  ///
+  /// ⚠️ Fica EXATAMENTE na linha do cursor, mesmo que ela esteja vazia — antes
+  /// havia um "recuo" que voltava para a última linha COM conteúdo quando a
+  /// linha do cursor era vazia; isso quebrava criar um to-do (ou numerar) numa
+  /// segunda linha em branco: o marcador ia parar na primeira linha. (Bug #2.)
   int _linhaDoCursor(String texto, int cursor) {
     final linhas = texto.split('\n');
     var alvo = linhas.length - 1;
@@ -591,9 +680,6 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
         break;
       }
       fim += 1; // conta o "\n"
-    }
-    while (alvo > 0 && linhas[alvo].trim().isEmpty) {
-      alvo--;
     }
     return alvo;
   }
@@ -858,6 +944,125 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     }
   }
 
+  /// Constrói o botão da barra para a ferramenta [f] (ou null quando ela não
+  /// se aplica — ex.: "numerar" só existe na aba Tarefas). A ordem dos botões
+  /// é decidida pelo [barraController]; este método só sabe DESENHAR cada um.
+  Widget? _botaoFerramenta(Ferramenta f, Color onBarra) {
+    switch (f) {
+      case Ferramenta.copiar:
+        return _BotaoMini(
+          icone: Icons.copy_all_outlined,
+          tooltip: 'Copiar',
+          onTap: widget.onCopiar,
+          cor: onBarra,
+        );
+      case Ferramenta.desfazer:
+        return _BotaoMini(
+          icone: Icons.undo,
+          tooltip: 'Desfazer apagar',
+          onTap: _desfazer,
+          cor: onBarra,
+        );
+      case Ferramenta.feito:
+        return _BotaoMini(
+          icone: widget.nota.concluida
+              ? Icons.check_box
+              : Icons.check_box_outline_blank,
+          tooltip: widget.nota.concluida ? 'Desmarcar' : 'Marcar como feito',
+          onTap: _alternarConcluida,
+          cor: onBarra,
+        );
+      case Ferramenta.numerar:
+        if (!widget.modoTarefas) return null;
+        return _BotaoMini(
+          icone: _numerado
+              ? Icons.format_list_numbered
+              : Icons.format_align_justify,
+          tooltip: _numerado ? 'Remover número da linha' : 'Numerar linha',
+          onTap: _alternarNumero,
+          cor: onBarra,
+        );
+      case Ferramenta.todo:
+        return _BotaoMini(
+          icone: Icons.checklist,
+          tooltip: 'Item de to-do (☐)',
+          onTap: _inserirTodo,
+          cor: onBarra,
+        );
+      case Ferramenta.mover:
+        return _BotaoMini(
+          icone: widget.modoTarefas
+              ? Icons.arrow_downward
+              : Icons.arrow_upward,
+          tooltip: widget.modoTarefas
+              ? 'Mover para Ideias'
+              : 'Mover para Tarefas',
+          onTap: widget.onMover,
+          cor: onBarra,
+        );
+      case Ferramenta.extremo:
+        return _BotaoMini(
+          icone: Icons.unfold_more,
+          tooltip: 'Topo / Pé',
+          onTap: _irAoExtremo,
+          cor: onBarra,
+        );
+      case Ferramenta.link:
+        return _BotaoMini(
+          icone: Icons.add_link,
+          tooltip: 'Link',
+          onTap: _abrirLink,
+          cor: onBarra,
+        );
+      case Ferramenta.imagem:
+        return _BotaoMini(
+          icone: Icons.image_outlined,
+          tooltip: 'Ler texto de imagem (OCR)',
+          onTap: _lerImagem,
+          cor: onBarra,
+        );
+      case Ferramenta.comentario:
+        return _BotaoMini(
+          icone: _comentarioExpandido
+              ? Icons.chat_bubble
+              : Icons.chat_bubble_outline,
+          tooltip: 'Comentário',
+          onTap: () =>
+              setState(() => _comentarioExpandido = !_comentarioExpandido),
+          cor: onBarra,
+        );
+      case Ferramenta.editar:
+        return _BotaoMini(
+          icone: Icons.edit_outlined,
+          tooltip: 'Editar',
+          onTap: focarNoFim,
+          cor: onBarra,
+        );
+      case Ferramenta.centralizar:
+        return _BotaoMini(
+          icone: Icons.format_align_center,
+          tooltip: 'Centralizar linha (seleção)',
+          onTap: _centralizarLinha,
+          cor: onBarra,
+        );
+      case Ferramenta.limpar:
+        return _BotaoMini(
+          icone: Icons.cleaning_services,
+          tooltip: 'Limpar conteúdo',
+          onTap: _limpar,
+          cor: onBarra,
+        );
+      case Ferramenta.excluir:
+        return _BotaoMini(
+          icone: Icons.delete_outline,
+          tooltip: 'Excluir',
+          isDanger: true,
+          onTap: widget.onExcluir,
+          cor: onBarra,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
@@ -876,6 +1081,10 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
       fontSize: 14.5,
       height: 1.35,
     );
+
+    // Destaque da busca: o próprio controlador pinta o fundo amarelo nas
+    // ocorrências (dentro do layout do texto) — sempre alinhado.
+    _ctrl.termo = widget.termoBusca.trim();
 
     _comentarioVisivel = _comentarioExpandido ||
         (!widget.modoTarefas &&
@@ -927,111 +1136,22 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
                 Expanded(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _BotaoMini(
-                          icone: Icons.copy_all_outlined,
-                          tooltip: 'Copiar',
-                          onTap: widget.onCopiar,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: Icons.undo,
-                          tooltip: 'Desfazer apagar',
-                          onTap: _desfazer,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: widget.nota.concluida
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          tooltip: widget.nota.concluida
-                              ? 'Desmarcar'
-                              : 'Marcar como feito',
-                          onTap: _alternarConcluida,
-                          cor: onBarra,
-                        ),
-                        if (widget.modoTarefas)
-                          _BotaoMini(
-                            icone: _numerado
-                                ? Icons.format_list_numbered
-                                : Icons.format_align_justify,
-                            tooltip: _numerado
-                                ? 'Remover número da linha'
-                                : 'Numerar linha',
-                            onTap: _alternarNumero,
-                            cor: onBarra,
-                          ),
-                        _BotaoMini(
-                          icone: Icons.checklist,
-                          tooltip: 'Item de to-do (☐)',
-                          onTap: _inserirTodo,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: widget.modoTarefas
-                              ? Icons.arrow_downward
-                              : Icons.arrow_upward,
-                          tooltip: widget.modoTarefas
-                              ? 'Mover para Ideias'
-                              : 'Mover para Tarefas',
-                          onTap: widget.onMover,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: Icons.unfold_more,
-                          tooltip: 'Topo / Pé',
-                          onTap: _irAoExtremo,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: Icons.add_link,
-                          tooltip: 'Link',
-                          onTap: _abrirLink,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: Icons.image_outlined,
-                          tooltip: 'Ler texto de imagem (OCR)',
-                          onTap: _lerImagem,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: _comentarioExpandido
-                              ? Icons.chat_bubble
-                              : Icons.chat_bubble_outline,
-                          tooltip: 'Comentário',
-                          onTap: () => setState(
-                              () => _comentarioExpandido = !_comentarioExpandido),
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: Icons.edit_outlined,
-                          tooltip: 'Editar',
-                          onTap: focarNoFim,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: Icons.format_align_center,
-                          tooltip: 'Centralizar linha (seleção)',
-                          onTap: _centralizarLinha,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: Icons.cleaning_services,
-                          tooltip: 'Limpar conteúdo',
-                          onTap: _limpar,
-                          cor: onBarra,
-                        ),
-                        _BotaoMini(
-                          icone: Icons.delete_outline,
-                          tooltip: 'Excluir',
-                          isDanger: true,
-                          onTap: widget.onExcluir,
-                          cor: onBarra,
-                        ),
-                      ],
+                    // A ORDEM dos botões vem do barraController (configurável
+                    // em Configurações → "Ordem dos botões da barra"); a barra
+                    // se reconstrói ao mudar a ordem.
+                    child: ListenableBuilder(
+                      listenable: barraController,
+                      builder: (context, _) {
+                        final botoes = <Widget>[];
+                        for (final f in barraController.ordem) {
+                          final b = _botaoFerramenta(f, onBarra);
+                          if (b != null) botoes.add(b);
+                        }
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: botoes,
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -1044,83 +1164,40 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
             onPointerUp: _pointerUp,
             child: Scrollbar(
               controller: _scroll,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LayoutBuilder(builder: (ctx, cons) {
-                      final maxWidth = cons.maxWidth - 28;
-                      return Stack(
-                      children: [
-                        TextField(
-                          key: _campoKey,
-                          scrollController: _scroll,
-                          controller: _ctrl,
-                          focusNode: _foco,
-                          minLines: 1,
-                          maxLines: 24,
-                          keyboardType: TextInputType.multiline,
-                          textCapitalization: TextCapitalization.sentences,
-                          inputFormatters: [LinhasNumeradas()],
-                          // Mantém o cursor sempre visível ACIMA do teclado e
-                          // do botão "+" enquanto se digita: ao mover o cursor,
-                          // o Flutter rola a PÁGINA para deixá-lo a esta
-                          // distância da borda inferior. 108 = altura do FAB
-                          // (56) + margem (16) + folga. É o mecanismo nativo
-                          // que substituiu a antiga trava de altura por timers.
-                          scrollPadding:
-                              const EdgeInsets.fromLTRB(20, 20, 20, 108),
-                          style: (_estiloCampo ?? _estiloTexto).copyWith(
-                            color: widget.nota.concluida
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.45)
-                                : Theme.of(context).colorScheme.onSurface,
-                          ),
-                          contextMenuBuilder: _menuSelecao,
-                          onChanged: _mudou,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            isDense: true,
-                            contentPadding:
-                                EdgeInsets.fromLTRB(14, 2, 14, 14),
-                          ),
-                        ),
-                        // Grifo da busca: marca as ocorrências do termo
-                        // ativo (sem interferir na edição — IgnorePointer).
-                        if (widget.termoBusca.trim().isNotEmpty &&
-                            _ctrl.text
-                                .toLowerCase()
-                                .contains(widget.termoBusca.trim().toLowerCase()))
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: ListenableBuilder(
-                                listenable:
-                                    Listenable.merge([_scroll, _ctrl]),
-                                builder: (context, _) => CustomPaint(
-                                  key: const ValueKey('grifo-busca'),
-                                  painter: _GrifoBuscaPainter(
-                                    texto: _ctrl.text,
-                                    termo: widget.termoBusca.trim(),
-                                    estilo: _estiloCampo ?? _estiloTexto,
-                                    maxWidth: maxWidth,
-                                    scrollOffset: _scroll.hasClients
-                                        ? _scroll.offset
-                                        : 0,
-                                    textScaler:
-                                        MediaQuery.textScalerOf(ctx),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                      );
-                    }),
-                  ],
+              child: TextField(
+                key: _campoKey,
+                scrollController: _scroll,
+                controller: _ctrl,
+                focusNode: _foco,
+                minLines: 1,
+                maxLines: 24,
+                keyboardType: TextInputType.multiline,
+                textCapitalization: TextCapitalization.sentences,
+                inputFormatters: [LinhasNumeradas()],
+                // Mantém o cursor sempre visível ACIMA do teclado e do botão
+                // "+" enquanto se digita: ao mover o cursor, o Flutter rola a
+                // PÁGINA para deixá-lo a esta distância da borda inferior.
+                // 108 = altura do FAB (56) + margem (16) + folga. É o
+                // mecanismo nativo que substituiu a trava de altura por timers.
+                scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 108),
+                style: (_estiloCampo ?? _estiloTexto).copyWith(
+                  color: widget.nota.concluida
+                      ? Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.45)
+                      : Theme.of(context).colorScheme.onSurface,
                 ),
+                contextMenuBuilder: _menuSelecao,
+                onChanged: _mudou,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+                ),
+              ),
             ),
           ),
           // Subcaixinha inline: títulos dos links (SEMPRE visíveis quando há
@@ -1470,64 +1547,6 @@ class _DialogoLinksState extends State<_DialogoLinks> {
     );
   }
 }
-/// Pinta as ocorrências do termo da busca por cima do texto (grifo amarelo),
-/// nas mesmas coordenadas do TextField (contentPadding 14/2 + rolagem
-/// interna). Não interage com toques (IgnorePointer).
-class _GrifoBuscaPainter extends CustomPainter {
-  _GrifoBuscaPainter({
-    required this.texto,
-    required this.termo,
-    required this.estilo,
-    required this.maxWidth,
-    required this.scrollOffset,
-    required this.textScaler,
-  });
-
-  final String texto;
-  final String termo;
-  final TextStyle estilo;
-  final double maxWidth;
-  final double scrollOffset;
-  final TextScaler textScaler;
-
-  static const _cor = Color(0x59FFC107);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final painter = TextPainter(
-      text: TextSpan(text: texto, style: estilo),
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-    )..layout(maxWidth: maxWidth);
-
-    final t = termo.toLowerCase();
-    final lower = texto.toLowerCase();
-    final tinta = Paint()..color = _cor;
-    var from = 0;
-    while (true) {
-      final idx = lower.indexOf(t, from);
-      if (idx < 0) break;
-      final sel = TextSelection(baseOffset: idx, extentOffset: idx + termo.length);
-      for (final box in painter.getBoxesForSelection(sel)) {
-        final r = box.toRect().shift(Offset(14, 2 - scrollOffset));
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(r, const Radius.circular(3)),
-          tinta,
-        );
-      }
-      from = idx + termo.length;
-    }
-  }
-
-  @override
-  bool shouldRepaint(_GrifoBuscaPainter old) =>
-      old.texto != texto ||
-      old.termo != termo ||
-      old.maxWidth != maxWidth ||
-      old.scrollOffset != scrollOffset;
-}
-
-
 /// Menu de seleção (recortar/copiar/colar/selecionar tudo). Usa o
 /// posicionamento PADRÃO do Flutter, que abre ACIMA da seleção quando cabe.
 ///

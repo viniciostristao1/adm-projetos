@@ -47,6 +47,58 @@ void copiarTexto(BuildContext context, String texto) {
   mostrarAviso(context, 'Copiado!');
 }
 
+/// Controlador de texto que DESTACA (fundo amarelo) as ocorrências de um
+/// termo de busca. O destaque é montado dentro do próprio `buildTextSpan` do
+/// TextField — ou seja, faz parte do MESMO layout do texto — então nunca sai
+/// do lugar (diferente do antigo `CustomPaint` por cima, que precisava
+/// recalcular a geometria à mão e às vezes marcava a palavra/linha errada).
+class BuscaController extends TextEditingController {
+  BuscaController({super.text});
+
+  /// Termo ativo da busca (vazio = sem destaque). Definir e chamar setState
+  /// no widget que o usa para repintar.
+  String termo = '';
+
+  static const _corDestaque = Color(0x59FFC107);
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final t = termo.trim().toLowerCase();
+    final texto = value.text;
+    // Sem termo ativo: comportamento PADRÃO (inclui o sublinhado da palavra em
+    // composição do teclado). Só assumimos o desenho quando há o que destacar.
+    if (t.isEmpty || !texto.toLowerCase().contains(t)) {
+      return super.buildTextSpan(
+          context: context, style: style, withComposing: withComposing);
+    }
+    final base = style ?? const TextStyle();
+    final destaque = base.copyWith(backgroundColor: _corDestaque);
+    final lower = texto.toLowerCase();
+    final spans = <TextSpan>[];
+    var from = 0;
+    while (true) {
+      final idx = lower.indexOf(t, from);
+      if (idx < 0) {
+        spans.add(TextSpan(text: texto.substring(from)));
+        break;
+      }
+      if (idx > from) {
+        spans.add(TextSpan(text: texto.substring(from, idx)));
+      }
+      spans.add(TextSpan(
+        text: texto.substring(idx, idx + t.length),
+        style: destaque,
+      ));
+      from = idx + t.length;
+    }
+    return TextSpan(style: base, children: spans);
+  }
+}
+
 /// Deixa a PRIMEIRA letra (não-espaço) em maiúscula.
 String capitalizarInicial(String texto) {
   final m = RegExp(r'\S').firstMatch(texto);

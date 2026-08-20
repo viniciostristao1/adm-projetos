@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'barra_config.dart';
 import 'caixa3d.dart';
 import 'cores.dart';
 import 'editor.dart';
@@ -117,6 +118,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   Future<void> _abrirConfig() async {
     await showModalBottomSheet<String>(
       context: context,
+      // showDragHandle: a alça no topo vira um alvo de arraste CONFIÁVEL para
+      // fechar a folha puxando para baixo — antes, o SingleChildScrollView do
+      // conteúdo engolia o gesto e só dava para sair pelo botão "voltar" do
+      // Android. enableDrag já é true por padrão.
+      showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -205,7 +211,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     _recarregarRecentes();
   }
 
-  /// Abre/fecha o campo de busca por nome dos projetos.
+  /// Abre/fecha a lupa (busca global: projetos + conteúdo das caixinhas).
   void _alternarBusca() {
     setState(() {
       _buscando = !_buscando;
@@ -216,6 +222,258 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         if (mounted) _focoBusca.requestFocus();
       });
     }
+  }
+
+  /// Abre o projeto direto na caixinha encontrada pela busca global (aba
+  /// certa + termo destacado + rolagem até a caixinha).
+  Future<void> _abrirNota(_ResultadoBusca r) async {
+    await Storage.instance.registrarAbertura(r.projeto.id);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProjetoScreen(
+          projeto: r.projeto,
+          abaInicial: r.aba,
+          termoInicial: _ctrlBusca.text.trim(),
+          notaAlvo: r.nota.id,
+        ),
+      ),
+    );
+    await _salvar();
+    if (mounted) setState(() {});
+    _recarregarRecentes();
+  }
+
+  /// Monta a lista de resultados da lupa: projetos por NOME + caixinhas cujo
+  /// texto/comentário contêm o termo, nas duas abas de todos os projetos.
+  Widget _resultadosBusca(String q) {
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    final projetosNome =
+        _projetos.where((p) => p.nome.toLowerCase().contains(q)).toList();
+    final conteudo = <_ResultadoBusca>[];
+    for (final p in _projetos) {
+      void varrer(List<Nota> lista, int aba) {
+        for (final n in lista) {
+          final alvo = '${n.texto}\n${n.comentario ?? ''}'.toLowerCase();
+          if (alvo.contains(q)) {
+            conteudo.add(_ResultadoBusca(
+              projeto: p,
+              aba: aba,
+              nota: n,
+              trecho: _trecho(n.texto, n.comentario, q),
+            ));
+          }
+        }
+      }
+
+      varrer(p.tarefas, 0);
+      varrer(p.futuro, 1);
+    }
+    if (projetosNome.isEmpty && conteudo.isEmpty) {
+      return const Center(
+          child: Text('Nada encontrado.',
+              style: TextStyle(color: Colors.grey)));
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 150),
+      children: [
+        if (projetosNome.isNotEmpty) ...[
+          _cabecalhoResultado('PROJETOS', app),
+          for (final p in projetosNome) _cartaoProjetoResultado(p, q, app),
+        ],
+        if (conteudo.isNotEmpty) ...[
+          _cabecalhoResultado('NAS CAIXINHAS', app),
+          for (final r in conteudo) _cartaoConteudoResultado(r, q, app),
+        ],
+      ],
+    );
+  }
+
+  /// Primeira linha (ou trecho) que contém o termo, recortada em ~90 chars
+  /// centrados na ocorrência, para o resultado da busca.
+  String _trecho(String texto, String? comentario, String q) {
+    String? achar(String fonte) {
+      for (final linha in fonte.split('\n')) {
+        if (linha.toLowerCase().contains(q)) return linha.trim();
+      }
+      return null;
+    }
+
+    final t = achar(texto) ??
+        (comentario != null ? achar(comentario) : null);
+    final base = (t == null || t.isEmpty)
+        ? texto.trim().replaceAll('\n', ' ')
+        : t;
+    const max = 90;
+    if (base.length <= max) return base;
+    final pos = base.toLowerCase().indexOf(q);
+    if (pos < 0) return '${base.substring(0, max)}…';
+    var start = pos - 30;
+    if (start < 0) start = 0;
+    var end = start + max;
+    if (end > base.length) {
+      end = base.length;
+      start = (end - max).clamp(0, base.length);
+    }
+    final prefixo = start > 0 ? '…' : '';
+    final sufixo = end < base.length ? '…' : '';
+    return '$prefixo${base.substring(start, end)}$sufixo';
+  }
+
+  /// Texto com as ocorrências do termo destacadas (fundo amarelo + negrito).
+  Widget _textoDestacado(String texto, String q, TextStyle base,
+      {int maxLines = 2}) {
+    final lower = texto.toLowerCase();
+    if (q.isEmpty || !lower.contains(q)) {
+      return Text(texto,
+          style: base, maxLines: maxLines, overflow: TextOverflow.ellipsis);
+    }
+    final spans = <TextSpan>[];
+    var from = 0;
+    while (true) {
+      final idx = lower.indexOf(q, from);
+      if (idx < 0) {
+        spans.add(TextSpan(text: texto.substring(from)));
+        break;
+      }
+      if (idx > from) spans.add(TextSpan(text: texto.substring(from, idx)));
+      spans.add(TextSpan(
+        text: texto.substring(idx, idx + q.length),
+        style: const TextStyle(
+          backgroundColor: Color(0x59FFC107),
+          fontWeight: FontWeight.w800,
+        ),
+      ));
+      from = idx + q.length;
+    }
+    return Text.rich(
+      TextSpan(style: base, children: spans),
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _cabecalhoResultado(String texto, AppCores app) => Padding(
+        padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
+        child: Text(
+          texto,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+            color: app.textoUI.withValues(alpha: 0.55),
+          ),
+        ),
+      );
+
+  Widget _cartaoResultado(
+      {required AppCores app,
+      required VoidCallback onTap,
+      required Widget child}) {
+    final ehClaude = app == AppCores.claude;
+    final raio = ehClaude ? 10.0 : 14.0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(raio),
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              color: app.projetoCard,
+              borderRadius: BorderRadius.circular(raio),
+              border: Border.all(
+                color: ehClaude
+                    ? const Color(0xFF2A2A2B)
+                    : app.projetoTxt.withValues(alpha: 0.08),
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cartaoProjetoResultado(Projeto p, String q, AppCores app) =>
+      _cartaoResultado(
+        app: app,
+        onTap: () => _abrirProjeto(p),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          child: Row(
+            children: [
+              Icon(Icons.folder_outlined,
+                  size: 20, color: app.projetoTxt.withValues(alpha: 0.7)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textoDestacado(
+                  p.nome,
+                  q,
+                  TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: app.projetoTxt,
+                  ),
+                  maxLines: 1,
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 20, color: app.projetoTxt.withValues(alpha: 0.4)),
+            ],
+          ),
+        ),
+      );
+
+  Widget _cartaoConteudoResultado(_ResultadoBusca r, String q, AppCores app) {
+    final abaTxt = r.aba == 0 ? 'Tarefas' : 'Ideias';
+    return _cartaoResultado(
+      app: app,
+      onTap: () => _abrirNota(r),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  r.aba == 0
+                      ? Icons.check_circle_outline
+                      : Icons.lightbulb_outline,
+                  size: 14,
+                  color: app.fab,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${r.projeto.nome} · $abaTxt',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: app.projetoTxt.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+                Icon(Icons.chevron_right,
+                    size: 18, color: app.projetoTxt.withValues(alpha: 0.4)),
+              ],
+            ),
+            const SizedBox(height: 5),
+            _textoDestacado(
+              r.trecho,
+              q,
+              TextStyle(fontSize: 13.5, color: app.projetoTxt),
+              maxLines: 2,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -237,7 +495,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
             ),
             const SizedBox(width: 10),
             const Text(
-              'ADM-projetos',
+              'Taskix',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -289,7 +547,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 focusNode: _focoBusca,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search, size: 20),
-                  hintText: 'Buscar projeto por nome…',
+                  hintText: 'Buscar em tudo (projetos, tarefas, ideias)…',
                   isDense: true,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -305,18 +563,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
           ),
           Expanded(
             child: Builder(builder: (ctx) {
-              final q = _ctrlBusca.text.trim().toLowerCase();
-              final visiveis = q.isEmpty
-                  ? _projetos
-                  : _projetos
-                      .where((p) => p.nome.toLowerCase().contains(q))
-                      .toList();
               if (_projetos.isEmpty) return const _Vazio();
-              if (visiveis.isEmpty) {
-                return const Center(
-                    child: Text('Nenhum projeto encontrado.',
-                        style: TextStyle(color: Colors.grey)));
-              }
+              final q = _ctrlBusca.text.trim().toLowerCase();
+              // Lupa global: com termo, mostra resultados de PROJETOS (nome) e
+              // do CONTEÚDO das caixinhas (Tarefas + Ideias). Sem termo, a
+              // lista normal de projetos (arrastável).
+              if (_buscando && q.isNotEmpty) return _resultadosBusca(q);
+              final visiveis = _projetos;
               return ReorderableListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 150),
                 itemCount: visiveis.length,
@@ -575,6 +828,22 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   }
 }
 
+/// Um resultado da busca global: a caixinha [nota] achada dentro de [projeto]
+/// na aba [aba] (0 = Tarefas, 1 = Ideias), com um [trecho] para exibir.
+class _ResultadoBusca {
+  _ResultadoBusca({
+    required this.projeto,
+    required this.aba,
+    required this.nota,
+    required this.trecho,
+  });
+
+  final Projeto projeto;
+  final int aba;
+  final Nota nota;
+  final String trecho;
+}
+
 Future<String?> _pedirNome(BuildContext context,
     {required String titulo, String inicial = ''}) {
   final ctrl = TextEditingController(text: inicial);
@@ -699,17 +968,7 @@ class _ConfigSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+            // (A alça de arraste vem do showModalBottomSheet showDragHandle.)
             const Text('Configurações',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
@@ -758,6 +1017,24 @@ class _ConfigSheet extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               'Ajusta texto e ícones do app.',
+              style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            const Text('Barra de ferramentas das caixinhas',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.reorder, size: 18),
+              label: const Text('Mudar ordem dos botões'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const OrdemBarraScreen()),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Reordene os botões da barra (copiar, limpar, excluir, link…) '
+              'para todas as caixinhas.',
               style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
             ),
             const SizedBox(height: 16),

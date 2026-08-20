@@ -140,16 +140,20 @@ class AppCores extends ThemeExtension<AppCores> {
   /// com borda de 1px (#2A2A2B), acento terracota (#D97757) e fonte
   /// monoespaçada (JetBrains Mono). Plano, sem sombras, estilo terminal.
   static const AppCores claude = AppCores(
-    notaInicio: Color(0xFF161617),
-    notaFim: Color(0xFF161617),
+    // Um pouquinho mais claras que antes (interior da caixinha #161617→#1E1E20;
+    // barra de ferramentas #111213→#18181A) — cada tom clareado em separado,
+    // mantendo a barra mais escura que o interior e o fundo (#0C0C0D) o
+    // mais escuro de todos.
+    notaInicio: Color(0xFF1E1E20),
+    notaFim: Color(0xFF1E1E20),
     notaBorda: Color(0xFF2A2A2B),
     projetoCard: Color(0xFF161617),
     projetoCardFim: Color(0xFF161617),
     projetoTxt: Color(0xFFF0EEE9),
     fab: Color(0xFFD97757),
     fabIcone: Color(0xFF120806),
-    barraFerramentas: Color(0xFF111213),
-    barraFerramentasFim: Color(0xFF111213),
+    barraFerramentas: Color(0xFF18181A),
+    barraFerramentasFim: Color(0xFF18181A),
     fundoInicio: Color(0xFF0C0C0D),
     fundoFim: Color(0xFF0C0C0D),
     textoUI: Color(0xFFF0EEE9),

@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import 'barra_config.dart';
 import 'cores.dart';
 import 'projetos_screen.dart';
 import 'storage.dart';
@@ -10,6 +11,7 @@ import 'tema.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   temaController.carregar();
+  barraController.carregar();
   // Salva na hora quando o app sai de primeiro plano (fechar/minimizar) —
   // garante que o texto recém-digitado não se perca.
   WidgetsBinding.instance.addObserver(_SalvadorDeVida());
@@ -515,7 +517,7 @@ class AdmProjetosApp extends StatelessWidget {
           Modo.claude => _temaClaude(),
         };
         return MaterialApp(
-          title: 'ADM-projetos',
+          title: 'Taskix',
           debugShowCheckedModeBanner: false,
           themeMode: claro ? ThemeMode.light : ThemeMode.dark,
           theme: theme,

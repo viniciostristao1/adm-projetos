@@ -9,7 +9,10 @@
 
 App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, checkboxes, links, comentários, temas e backup.
 
-- **Nome do app:** ADM-projetos
+- **Nome do app (exibido):** Taskix (título ao lado do logo na tela inicial,
+  rótulo do launcher `android:label`, e `MaterialApp.title`). O código/pacote
+  ainda usa o identificador antigo `adm_projetos` (não renomeado — só o nome
+  visível mudou de "ADM-projetos" para "Taskix" na V0.1.42).
 - **Pacote Android:** `com.admprojetos.adm_projetos`
 - **Flutter:** 3.44.7 (stable) — `pubspec.yaml`: SDK `^3.12.2`
 - **Repositório:** `viniciostristao1/adm-projetos` (PÚBLICO — repositórios
@@ -33,7 +36,10 @@ lib/
 ├── pdf_export.dart      # Gera PDF do projeto inteiro e compartilha (printing)
 ├── ocr.dart             # extrairTextoDeImagem(): galeria + ML Kit (OCR local)
 ├── editor.dart          # Utilitários: copiarTexto, mostrarAviso(Acao), capitalizarInicial,
-│                        #   proximoNumeroLista, LinhasNumeradas, maiusculaAposItem
+│                        #   proximoNumeroLista, LinhasNumeradas, maiusculaAposItem,
+│                        #   HistoricoTexto (undo), BuscaController (destaque de busca)
+├── barra_config.dart    # enum Ferramenta + BarraController (ORDEM dos botões da barra da
+│                        #   caixinha, persistida) + OrdemBarraScreen (tela de reordenar)
 └── caixa3d.dart         # Widget simples: Container com cor sólida + borderRadius
 ```
 
@@ -190,14 +196,19 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 **Claude Code** — plano, estilo terminal (preto-quente + terracota + mono):
 | Campo | Hex |
 |---|---|
-| `notaInicio` / `notaFim` | `#161617` / `#161617` |
+| `notaInicio` / `notaFim` | `#1E1E20` / `#1E1E20` (interior da caixinha — clareado na V0.1.42, era `#161617`) |
 | `notaBorda` | `#FF2A2A2B` (borda de 1px dos cartões) |
-| `projetoCard` / `projetoCardFim` | `#161617` / `#161617` |
+| `projetoCard` / `projetoCardFim` | `#161617` / `#161617` (cartão de projeto na tela inicial — NÃO clareado) |
 | `projetoTxt` | `#F0EEE9` |
 | `fab` / `fabIcone` | `#D97757` / `#120806` |
-| `barraFerramentas` / `barraFerramentasFim` | `#111213` / `#111213` |
+| `barraFerramentas` / `barraFerramentasFim` | `#18181A` / `#18181A` (barra da caixinha — clareada na V0.1.42, era `#111213`) |
 | `fundoInicio` / `fundoFim` | `#0C0C0D` / `#0C0C0D` |
 | `textoUI` | `#F0EEE9` |
+
+> **V0.1.42:** a pedido do usuário, o interior da caixinha e a barra de
+> ferramentas ficaram "um pouquinho mais claros", cada um em separado,
+> mantendo a hierarquia: barra (`#18181A`) mais escura que o interior
+> (`#1E1E20`), e o fundo (`#0C0C0D`) o mais escuro de todos. Só no tema Claude.
 
 - **Cartão de projeto (linha):** borda 1px `#2A2A2B` (usa `notaBorda`), cantos
   10px; em andamento = barra esquerda de 3px `#D97757` + "v" terracota
@@ -220,7 +231,8 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 ```
 ProjetosScreen (lista de projetos)
   ├─ FAB [+] → criar projeto
-  ├─ 🔍 → busca projetos por nome
+  ├─ 🔍 → busca GLOBAL (projetos por nome + conteúdo das caixinhas em
+  │       Tarefas/Ideias); tocar num resultado abre a caixinha
   ├─ "RECENTES" → prateleira rolante horizontal com os 5 projetos
   │    mais recentemente abertos (nome + contagem de caixinhas + barra de
   │    progresso feitas/total); tocar abre o projeto
@@ -230,8 +242,14 @@ ProjetosScreen (lista de projetos)
   │    ├─ 🔍 (ao lado das abas) → busca na aba ativa (texto + comentário)
   │    │     — o termo buscado fica GRIFADO (marcador amarelo) nas caixinhas
   │    └─ PDF → gera PDF do projeto inteiro e compartilha
-  └─ ⚙️ → ConfigSheet (tema, fonte, backup exportar/importar)
+  └─ ⚙️ → ConfigSheet (tema, fonte, ORDEM dos botões da barra, backup, nuvem)
 ```
+
+> **ConfigSheet fecha arrastando para baixo (V0.1.42):** o
+> `showModalBottomSheet` usa `showDragHandle: true` — a alça no topo virou um
+> alvo de arraste CONFIÁVEL. Antes o `SingleChildScrollView` do conteúdo
+> engolia o gesto e só dava para sair pelo botão "voltar" do Android. A alça
+> decorativa manual foi removida (agora vem do próprio showDragHandle).
 
 ### Prateleira "Últimos abertos" (página principal)
 - Mostra os `Storage.maxRecentes` (5) projetos mais recentemente abertos, em
@@ -248,7 +266,15 @@ ProjetosScreen (lista de projetos)
 
 ### Barra de ferramentas da caixinha (`_CaixaNota`)
 
-Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem dos botões (da esquerda para direita, após o pino):
+Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). A
+**ORDEM dos botões é configurável** pelo usuário (Configurações → "Barra de
+ferramentas das caixinhas" → "Mudar ordem dos botões", que abre a
+`OrdemBarraScreen`) e vale para TODAS as caixinhas. A ordem é guardada por
+`BarraController` (SharedPreferences `barra_ordem_v1`); a barra se reconstrói
+via `ListenableBuilder(listenable: barraController)`. Cada botão é desenhado
+por `_botaoFerramenta(Ferramenta, onBarra)` — a `Ferramenta.numerar` só existe
+na aba Tarefas (retorna null nas Ideias). Ferramentas novas entram no FIM da
+ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o pino):
 
 1. `copy_all_outlined` (copiar — botão mais usado, vem primeiro)
 2. `undo` (desfazer apagar — volta o texto apagado de uma vez)
@@ -282,6 +308,11 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - Botão `checklist` **converte a LINHA DO CURSOR** em item de to-do (ou remove
   o quadradinho se a linha já for um item) — funciona em qualquer linha, como
   o botão de numeração. Não cria mais linha no fim do texto.
+- ⚠️ **`_linhaDoCursor` fica EXATAMENTE na linha do cursor (V0.1.42)**, mesmo
+  que ela esteja vazia. Antes havia um "recuo" que voltava para a última linha
+  COM conteúdo quando a linha do cursor era vazia — isso quebrava criar um
+  to-do (ou numerar) numa 2ª linha em branco: o marcador ia parar na 1ª linha
+  e o cursor também (bug relatado). Vale para `_inserirTodo` e `_alternarNumero`.
 - O Enter continua com `"☐ "` nas linhas seguintes (via `LinhasNumeradas`) —
   inclusive depois de uma linha JÁ MARCADA (`☑`), para o checkbox da próxima
   linha sempre nascer desmarcado.
@@ -316,6 +347,22 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
 - O Android, ao sair do app, esconde o teclado e NÃO o reabre sozinho mesmo
   com o foco mantido — daí o bug intermitente "não consigo continuar
   digitando ao voltar", pior nas trocas rápidas.
+
+### Esconder o teclado (setinha para baixo) — solta o foco (V0.1.42)
+- **Bug corrigido:** ao apertar a setinha do teclado para escondê-lo, ele
+  "saía e voltava" (às vezes precisava insistir 2-3×), pior clicando no FIM de
+  um texto. Causa: o Android some com o teclado mas o Flutter MANTÉM o foco na
+  caixinha — aí qualquer reconstrução (ou a correção de maiúscula em debounce,
+  que faz `_ctrl.value = …` num campo focado) REABRE o teclado.
+- **Solução:** `didChangeMetrics` detecta o teclado FECHANDO (viewInsets.bottom
+  `>0 → 0`) e, se a caixinha tem foco e o app está `resumed`, faz `_foco.unfocus()`
+  (e cancela o debounce). O cursor some e o teclado fica fora até tocar na
+  caixinha de novo — comportamento padrão. `_insetBottomAnterior` rastreia a
+  altura; é semeado ao GANHAR foco (`_aoMudarFoco`) para funcionar mesmo na
+  troca entre caixinhas com o teclado já aberto.
+- ⚠️ O guard `resumed` é essencial: ao SAIR para outro app o teclado também
+  fecha, mas aí queremos PRESERVAR o foco para reabri-lo ao voltar (não brigar
+  com `_reabrirTeclado`).
 
 ### Caderno (caixinha longa)
 - `maxLines: 24`; além disso o texto rola por dentro (Scrollbar). Botão
@@ -411,12 +458,27 @@ Barra com rolagem horizontal (o pino de arrastar fica fixo à esquerda). Ordem d
   que era o eco do título vira `links[0].titulo` e é limpo (comentário manual
   sem link é mantido).
 
-### Busca com grifo
-- O termo ativo da busca é passado às caixinhas (`termoBusca`) e as
-  ocorrências são pintadas por cima do texto por um `CustomPaint`
-  (`_GrifoBuscaPainter`, chave `grifo-busca`) — mesmas métricas do hit-test
-  (`_estiloCampo`, contentPadding 14/2, rolagem interna `_scroll.offset`).
-  `IgnorePointer` garante que a edição não é afetada.
+### Busca com destaque (V0.1.42 — reescrita)
+- O termo ativo da busca é passado às caixinhas (`termoBusca`) e o destaque
+  (fundo amarelo) é montado DENTRO do próprio `buildTextSpan` do TextField, por
+  um `BuscaController extends TextEditingController` (editor.dart): o campo usa
+  `_ctrl` do tipo `BuscaController` e `build` faz `_ctrl.termo = termoBusca`.
+- ⚠️ **Por que mudou:** o antigo `_GrifoBuscaPainter` (CustomPaint por cima do
+  texto) recalculava a geometria do TextField à mão e às vezes marcava a
+  palavra/linha ERRADA (bug relatado). Como agora o destaque faz parte do MESMO
+  layout do texto, nunca sai do lugar. Quando `termo` está vazio, o controlador
+  delega ao `super.buildTextSpan` (preserva o sublinhado de composição do IME).
+
+### Busca GLOBAL na tela inicial (lupa) — V0.1.42
+- A lupa da tela inicial (`ProjetosScreen`) agora busca **tudo**: nomes de
+  projetos E o conteúdo (texto + comentário) das caixinhas em Tarefas e Ideias
+  de todos os projetos. Com termo, `_resultadosBusca` monta um `ListView` com
+  duas seções: "PROJETOS" (por nome) e "NAS CAIXINHAS" (`_ResultadoBusca`:
+  projeto + aba + trecho destacado).
+- Tocar num resultado de caixinha chama `_abrirNota`, que abre a
+  `ProjetoScreen` já na aba certa (`abaInicial`), com a busca ativa e o termo
+  destacado (`termoInicial`) e rolando até a caixinha (`notaAlvo` →
+  `_irParaNota` via `Scrollable.ensureVisible` na GlobalKey da caixinha).
 
 ### Menu de seleção (recortar/copiar/colar) ACIMA
 - O menu de seleção usa o posicionamento PADRÃO do Flutter
@@ -546,7 +608,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (50 testes)
+## 10. Testes (53 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -579,7 +641,15 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Digitar URL e Salvar no diálogo não crasham
 - Centralizar com seleção centraliza a LINHA (espaços calculados) e desfazer reverte
 - Centralizar sem seleção mostra aviso e não altera nada
-- Busca grifa o termo no texto da caixinha (e some quando não há ocorrência)
+- Busca destaca o termo no texto da caixinha (via `BuscaController`; a caixinha
+  some da lista quando o termo não ocorre)
+
+### `test/melhorias_test.dart` (3 testes — V0.1.42)
+- to-do criado numa 2ª linha VAZIA nasce na 2ª linha (regressão do bug #2 —
+  `_linhaDoCursor` sem o recuo)
+- lupa global acha palavra dentro de Ideias e, ao tocar, abre a `ProjetoScreen`
+  na aba certa mostrando a caixinha
+- lupa global também acha projeto por nome (seção "PROJETOS")
 
 ### `test/desfazer_test.dart` (7 testes)
 - `HistoricoTexto` (undo multi-nível): digitar uma rajada cria UM ponto de
@@ -642,3 +712,11 @@ A cada publicação de APK:
 | **Reabrir teclado com ATRASO (180/480ms) + flag `_tinhaFocoAoParar`** | O `postFrame` da V0.1.37 era cedo demais (janela ainda sem foco do sistema) → teclado seguia sem reabrir (V0.1.38) |
 | **`scrollPadding` (rola a PÁGINA) no lugar da trava de altura por timers** | A rolagem INTERNA da caixinha fazia o Flutter achar o cursor visível → cursor atrás do "+"; toda a maquinaria de altura (V0.1.36/37) era frágil e era origem do "tremor"/"cursor no meio" (V0.1.38) |
 | **Menu de seleção ACIMA (padrão) no lugar de forçado abaixo** | Abaixo cobria as alças de arrastar → não dava para selecionar várias palavras (V0.1.38) |
+| **Nome visível → "Taskix" (V0.1.42)** | Pedido do usuário; só o nome exibido (título + launcher + MaterialApp.title), o pacote/código seguem `adm_projetos` |
+| **Ordem dos botões da barra configurável (V0.1.42)** | Pedido do usuário; `BarraController` + `OrdemBarraScreen` (arrastar), uma ordem para todas as caixinhas |
+| **Esconder teclado solta o foco (V0.1.42)** | O teclado "saía e voltava"; `didChangeMetrics` faz unfocus ao fechar (só `resumed`, para não brigar com a reabertura ao voltar de app) |
+| **`_linhaDoCursor` sem recuo (V0.1.42)** | Criar to-do/numerar numa 2ª linha vazia caía na 1ª linha; agora fica na linha exata do cursor |
+| **Destaque de busca via `BuscaController.buildTextSpan` (V0.1.42)** | O `CustomPaint` (`_GrifoBuscaPainter`) marcava a palavra/linha errada; no layout do texto o destaque nunca desalinha |
+| **Lupa da tela inicial vira busca GLOBAL (V0.1.42)** | Pedido do usuário: achar qualquer palavra em Tarefas/Ideias de qualquer projeto e ir até a caixinha |
+| **ConfigSheet com `showDragHandle` (V0.1.42)** | Não dava para fechar arrastando (o scroll do conteúdo engolia o gesto) |
+| **Caixinha do tema Claude um pouco mais clara (V0.1.42)** | Pedido do usuário; interior `#161617→#1E1E20` e barra `#111213→#18181A`, cada tom em separado |
