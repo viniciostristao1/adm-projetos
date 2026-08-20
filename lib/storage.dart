@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
+import 'versao.dart';
 
 /// Guarda os projetos num arquivo JSON no diretório de documentos do app.
 ///
@@ -27,6 +28,13 @@ class Storage extends ChangeNotifier {
   /// Cópia de preservação do arquivo principal que estava ILEGÍVEL (gravada
   /// UMA vez, nunca sobrescrita) — para análise/reparo manual depois.
   static const _arquivoCorrompido = 'adm_projetos.corrompido.json';
+  /// Snapshots por versão: ao ATUALIZAR o app, o arquivo como estava antes
+  /// é copiado para `adm_projetos.json.v<versao>` (mantém-se as 5 mais
+  /// recentes) — nenhuma versão nova consegue "passar por cima" sem deixar
+  /// a cópia anterior para trás.
+  static const snapshotPrefixo = 'adm_projetos.json.v';
+  static const _chaveUltimaVersao = 'ultima_versao_v1';
+  static const _maxSnapshots = 5;
   List<Projeto> _projetos = [];
   bool _carregado = false;
   int _atualizadoEm = 0;
@@ -36,6 +44,13 @@ class Storage extends ChangeNotifier {
   bool _recuperadoDeCorrupcao = false;
   bool get recuperadoDeCorrupcao => _recuperadoDeCorrupcao;
 
+  /// Permissão única de gravar uma lista VAZIA por cima de dados existentes.
+  /// Só a exclusão EXPLÍCITA do último projeto chama [liberarEsvaziamento];
+  /// qualquer outra gravação vazia é BLOQUEADA (proteção contra "abriu vazio
+  /// e gravou por cima").
+  bool _permitirEsvaziamento = false;
+  void liberarEsvaziamento() => _permitirEsvaziamento = true;
+
   /// Só para testes: zera o estado do singleton (diretório, flag e dados).
   @visibleForTesting
   void reiniciarParaTeste() {
@@ -43,6 +58,8 @@ class Storage extends ChangeNotifier {
     _projetos = [];
     _atualizadoEm = 0;
     _dir = null;
+    _recuperadoDeCorrupcao = false;
+    _permitirEsvaziamento = false;
   }
 
   Future<String> _dirPath() async {
@@ -147,6 +164,63 @@ class Storage extends ChangeNotifier {
     return false;
   }
 
+  /// Snapshots de versões anteriores (mais recente primeiro).
+  List<String> _snapshots(String dir) => Directory(dir)
+      .listSync()
+      .whereType<File>()
+      .map((f) => f.path)
+      .where((p) => p.contains(snapshotPrefixo))
+      .toList()
+    ..sort((a, b) => b.compareTo(a));
+
+  /// Se a versão do app MUDOU desde a última execução, copia o arquivo como
+  /// está para `adm_projetos.json.v<versao>` ANTES de qualquer leitura ou
+  /// escrita — nenhuma versão nova sobrescreve os dados sem deixar a cópia
+  /// anterior. Mantém no máximo [_maxSnapshots].
+  Future<void> _snapshotAoMudarVersao(String? rawAtual) async {
+    try {
+      if (rawAtual == null || rawAtual.trim().isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final anterior = prefs.getString(_chaveUltimaVersao);
+      if (anterior == null || anterior == appVersao) return;
+      await prefs.setString(_chaveUltimaVersao, appVersao);
+      final dir = _dir;
+      if (dir == null) return;
+      final nome =
+          '$snapshotPrefixo${anterior.replaceAll(RegExp(r'[^\w.]'), '_')}';
+      File('$dir/$nome').writeAsStringSync(rawAtual);
+      final snaps = _snapshots(dir);
+      while (snaps.length > _maxSnapshots) {
+        File(snaps.removeAt(0)).deleteSync();
+      }
+      debugPrint('storage: snapshot da versão $anterior criado ($nome)');
+    } catch (e) {
+      debugPrint('storage: snapshot falhou: $e');
+    }
+  }
+
+  /// Tenta carregar do `.bak` e depois dos snapshots de versões anteriores.
+  /// Devolve true se algum conseguiu popular a lista.
+  bool _restaurarDeFontesAlternativas(String dir, String? Function(File) ler) {
+    final candidatos = <String>[
+      '$dir/$_arquivoBak',
+      ..._snapshots(dir),
+    ];
+    for (final caminho in candidatos) {
+      final conteudo = ler(File(caminho));
+      if (conteudo == null) continue;
+      try {
+        _lerConteudo(conteudo);
+        debugPrint('storage: restaurado de backup/snapshot ($caminho)');
+        return true;
+      } catch (_) {
+        _projetos = [];
+        _atualizadoEm = 0;
+      }
+    }
+    return false;
+  }
+
   Future<List<Projeto>> carregar() async {
     if (_carregado) return _projetos;
     String? lerSeExiste(File f) {
@@ -157,13 +231,15 @@ class Storage extends ChangeNotifier {
     }
 
     final dir = await _dirPath();
-    var raw = lerSeExiste(File('$dir/$_arquivo'));
+    final raw = lerSeExiste(File('$dir/$_arquivo'));
+    // ANTES de qualquer leitura/escrita: versão nova? preserva o arquivo.
+    await _snapshotAoMudarVersao(raw);
     if (raw != null) {
       try {
         _lerConteudo(raw);
       } catch (_) {
         // PRINCIPAL CORROMPIDO: preserva os bytes originais (1ª cópia) para
-        // análise futura, tenta REPARAR o JSON e, se falhar, usa o .bak.
+        // análise futura, tenta REPARAR o JSON e, se falhar, usa .bak/snapshots.
         debugPrint('storage: arquivo principal ilegível — tentando resgate');
         final corrompido = File('$dir/$_arquivoCorrompido');
         if (!corrompido.existsSync()) {
@@ -174,33 +250,15 @@ class Storage extends ChangeNotifier {
         _projetos = [];
         _atualizadoEm = 0;
         if (!_tentarSalvamento(raw)) {
-          final bak = lerSeExiste(File('$dir/$_arquivoBak'));
-          if (bak != null) {
-            try {
-              _lerConteudo(bak);
-              debugPrint('storage: restaurado do backup após corrupção (.bak)');
-            } catch (_) {
-              _projetos = [];
-              _atualizadoEm = 0;
-            }
-          }
+          _restaurarDeFontesAlternativas(dir, lerSeExiste);
         } else {
           _recuperadoDeCorrupcao = true;
           debugPrint('storage: DADOS REPARADOS (${_projetos.length} projetos)');
         }
       }
     } else {
-      // Arquivo principal ausente/vazio: tenta o backup automático.
-      final bak = lerSeExiste(File('$dir/$_arquivoBak'));
-      if (bak != null) {
-        try {
-          _lerConteudo(bak);
-          debugPrint('storage: dados restaurados do backup (.bak)');
-        } catch (_) {
-          _projetos = [];
-          _atualizadoEm = 0;
-        }
-      }
+      // Arquivo principal ausente/vazio: tenta .bak e snapshots.
+      _restaurarDeFontesAlternativas(dir, lerSeExiste);
     }
     _carregado = true;
     return _projetos;
@@ -209,6 +267,12 @@ class Storage extends ChangeNotifier {
   /// Grava no arquivo principal, ANTES guardando a versão anterior no `.bak`
   /// (só quando o conteúdo muda) — proteção contra escrita corrompida ou
   /// sobrescrita acidental.
+  ///
+  /// GUARDA ANTI-ESVAZIAMENTO: se a nova gravação tem lista VAZIA e o arquivo
+  /// atual tem projetos, a gravação é BLOQUEADA (mantém os dados). Só a
+  /// exclusão explícita do último projeto passa por aqui com
+  /// [liberarEsvaziamento] — assim nenhuma versão nova, bug ou leitura
+  /// falha consegue "apagar tudo ao salvar".
   void _gravar(String conteudo) {
     final dir = _dir;
     if (dir == null) return;
@@ -218,6 +282,28 @@ class Storage extends ChangeNotifier {
       try {
         final anterior = f.readAsStringSync();
         if (anterior != conteudo) bak.writeAsStringSync(anterior);
+      } catch (_) {}
+    }
+    if (!_permitirEsvaziamento) {
+      try {
+        final novo = jsonDecode(conteudo);
+        final novaL = novo is List ? novo : (novo as Map)['projetos'];
+        if (novaL is List && novaL.isEmpty && f.existsSync()) {
+          final atual = f.readAsStringSync();
+          Object? atualDados;
+          try {
+            atualDados = jsonDecode(atual);
+          } catch (_) {}
+          final atualL = atualDados is List
+              ? atualDados
+              : (atualDados is Map ? atualDados['projetos'] : null);
+          if (atualL is List && atualL.isNotEmpty) {
+            debugPrint(
+                'storage: gravação VAZIA bloqueada (${atualL.length} '
+                'projetos protegidos)');
+            return;
+          }
+        }
       } catch (_) {}
     }
     f.writeAsStringSync(conteudo);

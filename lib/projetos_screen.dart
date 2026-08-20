@@ -186,6 +186,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     if (ok == true) {
       final idx = _projetos.indexOf(p);
       setState(() => _projetos.remove(p));
+      // Exclusão EXPLÍCITA do último projeto: autoriza a gravação da lista
+      // vazia (a guarda anti-esvaziamento do Storage bloqueia o resto).
+      if (_projetos.isEmpty) Storage.instance.liberarEsvaziamento();
       await _salvar();
       Storage.instance.removerRecente(p.id);
       _recarregarRecentes();

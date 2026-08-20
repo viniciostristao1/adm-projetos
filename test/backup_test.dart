@@ -5,6 +5,7 @@ import 'package:adm_projetos/models.dart';
 import 'package:adm_projetos/storage.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Testes do backup automático (.bak): a cada gravação o arquivo ANTERIOR é
 /// guardado em `adm_projetos.bak.json`; o `carregar()` restaura dele se o
@@ -76,11 +77,54 @@ void main() {
   test('principal válido vazio não é substituído pelo .bak', () async {
     await salvarCom(1);
     await salvarCom(2);
-    // Usuário apagou tudo de propósito: principal vazio é o estado válido.
+    // Usuário apagou tudo de propósito: a exclusão explícita autoriza a
+    // gravação vazia (liberarEsvaziamento) e o estado vazio é o válido.
+    Storage.instance.liberarEsvaziamento();
     await Storage.instance.substituir([]);
     Storage.instance.reiniciarParaTeste();
     final lista = await Storage.instance.carregar();
     expect(lista, isEmpty);
+  });
+
+  test('gravação VAZIA é bloqueada quando o arquivo tem conteúdo', () async {
+    await salvarCom(1);
+    // Sem permissão explícita, uma lista vazia NÃO sobrescreve os dados.
+    await Storage.instance.substituir([]);
+    Storage.instance.reiniciarParaTeste();
+    final lista = await Storage.instance.carregar();
+    expect(lista.length, 1);
+    expect(lista.first.nome, 'Projeto 1');
+  });
+
+  test('mudança de versão preserva snapshot do arquivo anterior', () async {
+    SharedPreferences.setMockInitialValues({'ultima_versao_v1': 'V0.1.43'});
+    // Arquivo com dados escritos pela versão ANTERIOR já existe no disco.
+    final p = Projeto(id: 'p1', nome: 'Projeto 1',
+        tarefas: [Nota(id: 'n1', texto: 'x')]);
+    File('${dir.path}/adm_projetos.json').writeAsStringSync(
+        jsonEncode({'atualizadoEm': 1, 'projetos': [p.toJson()]}));
+    final lista = await Storage.instance.carregar();
+    expect(lista.length, 1);
+    final snapshot = File('${dir.path}/${Storage.snapshotPrefixo}V0.1.43');
+    expect(snapshot.existsSync(), isTrue);
+    final dados =
+        jsonDecode(snapshot.readAsStringSync()) as Map<String, dynamic>;
+    expect((dados['projetos'] as List).length, 1);
+  });
+
+  test('carregar restaura de snapshot quando principal e .bak sumiram',
+      () async {
+    SharedPreferences.setMockInitialValues({'ultima_versao_v1': 'V0.1.43'});
+    final p = Projeto(id: 'p1', nome: 'Projeto 1',
+        tarefas: [Nota(id: 'n1', texto: 'x')]);
+    File('${dir.path}/adm_projetos.json').writeAsStringSync(
+        jsonEncode({'atualizadoEm': 1, 'projetos': [p.toJson()]}));
+    await Storage.instance.carregar(); // cria o snapshot da versão anterior
+    File('${dir.path}/adm_projetos.json').deleteSync();
+    Storage.instance.reiniciarParaTeste();
+    final lista = await Storage.instance.carregar();
+    expect(lista.length, 1);
+    expect(lista.first.nome, 'Projeto 1');
   });
 
   test('JSON truncado no meio é REPARADO (recupera os projetos gravados)',
