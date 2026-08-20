@@ -520,6 +520,9 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 
 ### Links (até 3) e títulos de vídeo
 - A caixinha guarda até 3 links (`Nota.links`, cada um com `url` + `titulo`).
+- **Botões do diálogo (V0.1.48):** "Colar" (cola a área de transferência no
+  1º campo vazio, ou no 1º) e "Limpar" (apaga todos os campos) — além de
+  "Fechar" e "Salvar". Colar dispara a busca de título.
 - No diálogo de link, ao colar URL do YouTube, após 600ms de pausa busca o
   título via oEmbed (`youtube.com/oembed`) e mostra o preview — o título é
   SALVO junto com o link (não vai mais para o comentário).

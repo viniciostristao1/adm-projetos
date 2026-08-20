@@ -1436,6 +1436,33 @@ class _DialogoLinksState extends State<_DialogoLinks> {
     });
   }
 
+  /// Cola a URL da área de transferência no 1º campo vazio (ou no 1º campo).
+  Future<void> _colar() async {
+    final dados = await Clipboard.getData(Clipboard.kTextPlain);
+    final texto = dados?.text?.trim() ?? '';
+    if (!mounted) return;
+    if (texto.isEmpty) {
+      mostrarAviso(context, 'A área de transferência está vazia.');
+      return;
+    }
+    var alvo = _ctrls.indexWhere((c) => c.text.trim().isEmpty);
+    if (alvo < 0) alvo = 0;
+    setState(() => _ctrls[alvo].text = texto);
+    _buscarTitulo(alvo, texto);
+  }
+
+  /// Apaga todos os campos de link do diálogo.
+  void _limpar() {
+    setState(() {
+      for (var i = 0; i < _ctrls.length; i++) {
+        _debounces[i]?.cancel();
+        _ctrls[i].clear();
+        _titulos[i] = null;
+        _buscando[i] = false;
+      }
+    });
+  }
+
   Future<String?> _tituloYouTube(String url) async {
     // NUNCA lança (mesmo motivo do _CaixaNotaState): URL inválida ou falha
     // de rede devolvem null.
@@ -1540,6 +1567,16 @@ class _DialogoLinksState extends State<_DialogoLinks> {
         ),
       ),
       actions: [
+        TextButton.icon(
+          icon: const Icon(Icons.content_paste, size: 16),
+          label: const Text('Colar'),
+          onPressed: _colar,
+        ),
+        TextButton.icon(
+          icon: const Icon(Icons.cleaning_services, size: 16),
+          label: const Text('Limpar'),
+          onPressed: _limpar,
+        ),
         TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Fechar')),
