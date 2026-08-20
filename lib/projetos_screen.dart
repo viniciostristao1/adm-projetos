@@ -1011,7 +1011,7 @@ class _PrateleiraRecentes extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'ÚLTIMOS ABERTOS',
+            'RECENTES',
             style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
@@ -1021,7 +1021,7 @@ class _PrateleiraRecentes extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 92,
+            height: 72,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: projetos.length,
@@ -1035,7 +1035,7 @@ class _PrateleiraRecentes extends StatelessWidget {
                 final fracao = total == 0 ? 0.0 : feitas / total;
 
                 Widget cartao = Padding(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1049,7 +1049,7 @@ class _PrateleiraRecentes extends StatelessWidget {
                           color: app.projetoTxt,
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(height: 3),
                       Text(
                         '$total caixinhas',
                         style: TextStyle(
@@ -1058,7 +1058,7 @@ class _PrateleiraRecentes extends StatelessWidget {
                           color: app.projetoTxt.withValues(alpha: 0.55),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const Spacer(),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(2),
                         child: Container(

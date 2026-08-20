@@ -218,7 +218,7 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 ProjetosScreen (lista de projetos)
   ├─ FAB [+] → criar projeto
   ├─ 🔍 → busca projetos por nome
-  ├─ "ÚLTIMOS ABERTOS" → prateleira rolante horizontal com os 3 projetos
+  ├─ "RECENTES" → prateleira rolante horizontal com os 3 projetos
   │    mais recentemente abertos (nome + contagem de caixinhas + barra de
   │    progresso feitas/total); tocar abre o projeto
   ├─ Card → ProjetoScreen (projeto aberto)
