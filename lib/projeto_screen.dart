@@ -301,6 +301,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                         bottom: temaController.compacto ? 5 : 10),
                     child: _CaixaNota(
                       key: _chaveDa(filtradas[i].id),
+                      projeto: widget.projeto,
                       nota: filtradas[i],
                       indice: _lista(aba).indexOf(filtradas[i]),
                       modoTarefas: ehTarefas,
@@ -388,6 +389,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
 class _CaixaNota extends StatefulWidget {
   const _CaixaNota({
     super.key,
+    required this.projeto,
     required this.nota,
     required this.indice,
     required this.modoTarefas,
@@ -397,6 +399,9 @@ class _CaixaNota extends StatefulWidget {
     this.termoBusca = '',
   });
 
+  /// Projeto a que a caixinha pertence — usado para marcar o projeto como
+  /// "em andamento" quando uma caixinha é marcada como feita.
+  final Projeto projeto;
   final Nota nota;
   final int indice;
 
@@ -608,7 +613,13 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   }
 
   void _alternarConcluida() {
-    setState(() => widget.nota.concluida = !widget.nota.concluida);
+    setState(() {
+      widget.nota.concluida = !widget.nota.concluida;
+      // Marcou como FEITA → o projeto vira "em andamento" automaticamente
+      // (o cartão na lista de projetos passa a aparecer marcado; desmarcar
+      // NÃO desfaz — o controle manual do cartão continua existindo).
+      if (widget.nota.concluida) widget.projeto.emAndamento = true;
+    });
     Storage.instance.salvar();
   }
 

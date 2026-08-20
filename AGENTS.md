@@ -281,6 +281,9 @@ ProjetosScreen (lista de projetos)
   │    ├─ Tab "Ideias" → idem
   │    ├─ 🔍 (ao lado das abas) → busca na aba ativa (texto + comentário)
   │    │     — o termo buscado fica GRIFADO (marcador amarelo) nas caixinhas
+  │    ├─ ✔ caixinha marcada como feita → projeto vira "em andamento"
+  │    │     AUTOMATICAMENTE (V0.1.47, `_alternarConcluida`); desmarcar não
+  │    │     desfaz (o controle manual do cartão continua)
   │    └─ PDF → gera PDF do projeto inteiro e compartilha
   └─ ⚙️ → ConfigSheet (tema, fonte, DENSIDADE, ORDEM dos botões da barra,
        backup, nuvem)
