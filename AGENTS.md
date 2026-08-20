@@ -5,6 +5,41 @@
 
 ---
 
+## ⚠️ REGRA DE OURO — NUNCA APAGAR O CONTEÚDO DO USUÁRIO
+
+> **Ao criar QUALQUER nova versão (V0.1.x), a IA deve garantir que o update
+> não apague nem sobrescreva o conteúdo que o usuário escreveu no app.**
+
+Checklist OBRIGATÓRIO antes de publicar uma versão nova:
+
+1. **Não mexer nos dados sem proteção** — qualquer mudança em
+   `Storage`/`models`/fluxo de leitura/escrita deve manter (ou reforçar) a
+   cadeia de proteção do V0.1.45:
+   - Snapshot por versão (`adm_projetos.json.v<versao>` antes de qualquer
+     leitura/escrita quando a versão muda);
+   - `.bak` da versão anterior antes de cada gravação;
+   - Guarda anti-esvaziamento (gravação com lista VAZIA nunca sobrescreve um
+     arquivo com conteúdo, exceto exclusão explícita do último projeto via
+     `liberarEsvaziamento()`);
+   - Reparo automático de JSON danificado + cópia `.corrompido` + restauração
+     da cadeia principal → `.bak` → snapshots.
+2. **Nunca chamar `Storage.substituir()` sem necessidade** (importar backup e
+   "Baixar da nuvem" são os únicos lugares legítimos, ambos com confirmação).
+3. **Nunca escrever uma lista vazia por cima de dados existentes** (a guarda
+   do `_gravar` bloqueia; não remover nem contornar).
+4. **Testes de regressão de dados** — `flutter test` deve passar com o
+   `test/backup_test.dart` (11 testes que cobrem .bak, snapshots, reparo,
+   guarda anti-esvaziamento). NÃO remover esses testes ao refatorar.
+5. **Bump de versão** — sempre incrementar `appVersao` (`lib/versao.dart`) e
+   `version:` (`pubspec.yaml`) ao publicar (fluxo na seção 12).
+
+> Histórico do incidente que originou esta regra: um usuário perdeu todo o
+> conteúdo após atualizar o app — o arquivo de dados foi sobrescrito em algum
+> momento entre versões. As proteções da V0.1.42–45 existem para que isso
+> nunca mais aconteça; respeitá-las é obrigatório.
+
+---
+
 ## 1. Visão Geral
 
 App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, checkboxes, links, comentários, temas e backup.
@@ -706,6 +741,10 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ## 11. Restrições e Cuidados
 
+- **⚠️ NUNCA apagar/sobrescrever o conteúdo do usuário** — ver a "REGRA DE
+  OURO" no topo deste arquivo: snapshot por versão, `.bak`, guarda
+  anti-esvaziamento e testes de `backup_test.dart` são OBRIGATÓRIOS em toda
+  nova versão.
 - **NÃO usar `http` package** — usar `dart:io` `HttpClient` para requisições (app Android-only, não precisa de compatibilidade web).
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
