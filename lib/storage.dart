@@ -129,8 +129,8 @@ class Storage extends ChangeNotifier {
     await salvar();
   }
 
-  /// Quantos projetos a prateleira "Últimos abertos" mostra.
-  static const int maxRecentes = 3;
+  /// Quantos projetos a prateleira "Recentes" mostra.
+  static const int maxRecentes = 5;
   static const _chaveRecentes = 'recentes_v1';
 
   /// IDs dos projetos mais recentemente abertos (primeiro = mais recente).

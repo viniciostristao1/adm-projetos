@@ -89,6 +89,9 @@ monoespaçada JetBrains Mono (sem sombras).
   de 1px, e o projeto em andamento ganha uma **barra terracota de 3px à
   esquerda** com o "v" terracota (em vez de verde); bolinhas invisíveis com
   ícones apagados (alpha 0.45); nome em mono.
+- Barra de ferramentas da caixinha no Claude: tom intermediário
+  (`barraFerramentas` `#111213`) entre a caixinha (`#161617`) e o fundo
+  (`#0C0C0D`).
 
 ### Dark Neumorphism (neumB)
 - `AppCores.neumorfico == true` habilita superfícies em relevo (luz ↗ superior
@@ -192,7 +195,7 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 | `projetoCard` / `projetoCardFim` | `#161617` / `#161617` |
 | `projetoTxt` | `#F0EEE9` |
 | `fab` / `fabIcone` | `#D97757` / `#120806` |
-| `barraFerramentas` / `barraFerramentasFim` | `#161617` / `#161617` |
+| `barraFerramentas` / `barraFerramentasFim` | `#111213` / `#111213` |
 | `fundoInicio` / `fundoFim` | `#0C0C0D` / `#0C0C0D` |
 | `textoUI` | `#F0EEE9` |
 
@@ -218,7 +221,7 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 ProjetosScreen (lista de projetos)
   ├─ FAB [+] → criar projeto
   ├─ 🔍 → busca projetos por nome
-  ├─ "RECENTES" → prateleira rolante horizontal com os 3 projetos
+  ├─ "RECENTES" → prateleira rolante horizontal com os 5 projetos
   │    mais recentemente abertos (nome + contagem de caixinhas + barra de
   │    progresso feitas/total); tocar abre o projeto
   ├─ Card → ProjetoScreen (projeto aberto)
@@ -231,7 +234,7 @@ ProjetosScreen (lista de projetos)
 ```
 
 ### Prateleira "Últimos abertos" (página principal)
-- Mostra os `Storage.maxRecentes` (3) projetos mais recentemente abertos, em
+- Mostra os `Storage.maxRecentes` (5) projetos mais recentemente abertos, em
   cartões compactos roláveis na horizontal, com contagem de caixinhas e barra
   de progresso (`feitas/total`, preenchimento na cor `fab`).
 - Rastreio em `Storage` via SharedPreferences (chave `recentes_v1`):
@@ -624,7 +627,7 @@ A cada publicação de APK:
 | JSON local em vez de Firebase | Simplicidade, offline-first, sem custo |
 | 5 temas (Azul/Escuro/Dark Game/Bege/Claude Code) | Preferência do usuário; Bege é claro, os demais escuros |
 | Tema Claude Code (terminal) com JetBrains Mono | Escolha do usuário: preto-quente + terracota + fonte mono, cartões como linhas de 1px |
-| Prateleira "Últimos abertos" (3 projetos) na página principal | Ideia do usuário (prateleira rolante) aplicada aos projetos mais recentes |
+| Prateleira "Recentes" (5 projetos) na página principal | Ideia do usuário (prateleira rolante) aplicada aos projetos mais recentes |
 | Keystore fixa (não debug) | Evitar conflito de assinatura entre builds |
 | Release `v0.1.0` sobrescrita | Evitar cota de artifacts do GitHub |
 | `LinhasNumeradas` age só ao crescer texto | Impede que backspace recrie números |
