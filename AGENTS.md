@@ -567,7 +567,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 # Análise estática
 flutter analyze
 
-# Testes (58 testes)
+# Testes (61 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -622,7 +622,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (58 testes)
+## 10. Testes (61 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -680,11 +680,14 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Nomes antigos (claro/bege/begeNeum) não existem mais
 - Os 5 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
 
-### `test/backup_test.dart` (4 testes — V0.1.43)
+### `test/backup_test.dart` (8 testes — V0.1.43/44)
 - `salvar` guarda a versão anterior no `.bak`
 - `carregar` restaura do `.bak` quando o principal está corrompido
 - `carregar` restaura do `.bak` quando o principal sumiu
 - Principal válido vazio (usuário apagou de propósito) não é substituído pelo `.bak`
+- JSON truncado no meio é REPARADO (recupera os projetos gravados antes do corte)
+- Um projeto inválido não derruba os demais (carregamento tolerante)
+- Principal ilegível é preservado em `.corrompido` (1ª cópia, nunca sobrescrita)
 
 ---
 
@@ -694,7 +697,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 58 testes devem passar.
+- **Sempre rodar `flutter test`** — 61 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 

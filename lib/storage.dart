@@ -24,10 +24,17 @@ class Storage extends ChangeNotifier {
   /// Backup automático: guarda a versão ANTERIOR do arquivo a cada gravação;
   /// o `carregar()` restaura dele se o principal sumir ou corromper.
   static const _arquivoBak = 'adm_projetos.bak.json';
+  /// Cópia de preservação do arquivo principal que estava ILEGÍVEL (gravada
+  /// UMA vez, nunca sobrescrita) — para análise/reparo manual depois.
+  static const _arquivoCorrompido = 'adm_projetos.corrompido.json';
   List<Projeto> _projetos = [];
   bool _carregado = false;
   int _atualizadoEm = 0;
   String? _dir;
+
+  /// true quando o carregamento REPAROU um arquivo danificado (aviso na tela).
+  bool _recuperadoDeCorrupcao = false;
+  bool get recuperadoDeCorrupcao => _recuperadoDeCorrupcao;
 
   /// Só para testes: zera o estado do singleton (diretório, flag e dados).
   @visibleForTesting
@@ -50,16 +57,94 @@ class Storage extends ChangeNotifier {
     final dados = jsonDecode(raw);
     if (dados is List) {
       // formato antigo (lista pura)
-      _projetos = dados
-          .map((e) => Projeto.fromJson(e as Map<String, dynamic>))
-          .toList();
+      _projetos = _parseProjetos(dados) ?? [];
       _atualizadoEm = 0;
     } else if (dados is Map<String, dynamic>) {
-      _projetos = (dados['projetos'] as List)
-          .map((e) => Projeto.fromJson(e as Map<String, dynamic>))
-          .toList();
+      _projetos = _parseProjetos(dados['projetos']) ?? [];
       _atualizadoEm = (dados['atualizadoEm'] as int?) ?? 0;
     }
+  }
+
+  /// Converte a lista bruta em projetos, PULANDO os que estiverem inválidos —
+  /// um projeto com dados estranhos não derruba a lista inteira.
+  List<Projeto>? _parseProjetos(dynamic lista) {
+    if (lista is! List) return null;
+    final out = <Projeto>[];
+    for (final e in lista) {
+      try {
+        out.add(Projeto.fromJson(e as Map<String, dynamic>));
+      } catch (_) {
+        debugPrint('storage: projeto inválido ignorado no carregamento');
+      }
+    }
+    return out;
+  }
+
+  /// Tenta REPARAR um JSON danificado (ex.: gravação interrompida no meio).
+  /// Estratégias, em ordem:
+  /// 1. parse direto tolerante (um projeto inválido não derruba a lista);
+  /// 2. corte progressivo: do fim para o início, corta em cada `}`/`]` e
+  ///    devolve a MAIOR parte que ainda parseia (recupera tudo que foi
+  ///    gravado antes do ponto da corrupção);
+  /// 3. se o arquivo começa com lixo, tenta a partir do 1º `{`/`[`.
+  bool _tentarSalvamento(String raw) {
+    if (raw.trim().isEmpty) return false;
+
+    List<Projeto>? tentar(Object? dados) {
+      if (dados is List) return _parseProjetos(dados);
+      if (dados is Map<String, dynamic>) {
+        return _parseProjetos(dados['projetos']);
+      }
+      return null;
+    }
+
+    try {
+      final p = tentar(jsonDecode(raw));
+      if (p != null && p.isNotEmpty) {
+        _projetos = p;
+        _atualizadoEm = 0;
+        return true;
+      }
+    } catch (_) {}
+
+    final cortes = <int>[];
+    for (var i = raw.length - 1; i >= 0 && cortes.length < 60; i--) {
+      final c = raw[i];
+      if (c == '}' || c == ']') cortes.add(i);
+    }
+    for (final idx in cortes) {
+      // Corte no último `}`/`]` válido; o envelope `projetos` precisa ser
+      // fechado de novo (ou o corte já caiu depois do fim real).
+      for (final sufixo in const ['', ']}', ']', '}']) {
+        try {
+          final p = tentar(jsonDecode(raw.substring(0, idx + 1) + sufixo));
+          if (p != null && p.isNotEmpty) {
+            _projetos = p;
+            _atualizadoEm = 0;
+            debugPrint('storage: JSON reparado cortando em $idx (+"$sufixo")');
+            return true;
+          }
+        } catch (_) {}
+      }
+    }
+
+    final iniObj = raw.indexOf('{');
+    final iniArr = raw.indexOf('[');
+    final start = iniObj < 0
+        ? iniArr
+        : (iniArr < 0 ? iniObj : (iniObj < iniArr ? iniObj : iniArr));
+    if (start > 0) {
+      try {
+        final p = tentar(jsonDecode(raw.substring(start)));
+        if (p != null && p.isNotEmpty) {
+          _projetos = p;
+          _atualizadoEm = 0;
+          debugPrint('storage: JSON reparado ignorando prefixo ($start)');
+          return true;
+        }
+      } catch (_) {}
+    }
+    return false;
   }
 
   Future<List<Projeto>> carregar() async {
@@ -71,31 +156,50 @@ class Storage extends ChangeNotifier {
       return conteudo;
     }
 
-    try {
-      final dir = await _dirPath();
-      var raw = lerSeExiste(File('$dir/$_arquivo'));
-      if (raw == null) {
-        // Arquivo principal ausente/vazio: tenta o backup automático.
-        raw = lerSeExiste(File('$dir/$_arquivoBak'));
-        if (raw != null) {
-          debugPrint('storage: dados restaurados do backup (.bak)');
-        }
-      }
-      if (raw != null) _lerConteudo(raw);
-    } catch (_) {
-      // Principal corrompido: tenta o backup automático.
-      _projetos = [];
-      _atualizadoEm = 0;
+    final dir = await _dirPath();
+    var raw = lerSeExiste(File('$dir/$_arquivo'));
+    if (raw != null) {
       try {
-        final dir = await _dirPath();
-        final bak = File('$dir/$_arquivoBak');
-        if (bak.existsSync()) {
-          _lerConteudo(bak.readAsStringSync());
-          debugPrint('storage: restaurado do backup após corrupção (.bak)');
-        }
+        _lerConteudo(raw);
       } catch (_) {
+        // PRINCIPAL CORROMPIDO: preserva os bytes originais (1ª cópia) para
+        // análise futura, tenta REPARAR o JSON e, se falhar, usa o .bak.
+        debugPrint('storage: arquivo principal ilegível — tentando resgate');
+        final corrompido = File('$dir/$_arquivoCorrompido');
+        if (!corrompido.existsSync()) {
+          try {
+            corrompido.writeAsStringSync(raw);
+          } catch (_) {}
+        }
         _projetos = [];
         _atualizadoEm = 0;
+        if (!_tentarSalvamento(raw)) {
+          final bak = lerSeExiste(File('$dir/$_arquivoBak'));
+          if (bak != null) {
+            try {
+              _lerConteudo(bak);
+              debugPrint('storage: restaurado do backup após corrupção (.bak)');
+            } catch (_) {
+              _projetos = [];
+              _atualizadoEm = 0;
+            }
+          }
+        } else {
+          _recuperadoDeCorrupcao = true;
+          debugPrint('storage: DADOS REPARADOS (${_projetos.length} projetos)');
+        }
+      }
+    } else {
+      // Arquivo principal ausente/vazio: tenta o backup automático.
+      final bak = lerSeExiste(File('$dir/$_arquivoBak'));
+      if (bak != null) {
+        try {
+          _lerConteudo(bak);
+          debugPrint('storage: dados restaurados do backup (.bak)');
+        } catch (_) {
+          _projetos = [];
+          _atualizadoEm = 0;
+        }
       }
     }
     _carregado = true;
@@ -202,5 +306,53 @@ class Storage extends ChangeNotifier {
     final lista = prefs.getStringList(_chaveRecentes) ?? [];
     lista.remove(id);
     await prefs.setStringList(_chaveRecentes, lista);
+  }
+
+  /// Texto de diagnóstico dos arquivos de dados (tela de Configurações):
+  /// tamanhos, se parseiam e quantos projetos cada um carrega — usado para
+  /// investigar "apagou tudo" direto no aparelho.
+  Future<String> diagnostico() async {
+    final dir = await _dirPath();
+    final buf = StringBuffer();
+
+    Future<void> arquivo(String nome) async {
+      final f = File('$dir/$nome');
+      if (!f.existsSync()) {
+        buf.writeln('$nome: AUSENTE');
+        return;
+      }
+      final bytes = f.lengthSync();
+      String parse;
+      String extra = '';
+      try {
+        final conteudo = f.readAsStringSync();
+        final dados = jsonDecode(conteudo);
+        final n = _parseProjetos(
+                dados is List ? dados : (dados as Map)['projetos'])
+            ?.length;
+        parse = 'OK';
+        extra = ' projetos=$n';
+        if (conteudo.length > 200) {
+          extra += '\n    ini: ${conteudo.substring(0, 100)}'
+              '\n    fim: ${conteudo.substring(conteudo.length - 100)}';
+        }
+      } catch (_) {
+        parse = 'ILEGÍVEL';
+        try {
+          final conteudo = f.readAsStringSync();
+          if (conteudo.length > 200) {
+            extra = '\n    ini: ${conteudo.substring(0, 100)}'
+                '\n    fim: ${conteudo.substring(conteudo.length - 100)}';
+          }
+        } catch (_) {}
+      }
+      buf.writeln('$nome: bytes=$bytes parse=$parse$extra');
+    }
+
+    buf.writeln('caminho: $dir');
+    await arquivo(_arquivo);
+    await arquivo(_arquivoBak);
+    await arquivo(_arquivoCorrompido);
+    return buf.toString();
   }
 }

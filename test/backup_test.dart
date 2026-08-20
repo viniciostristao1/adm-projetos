@@ -82,4 +82,51 @@ void main() {
     final lista = await Storage.instance.carregar();
     expect(lista, isEmpty);
   });
+
+  test('JSON truncado no meio é REPARADO (recupera os projetos gravados)',
+      () async {
+    // Simula gravação interrompida: corta o arquivo dentro do 2º projeto.
+    final p1 = Projeto(id: 'p1', nome: 'Casa',
+        tarefas: [Nota(id: 'n1', texto: 'comprar tinta')]);
+    final p2 = Projeto(id: 'p2', nome: 'Trabalho',
+        tarefas: [Nota(id: 'n2', texto: 'relatório')]);
+    final raw = jsonEncode({
+      'atualizadoEm': 123,
+      'projetos': [p1.toJson(), p2.toJson()],
+    });
+    File('${dir.path}/adm_projetos.json')
+        .writeAsStringSync(raw.substring(0, raw.length - 30));
+    Storage.instance.reiniciarParaTeste();
+    final lista = await Storage.instance.carregar();
+    expect(lista.length, greaterThanOrEqualTo(1));
+    expect(lista.first.nome, 'Casa');
+    expect(lista.first.tarefas.first.texto, 'comprar tinta');
+    expect(Storage.instance.recuperadoDeCorrupcao, isTrue);
+  });
+
+  test('um projeto inválido não derruba os demais', () async {
+    final p1 = Projeto(id: 'p1', nome: 'Casa',
+        tarefas: [Nota(id: 'n1', texto: 'ok')]);
+    final raw = jsonEncode({
+      'atualizadoEm': 123,
+      'projetos': [p1.toJson(), {'id': 123, 'nome': 'quebra'}],
+    });
+    File('${dir.path}/adm_projetos.json').writeAsStringSync(raw);
+    Storage.instance.reiniciarParaTeste();
+    final lista = await Storage.instance.carregar();
+    expect(lista.length, 1);
+    expect(lista.first.nome, 'Casa');
+  });
+
+  test('principal ilegível é preservado em .corrompido (1ª cópia)', () async {
+    await salvarCom(1);
+    await salvarCom(2);
+    final lixo = '{{{corrompido em pedaços';
+    File('${dir.path}/adm_projetos.json').writeAsStringSync(lixo);
+    Storage.instance.reiniciarParaTeste();
+    await Storage.instance.carregar();
+    final corrompido = File('${dir.path}/adm_projetos.corrompido.json');
+    expect(corrompido.existsSync(), isTrue);
+    expect(corrompido.readAsStringSync(), lixo);
+  });
 }

@@ -39,6 +39,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     Storage.instance.carregar().then((p) {
       if (mounted) setState(() => _projetos = p);
       _recarregarRecentes();
+      if (Storage.instance.recuperadoDeCorrupcao && mounted) {
+        mostrarAviso(
+          context,
+          'Arquivo de dados danificado foi REPARADO: '
+          '${p.length} projetos recuperados.',
+        );
+      }
     });
     // Quando a nuvem baixa dados, recarrega a lista.
     Storage.instance.addListener(_aoMudarStorage);
@@ -954,6 +961,31 @@ Future<void> _importarBackup(BuildContext context) async {
   Navigator.of(context).pop('atualizado');
 }
 
+/// Mostra o estado bruto dos arquivos de dados (para diagnosticar "apagou
+/// tudo"): tamanhos, se parseiam e quantos projetos cada um tem.
+Future<void> _mostrarDiagnostico(BuildContext context) async {
+  final texto = await Storage.instance.diagnostico();
+  if (!context.mounted) return;
+  showDialog<void>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Diagnóstico de dados'),
+      content: SingleChildScrollView(
+        child: SelectableText(
+          texto,
+          style: const TextStyle(fontSize: 11, height: 1.5),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Fechar'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Folha de configurações (aberta pela engrenagem): tema e tamanho da fonte.
 class _ConfigSheet extends StatelessWidget {
   const _ConfigSheet();
@@ -1065,6 +1097,12 @@ class _ConfigSheet extends StatelessWidget {
               'Salve ou restaure seus projetos num arquivo (bom para trocar '
               'de celular).',
               style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.health_and_safety_outlined, size: 18),
+              label: const Text('Diagnóstico de dados'),
+              onPressed: () => _mostrarDiagnostico(context),
             ),
             const SizedBox(height: 16),
             const Text('Nuvem',
