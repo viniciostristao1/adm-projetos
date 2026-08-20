@@ -287,8 +287,9 @@ ProjetosScreen (lista de projetos)
   │    │     E o inverso: DESMARCAR no cartão do projeto desmarca as
   │    │     caixinhas feitas lá dentro (V0.1.47/49/50)
   │    └─ PDF → gera PDF do projeto inteiro e compartilha
-  └─ ⚙️ → ConfigSheet (tema, fonte, DENSIDADE, ORDEM dos botões da barra,
-       backup, nuvem)
+  └─ ⚙️ → ConfigSheet (V0.1.51: seções EXPANSÍVEIS — toca na seção e ela
+       abre com as opções; cada uma mostra o valor atual no subtítulo: Tema,
+       Tamanho da fonte, Densidade, Barra de ferramentas, Backup, Nuvem)
 ```
 
 > **Densidade (V0.1.46):** `Densidade` (Confortável/Compacto) no `TemaController`

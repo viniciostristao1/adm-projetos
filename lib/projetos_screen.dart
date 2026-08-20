@@ -1077,266 +1077,335 @@ Future<void> _mostrarDiagnostico(BuildContext context) async {
   );
 }
 
-/// Folha de configurações (aberta pela engrenagem): tema e tamanho da fonte.
+/// Folha de configurações (aberta pela engrenagem): seções expansíveis —
+/// toca na seção (Tema, Fonte, Densidade, Barra, Backup, Nuvem) e ela abre
+/// com as opções.
 class _ConfigSheet extends StatelessWidget {
   const _ConfigSheet();
+
+  /// Estilo padrão das seções: sem divisórias (fica mais limpo na folha).
+  ExpansionTile _sec({
+    required IconData icone,
+    required String titulo,
+    String? subtitulo,
+    bool inicialmenteAberta = false,
+    required List<Widget> children,
+  }) {
+    final semBorda = const RoundedRectangleBorder();
+    return ExpansionTile(
+      leading: Icon(icone, size: 22),
+      title: Text(titulo, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      subtitle: subtitulo == null
+          ? null
+          : Text(subtitulo, style: const TextStyle(fontSize: 12)),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      shape: semBorda,
+      collapsedShape: semBorda,
+      initiallyExpanded: inicialmenteAberta,
+      children: children,
+    );
+  }
+
+  Widget _dica(String texto, Color cor) => Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          texto,
+          style: TextStyle(color: cor, fontSize: 12),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
     final s = Theme.of(context).colorScheme;
+    final dim = s.onSurfaceVariant;
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // (A alça de arraste vem do showModalBottomSheet showDragHandle.)
-            const Text('Configurações',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            const Text('Tema',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            ListenableBuilder(
-              listenable: temaController,
-              builder: (context, _) {
-                return Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final m in Modo.values)
-                      ChoiceChip(
-                        label: Text(m.rotulo),
-                        selected: temaController.modo == m,
-                        onSelected: (_) => temaController.definir(m),
-                      ),
-                  ],
-                );
-              },
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: Text('Configurações',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             ),
-            const SizedBox(height: 12),
-            const Text('Tamanho da fonte',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            ListenableBuilder(
-              listenable: temaController,
-              builder: (context, _) {
-                return SegmentedButton<ModoFonte>(
-                  segments: [
-                    for (final f in ModoFonte.values)
-                      ButtonSegment(
-                        value: f,
-                        label: Text(f.rotulo),
-                      ),
-                  ],
-                  selected: {temaController.fonte},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (s) =>
-                      temaController.definirFonte(s.first),
-                );
-              },
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Ajusta texto e ícones do app.',
-              style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-            const Text('Densidade',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            ListenableBuilder(
-              listenable: temaController,
-              builder: (context, _) {
-                return SegmentedButton<Densidade>(
-                  segments: [
-                    for (final d in Densidade.values)
-                      ButtonSegment(
-                        value: d,
-                        label: Text(d.rotulo),
-                      ),
-                  ],
-                  selected: {temaController.densidade},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (s) =>
-                      temaController.definirDensidade(s.first),
-                );
-              },
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Compacto aproxima os cartões e deixa mais conteúdo por tela '
-              '(vale também para as caixinhas do projeto).',
-              style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
-            ),
-            const SizedBox(height: 16),
-            const Text('Barra de ferramentas das caixinhas',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.reorder, size: 18),
-              label: const Text('Mudar ordem dos botões'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const OrdemBarraScreen()),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Reordene os botões da barra (copiar, limpar, excluir, link…) '
-              'para todas as caixinhas.',
-              style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
-            ),
-            const SizedBox(height: 16),
-            const Text('Backup',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Row(
+
+            // ================= Tema =================
+            _sec(
+              icone: Icons.palette_outlined,
+              titulo: 'Tema',
+              subtitulo: temaController.modo.rotulo,
+              inicialmenteAberta: true,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.upload_file_outlined, size: 18),
-                    label: const Text('Exportar arquivo'),
-                    onPressed: () => _exportarBackup(context),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.download_outlined, size: 18),
-                    label: const Text('Importar arquivo'),
-                    onPressed: () => _importarBackup(context),
-                  ),
+                ListenableBuilder(
+                  listenable: temaController,
+                  builder: (context, _) {
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final m in Modo.values)
+                          ChoiceChip(
+                            label: Text(m.rotulo),
+                            selected: temaController.modo == m,
+                            onSelected: (_) => temaController.definir(m),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Salve ou restaure seus projetos num arquivo (bom para trocar '
-              'de celular).',
-              style: TextStyle(color: s.onSurfaceVariant, fontSize: 12),
+
+            // ================= Tamanho da fonte =================
+            _sec(
+              icone: Icons.format_size,
+              titulo: 'Tamanho da fonte',
+              subtitulo: temaController.fonte.rotulo,
+              children: [
+                ListenableBuilder(
+                  listenable: temaController,
+                  builder: (context, _) {
+                    return SegmentedButton<ModoFonte>(
+                      segments: [
+                        for (final f in ModoFonte.values)
+                          ButtonSegment(
+                            value: f,
+                            label: Text(f.rotulo),
+                          ),
+                      ],
+                      selected: {temaController.fonte},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (s) =>
+                          temaController.definirFonte(s.first),
+                    );
+                  },
+                ),
+                _dica('Ajusta texto e ícones do app.', dim),
+              ],
             ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.health_and_safety_outlined, size: 18),
-              label: const Text('Diagnóstico de dados'),
-              onPressed: () => _mostrarDiagnostico(context),
+
+            // ================= Densidade =================
+            _sec(
+              icone: Icons.density_small,
+              titulo: 'Densidade',
+              subtitulo: temaController.densidade.rotulo,
+              children: [
+                ListenableBuilder(
+                  listenable: temaController,
+                  builder: (context, _) {
+                    return SegmentedButton<Densidade>(
+                      segments: [
+                        for (final d in Densidade.values)
+                          ButtonSegment(
+                            value: d,
+                            label: Text(d.rotulo),
+                          ),
+                      ],
+                      selected: {temaController.densidade},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (s) =>
+                          temaController.definirDensidade(s.first),
+                    );
+                  },
+                ),
+                _dica(
+                  'Compacto aproxima os cartões e deixa mais conteúdo por '
+                  'tela (vale também para as caixinhas do projeto).',
+                  dim,
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            const Text('Nuvem',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
+
+            // ================= Barra de ferramentas =================
+            _sec(
+              icone: Icons.reorder,
+              titulo: 'Barra de ferramentas',
+              subtitulo: 'Ordem dos botões das caixinhas',
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.tune, size: 18),
+                  label: const Text('Mudar ordem dos botões'),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OrdemBarraScreen()),
+                  ),
+                ),
+                _dica(
+                  'Reordene os botões da barra (copiar, limpar, excluir, '
+                  'link…) para todas as caixinhas.',
+                  dim,
+                ),
+              ],
+            ),
+
+            // ================= Backup =================
+            _sec(
+              icone: Icons.folder_open_outlined,
+              titulo: 'Backup',
+              subtitulo: 'Arquivo + diagnóstico',
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.upload_file_outlined, size: 18),
+                        label: const Text('Exportar arquivo'),
+                        onPressed: () => _exportarBackup(context),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.download_outlined, size: 18),
+                        label: const Text('Importar arquivo'),
+                        onPressed: () => _importarBackup(context),
+                      ),
+                    ),
+                  ],
+                ),
+                _dica(
+                  'Salve ou restaure seus projetos num arquivo (bom para '
+                  'trocar de celular).',
+                  dim,
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.health_and_safety_outlined, size: 18),
+                  label: const Text('Diagnóstico de dados'),
+                  onPressed: () => _mostrarDiagnostico(context),
+                ),
+              ],
+            ),
+
+            // ================= Nuvem =================
             ListenableBuilder(
               listenable: SyncService.instance,
               builder: (context, _) {
                 final sync = SyncService.instance;
-                if (!sync.conectado) {
-                  return OutlinedButton.icon(
-                    icon: const Icon(Icons.login, size: 18),
-                    label: const Text('Entrar com Google'),
-                    onPressed: () => _entrarGoogle(context),
-                  );
-                }
-                final ok = sync.status == 'Sincronizado';
-                final ocupado = sync.status == 'Enviando…' ||
-                    sync.status == 'Baixando…' ||
-                    sync.status == 'Conectando…';
-                final erro = sync.status == 'Erro';
-                final corStatus = ok
-                    ? const Color(0xFF4ADE80)
-                    : (erro ? Colors.redAccent : s.onSurfaceVariant);
-                final icone = ok
-                    ? Icons.cloud_done_outlined
-                    : (erro
-                        ? Icons.cloud_off_outlined
-                        : Icons.cloud_outlined);
-                String texto = sync.status;
-                if (ok && sync.ultimoEnvio != null) {
-                  final h = sync.ultimoEnvio!.hour.toString().padLeft(2, '0');
-                  final m = sync.ultimoEnvio!.minute.toString().padLeft(2, '0');
-                  texto = 'Enviado às $h:$m';
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                final sub = !sync.conectado
+                    ? 'Desligado'
+                    : sync.usuario!.email ?? 'Conectado';
+                return _sec(
+                  icone: Icons.cloud_outlined,
+                  titulo: 'Nuvem',
+                  subtitulo: sub,
                   children: [
-                    Row(
-                      children: [
-                        Icon(icone, size: 18, color: corStatus),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Conectado como ${sync.usuario!.email ?? ''}',
-                            style: const TextStyle(fontSize: 13),
+                    if (!sync.conectado)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.login, size: 18),
+                        label: const Text('Entrar com Google'),
+                        onPressed: () => _entrarGoogle(context),
+                      )
+                    else ...[
+                      Row(
+                        children: [
+                          Icon(
+                            sync.status == 'Sincronizado'
+                                ? Icons.cloud_done_outlined
+                                : (sync.status == 'Erro'
+                                    ? Icons.cloud_off_outlined
+                                    : Icons.cloud_outlined),
+                            size: 18,
+                            color: sync.status == 'Sincronizado'
+                                ? const Color(0xFF4ADE80)
+                                : (sync.status == 'Erro'
+                                    ? Colors.redAccent
+                                    : s.onSurfaceVariant),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: sync.sair,
-                          child: const Text('Sair'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      texto,
-                      style: TextStyle(
-                        color: corStatus,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Conectado como ${sync.usuario!.email ?? ''}',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: sync.sair,
+                            child: const Text('Sair'),
+                          ),
+                        ],
                       ),
-                    ),
-                    if (sync.nuvemMaisNova) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'A nuvem tem uma versão mais nova que a deste celular. '
-                        'Toque em "Baixar da nuvem" para trazê-la.',
-                        style: TextStyle(
-                            color: s.onSurfaceVariant, fontSize: 12),
-                      ),
-                    ],
-                    if (erro && sync.ultimaMensagem != null) ...[
                       const SizedBox(height: 4),
                       Text(
-                        sync.ultimaMensagem!,
+                        sync.status == 'Sincronizado' &&
+                                sync.ultimoEnvio != null
+                            ? 'Enviado às '
+                                '${sync.ultimoEnvio!.hour.toString().padLeft(2, '0')}:'
+                                '${sync.ultimoEnvio!.minute.toString().padLeft(2, '0')}'
+                            : sync.status,
                         style: TextStyle(
-                            color: s.onSurfaceVariant, fontSize: 11),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.cloud_download_outlined,
-                                size: 18),
-                            label: const Text('Baixar da nuvem'),
-                            onPressed: ocupado
-                                ? null
-                                : () => _confirmarBaixar(context),
-                          ),
+                          color: sync.status == 'Sincronizado'
+                              ? const Color(0xFF4ADE80)
+                              : (sync.status == 'Erro'
+                                  ? Colors.redAccent
+                                  : s.onSurfaceVariant),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.cloud_upload_outlined,
-                                size: 18),
-                            label: const Text('Enviar para a nuvem'),
-                            onPressed: ocupado ? null : sync.enviarAgora,
-                          ),
+                      ),
+                      if (sync.nuvemMaisNova) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'A nuvem tem uma versão mais nova que a deste '
+                          'celular. Toque em "Baixar da nuvem" para trazê-la.',
+                          style: TextStyle(color: dim, fontSize: 12),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'A nuvem é um backup manual: nada sobe ou desce sozinho. '
-                      '"Enviar" guarda o que está neste celular; "Baixar" '
-                      'substitui o que está aqui pelo da nuvem (ex.: ao trocar '
-                      'de celular).',
-                      style:
-                          TextStyle(color: s.onSurfaceVariant, fontSize: 12),
-                    ),
+                      if (sync.status == 'Erro' &&
+                          sync.ultimaMensagem != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          sync.ultimaMensagem!,
+                          style: TextStyle(color: dim, fontSize: 11),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.cloud_download_outlined,
+                                  size: 18),
+                              label: const Text('Baixar da nuvem'),
+                              onPressed:
+                                  sync.status == 'Enviando…' ||
+                                          sync.status == 'Baixando…' ||
+                                          sync.status == 'Conectando…'
+                                      ? null
+                                      : () => _confirmarBaixar(context),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.cloud_upload_outlined,
+                                  size: 18),
+                              label: const Text('Enviar para a nuvem'),
+                              onPressed:
+                                  sync.status == 'Enviando…' ||
+                                          sync.status == 'Baixando…' ||
+                                          sync.status == 'Conectando…'
+                                      ? null
+                                      : sync.enviarAgora,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'A nuvem é um backup manual: nada sobe ou desce '
+                        'sozinho. "Enviar" guarda o que está neste celular; '
+                        '"Baixar" substitui o que está aqui pelo da nuvem '
+                        '(ex.: ao trocar de celular).',
+                        style: TextStyle(color: dim, fontSize: 12),
+                      ),
+                    ],
                   ],
                 );
               },
