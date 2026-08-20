@@ -615,10 +615,9 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   void _alternarConcluida() {
     setState(() {
       widget.nota.concluida = !widget.nota.concluida;
-      // Marcou como FEITA → o projeto vira "em andamento" automaticamente
-      // (o cartão na lista de projetos passa a aparecer marcado; desmarcar
-      // NÃO desfaz — o controle manual do cartão continua existindo).
-      if (widget.nota.concluida) widget.projeto.emAndamento = true;
+      // ESPELHA o estado no projeto: marcar a caixinha como feita → projeto
+      // "em andamento"; DESMARCAR → projeto deixa de estar em andamento.
+      widget.projeto.emAndamento = widget.nota.concluida;
     });
     Storage.instance.salvar();
   }
@@ -1567,32 +1566,46 @@ class _DialogoLinksState extends State<_DialogoLinks> {
         ),
       ),
       actions: [
-        TextButton.icon(
-          icon: const Icon(Icons.content_paste, size: 16),
-          label: const Text('Colar'),
-          onPressed: _colar,
-        ),
-        TextButton.icon(
-          icon: const Icon(Icons.cleaning_services, size: 16),
-          label: const Text('Limpar'),
-          onPressed: _limpar,
-        ),
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fechar')),
-        FilledButton(
-          onPressed: () {
-            final links = <NotaLink>[
-              for (var i = 0; i < _ctrls.length; i++)
-                if (_ctrls[i].text.trim().isNotEmpty)
-                  NotaLink(
-                    url: _ctrls[i].text.trim(),
-                    titulo: _titulos[i],
-                  ),
-            ];
-            Navigator.pop(context, links);
-          },
-          child: const Text('Salvar'),
+        // Uma linha só: Colar · Limpar · Fechar · Salvar (sem ícones para
+        // caberem lado a lado em qualquer tela).
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              onPressed: _colar,
+              child: const Text('Colar'),
+            ),
+            const SizedBox(width: 2),
+            TextButton(
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              onPressed: _limpar,
+              child: const Text('Limpar'),
+            ),
+            const SizedBox(width: 2),
+            TextButton(
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fechar'),
+            ),
+            const SizedBox(width: 2),
+            FilledButton(
+              style:
+                  FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+              onPressed: () {
+                final links = <NotaLink>[
+                  for (var i = 0; i < _ctrls.length; i++)
+                    if (_ctrls[i].text.trim().isNotEmpty)
+                      NotaLink(
+                        url: _ctrls[i].text.trim(),
+                        titulo: _titulos[i],
+                      ),
+                ];
+                Navigator.pop(context, links);
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
         ),
       ],
     );

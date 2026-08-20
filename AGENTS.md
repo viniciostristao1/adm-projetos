@@ -281,9 +281,10 @@ ProjetosScreen (lista de projetos)
   │    ├─ Tab "Ideias" → idem
   │    ├─ 🔍 (ao lado das abas) → busca na aba ativa (texto + comentário)
   │    │     — o termo buscado fica GRIFADO (marcador amarelo) nas caixinhas
-  │    ├─ ✔ caixinha marcada como feita → projeto vira "em andamento"
-  │    │     AUTOMATICAMENTE (V0.1.47, `_alternarConcluida`); desmarcar não
-  │    │     desfaz (o controle manual do cartão continua)
+  │    ├─ ✔ caixinha marcada/desmarcada como feita → ESPELHA o projeto:
+  │    │     marcou = "em andamento"; desmarcou = sai do andamento
+  │    │     (V0.1.47/49, `_alternarConcluida`; o controle manual do cartão
+  │    │     continua existindo)
   │    └─ PDF → gera PDF do projeto inteiro e compartilha
   └─ ⚙️ → ConfigSheet (tema, fonte, DENSIDADE, ORDEM dos botões da barra,
        backup, nuvem)
@@ -520,9 +521,11 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 
 ### Links (até 3) e títulos de vídeo
 - A caixinha guarda até 3 links (`Nota.links`, cada um com `url` + `titulo`).
-- **Botões do diálogo (V0.1.48):** "Colar" (cola a área de transferência no
+- **Botões do diálogo (V0.1.48/49):** "Colar" (cola a área de transferência no
   1º campo vazio, ou no 1º) e "Limpar" (apaga todos os campos) — além de
-  "Fechar" e "Salvar". Colar dispara a busca de título.
+  "Fechar" e "Salvar", TODOS lado a lado numa linha só (sem ícones, com
+  `visualDensity` compacto, num `Row` único no `actions` do AlertDialog).
+  Colar dispara a busca de título.
 - No diálogo de link, ao colar URL do YouTube, após 600ms de pausa busca o
   título via oEmbed (`youtube.com/oembed`) e mostra o preview — o título é
   SALVO junto com o link (não vai mais para o comentário).
