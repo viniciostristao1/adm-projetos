@@ -1138,7 +1138,6 @@ class _ConfigSheet extends StatelessWidget {
               icone: Icons.palette_outlined,
               titulo: 'Tema',
               subtitulo: temaController.modo.rotulo,
-              inicialmenteAberta: true,
               children: [
                 ListenableBuilder(
                   listenable: temaController,

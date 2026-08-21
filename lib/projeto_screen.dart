@@ -804,7 +804,9 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     if (box == null || !box.hasSize) return;
     final local = box.globalToLocal(posicaoGlobal);
     final dx = local.dx - 14;
-    if (dx < 0 || dx > 40) return; // só na faixa dos quadradinhos
+    // Faixa dos quadradinhos (V0.1.52: um pouco mais larga, acompanhando o
+    // quadradinho maior desenhado pelo BuscaController).
+    if (dx < 0 || dx > 48) return;
     final dy = local.dy + (_scroll.hasClients ? _scroll.offset : 0.0) - 2;
     if (dy < 0) return;
     final painter = TextPainter(
