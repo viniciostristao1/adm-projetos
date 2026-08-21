@@ -52,6 +52,11 @@ void copiarTexto(BuildContext context, String texto) {
 /// TextField — ou seja, faz parte do MESMO layout do texto — então nunca sai
 /// do lugar (diferente do antigo `CustomPaint` por cima, que precisava
 /// recalcular a geometria à mão e às vezes marcava a palavra/linha errada).
+///
+/// ⚠️ NÃO desenhar os glifos ☐/☑ com estilo próprio aqui (fontSize maior etc.):
+/// a V0.1.52 tentou e quebrou a digitação nas linhas de to-do (Enter duplicava,
+/// palavra gigante na 2ª linha) — o TextField deixa de renderizar o texto
+/// corretamente com o IME. Revertido na V0.1.53; ver AGENTS.md §6.
 class BuscaController extends TextEditingController {
   BuscaController({super.text});
 

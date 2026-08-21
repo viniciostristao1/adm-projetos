@@ -11,6 +11,7 @@ import 'barra_config.dart';
 import 'caixa3d.dart';
 import 'cores.dart';
 import 'editor.dart';
+import 'lembretes.dart';
 import 'models.dart';
 import 'projeto_screen.dart';
 import 'storage.dart';
@@ -170,6 +171,14 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       // conteúdo engolia o gesto e só dava para sair pelo botão "voltar" do
       // Android. enableDrag já é true por padrão.
       showDragHandle: true,
+      // isScrollControlled + maxHeight 90%: sem isso a folha era limitada a
+      // ~9/16 da tela e, ao expandir a última seção (Nuvem), as opções caíam
+      // abaixo do visível e a rolagem ficava apertada. Agora a folha usa até
+      // 90% da altura e o SingleChildScrollView interno rola com folga.
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -180,6 +189,20 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     // (copiar desliga as edições do salvamento).
     final p = await Storage.instance.carregar();
     if (mounted) setState(() => _projetos = p);
+  }
+
+  /// Abre a folha de "Lembrete rápido" (sininho): escrever + tocar num tempo →
+  /// notificação no Android. Também lista os lembretes pendentes para cancelar.
+  Future<void> _abrirLembretes() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _LembreteSheet(),
+    );
   }
 
   Future<void> _criarProjeto() async {
@@ -574,6 +597,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         ),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none),
+            tooltip: 'Lembrete rápido',
+            onPressed: _abrirLembretes,
+          ),
           IconButton(
             icon: Icon(_buscando ? Icons.close : Icons.search),
             tooltip: _buscando ? 'Fechar busca' : 'Buscar projeto',
@@ -1293,13 +1321,20 @@ class _ConfigSheet extends StatelessWidget {
                   titulo: 'Nuvem',
                   subtitulo: sub,
                   children: [
-                    if (!sync.conectado)
+                    if (!sync.conectado) ...[
                       OutlinedButton.icon(
                         icon: const Icon(Icons.login, size: 18),
                         label: const Text('Entrar com Google'),
                         onPressed: () => _entrarGoogle(context),
-                      )
-                    else ...[
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Para guardar seus projetos na nuvem, primeiro entre '
+                        'com o Google. Depois aparecem os botões "Enviar" e '
+                        '"Baixar".',
+                        style: TextStyle(color: dim, fontSize: 12),
+                      ),
+                    ] else ...[
                       Row(
                         children: [
                           Icon(
@@ -1400,8 +1435,11 @@ class _ConfigSheet extends StatelessWidget {
                       Text(
                         'A nuvem é um backup manual: nada sobe ou desce '
                         'sozinho. "Enviar" guarda o que está neste celular; '
-                        '"Baixar" substitui o que está aqui pelo da nuvem '
-                        '(ex.: ao trocar de celular).',
+                        '"Baixar" substitui o que está aqui pelo da nuvem. '
+                        'Dica: toque em Enviar antes de atualizar ou '
+                        'desinstalar o app; ao reinstalar (ou trocar de '
+                        'celular), entre com a MESMA conta Google e toque em '
+                        'Baixar.',
                         style: TextStyle(color: dim, fontSize: 12),
                       ),
                     ],
@@ -1410,6 +1448,233 @@ class _ConfigSheet extends StatelessWidget {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Folha "Lembrete rápido" (sininho da tela inicial): escrever + tocar num
+/// tempo → notificação no Android. Mostra também os lembretes pendentes para
+/// cancelar. Fluxo mínimo: sininho → escrever → tocar no tempo (3 toques).
+class _LembreteSheet extends StatefulWidget {
+  const _LembreteSheet();
+
+  @override
+  State<_LembreteSheet> createState() => _LembreteSheetState();
+}
+
+class _LembreteSheetState extends State<_LembreteSheet> {
+  final TextEditingController _ctrl = TextEditingController();
+  bool _agendando = false;
+
+  static const List<(Duration, String)> _presets = [
+    (Duration(minutes: 30), '30 min'),
+    (Duration(hours: 2), '2 h'),
+    (Duration(hours: 4), '4 h'),
+    (Duration(hours: 24), '24 h'),
+  ];
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _agendar(Duration d, String rotulo) async {
+    if (_agendando) return;
+    setState(() => _agendando = true);
+    final l =
+        await LembretesService.instance.agendar(_ctrl.text.trim(), d);
+    if (!mounted) return;
+    setState(() => _agendando = false);
+    if (l == null) {
+      mostrarAviso(context,
+          'Ative as notificações do Taskix nas configurações do Android.');
+      return;
+    }
+    _ctrl.clear();
+    mostrarAviso(context, 'Lembrete daqui a $rotulo ⏰');
+  }
+
+  /// "Outro…": pede um tempo personalizado (minutos ou horas).
+  Future<void> _outro() async {
+    final ctrl = TextEditingController();
+    var unidade = 'minutos';
+    final d = await showDialog<Duration>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Outro tempo'),
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 84,
+                child: TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: 'ex.: 45'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              DropdownButton<String>(
+                value: unidade,
+                items: const [
+                  DropdownMenuItem(value: 'minutos', child: Text('minutos')),
+                  DropdownMenuItem(value: 'horas', child: Text('horas')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setLocal(() => unidade = v);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                final n = int.tryParse(ctrl.text.trim());
+                if (n == null || n <= 0) {
+                  Navigator.pop(ctx);
+                  return;
+                }
+                Navigator.pop(
+                  ctx,
+                  unidade == 'horas'
+                      ? Duration(hours: n)
+                      : Duration(minutes: n),
+                );
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (d == null) return;
+    final rotulo = d.inMinutes % 60 == 0 && d.inHours >= 1
+        ? '${d.inHours} h'
+        : '${d.inMinutes} min';
+    await _agendar(d, rotulo);
+  }
+
+  String _quando(DateTime dt) {
+    final agora = DateTime.now();
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    final dia = DateTime(dt.year, dt.month, dt.day);
+    final hm = '${dt.hour.toString().padLeft(2, '0')}:'
+        '${dt.minute.toString().padLeft(2, '0')}';
+    final difDias = dia.difference(hoje).inDays;
+    if (difDias == 0) return 'hoje $hm';
+    if (difDias == 1) return 'amanhã $hm';
+    return '${dt.day.toString().padLeft(2, '0')}/'
+        '${dt.month.toString().padLeft(2, '0')} $hm';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = Theme.of(context).colorScheme;
+    return Padding(
+      // Sobe a folha acima do teclado (o campo abre o teclado com autofocus).
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.notifications_active_outlined, size: 20),
+                  const SizedBox(width: 8),
+                  const Text('Lembrete rápido',
+                      style: TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _ctrl,
+                autofocus: true,
+                minLines: 1,
+                maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  hintText: 'O que lembrar?',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text('Notificar daqui a…',
+                  style: TextStyle(
+                      color: s.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final p in _presets)
+                    ActionChip(
+                      label: Text(p.$2),
+                      onPressed: _agendando ? null : () => _agendar(p.$1, p.$2),
+                    ),
+                  ActionChip(
+                    avatar: const Icon(Icons.more_horiz, size: 18),
+                    label: const Text('Outro…'),
+                    onPressed: _agendando ? null : _outro,
+                  ),
+                ],
+              ),
+              ListenableBuilder(
+                listenable: LembretesService.instance,
+                builder: (context, _) {
+                  final pend = LembretesService.instance.pendentes;
+                  if (pend.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 18),
+                      Text('AGENDADOS',
+                          style: TextStyle(
+                              color: s.onSurfaceVariant,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5)),
+                      const SizedBox(height: 2),
+                      for (final l in pend)
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.alarm, size: 20),
+                          title: Text(
+                            l.texto.isEmpty ? '(sem texto)' : l.texto,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(_quando(l.quando)),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close),
+                            tooltip: 'Cancelar lembrete',
+                            onPressed: () =>
+                                LembretesService.instance.cancelar(l.id),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

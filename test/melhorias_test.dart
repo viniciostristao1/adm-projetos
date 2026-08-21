@@ -130,10 +130,53 @@ void main() {
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
 
+    // O foco é solto com uma pequena FOLGA (debounce anti-flicker): só depois
+    // de o teclado CONTINUAR fechado é que largamos o foco. pumpAndSettle não
+    // espera o Timer, então avançamos o tempo além do debounce.
+    await tester.pump(const Duration(milliseconds: 400));
+
     expect(tester.takeException(), isNull,
         reason: 'didChangeMetrics não pode lançar');
     expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse,
         reason: 'ao esconder o teclado, o foco é solto (não volta sozinho)');
+  });
+
+  testWidgets('altura 0 passageiro NÃO solta o foco (anti-flicker, item 3)',
+      (tester) async {
+    addTearDown(tester.view.resetViewInsets);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+    final p = Projeto(
+      id: 'p1',
+      nome: 'P',
+      tarefas: [Nota(id: 'n1', texto: 'oi')],
+    );
+    await Storage.instance.carregar();
+    await Storage.instance.substituir([p]);
+
+    await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
+    await tester.pump();
+
+    final field = find.byType(TextField).first;
+    await tester.tap(field);
+    await tester.pump();
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+
+    // Teclado ABRE.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    // "Altura 0" PASSAGEIRO (troca de layout do teclado: emoji/símbolos/…):
+    // bottom cai a 0 por um instante e volta ANTES do debounce.
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pump(const Duration(milliseconds: 120));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // O foco NÃO pode ter sido solto — senão o teclado fecharia no meio da
+    // digitação (bug relatado no item 3).
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue,
+        reason: 'um "0" passageiro não pode fechar o teclado');
   });
 
   testWidgets('lupa global também acha projeto por nome (#6)', (tester) async {

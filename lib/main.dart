@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'barra_config.dart';
 import 'cores.dart';
+import 'lembretes.dart';
 import 'projetos_screen.dart';
 import 'storage.dart';
 import 'sync_service.dart';
@@ -22,6 +23,12 @@ Future<void> main() async {
     await SyncService.instance.iniciar();
   } catch (e) {
     debugPrint('Firebase indisponível (modo local): $e');
+  }
+  // Lembretes (notificação local) — se falhar, o app segue sem o recurso.
+  try {
+    await LembretesService.instance.init();
+  } catch (e) {
+    debugPrint('Lembretes indisponíveis: $e');
   }
   runApp(const AdmProjetosApp());
 }

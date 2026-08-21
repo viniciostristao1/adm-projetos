@@ -75,7 +75,11 @@ lib/
 │                        #   HistoricoTexto (undo), BuscaController (destaque de busca)
 ├── barra_config.dart    # enum Ferramenta + BarraController (ORDEM dos botões da barra da
 │                        #   caixinha, persistida) + OrdemBarraScreen (tela de reordenar)
-└── caixa3d.dart         # Widget simples: Container com cor sólida + borderRadius
+├── caixa3d.dart         # Widget simples: Container com cor sólida + borderRadius
+├── sync_service.dart    # SyncService (Firebase Firestore) — nuvem 100% MANUAL (por botão)
+├── lembretes.dart       # LembretesService (flutter_local_notifications) — lembretes rápidos
+│                        #   com notificação local do Android (item 5, V0.1.54)
+└── versao.dart          # const appVersao (exibida no topo; bump a cada release)
 ```
 
 ---
@@ -266,6 +270,10 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 ```
 ProjetosScreen (lista de projetos)
   ├─ FAB [+] → criar projeto
+  ├─ 🔔 (à ESQUERDA da lupa) → folha "Lembrete rápido": escrever + tocar num
+  │       tempo (30 min · 2 h · 4 h · 24 h · Outro…) agenda uma NOTIFICAÇÃO
+  │       local do Android; lista os agendados com X p/ cancelar (item 5,
+  │       V0.1.54). Detalhe em §6 "Lembretes".
   ├─ 🔍 → busca GLOBAL (projetos por nome + conteúdo das caixinhas em
   │       Tarefas/Ideias); tocar num resultado abre a caixinha
   ├─ "RECENTES" → prateleira rolante horizontal com os 5 projetos
@@ -291,7 +299,9 @@ ProjetosScreen (lista de projetos)
        abre com as opções; cada uma mostra o valor atual no subtítulo: Tema,
        Tamanho da fonte, Densidade, Barra de ferramentas, Backup, Nuvem;
        V0.1.52: NENHUMA seção abre sozinha — a Tema, que ficava aberta, agora
-       também nasce fechada)
+       também nasce fechada; V0.1.54: a folha abre com `isScrollControlled` e
+       até 90% da altura da tela — antes ficava baixa e a seção Nuvem, ao
+       expandir, caía fora do visível e a rolagem apertava)
 ```
 
 > **Densidade (V0.1.46):** `Densidade` (Confortável/Compacto) no `TemaController`
@@ -392,19 +402,34 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   to-do no aparelho do usuário (Enter duplicava texto, palavra gigante na
   2ª linha). REVERTIDO ao código original — o `buildTextSpan` voltou a só
   cuidar do destaque de busca e a faixa de toque voltou a 40px. NÃO re-aplicar.
+- ⚠️ **V0.1.54 — tentado de novo e o USUÁRIO OPTOU POR MANTER como está:** a
+  mesma família (aumentar o ☐/☑ no `buildTextSpan`, agora com
+  `strutStyle`/`forceStrutHeight` p/ travar a linha) passa em teste headless MAS
+  o teste NÃO exercita o IME/composição do GBoard — que é justamente o que
+  quebrou na V0.1.52. Apresentado ao usuário; ele escolheu NÃO mexer no tamanho.
+  Se um dia voltar ao assunto, a única rota segura discutida é: só aumentar o ☐
+  quando a caixinha NÃO está focada (sem IME ativo) e voltar ao normal ao
+  editar. NÃO reaplicar a versão "sempre maior".
 - **Tocar no quadradinho** (faixa esquerda de ~40px de uma linha ☐/☑) alterna
   marcado/desmarcado — hit-test com `TextPainter` no `_toqueTexto`, detectado
   por `Listener` (eventos crus, sem disputa de gestos com o campo de texto).
 
 ### Voltar de outro app com o cursor
-- **Reabertura do teclado (V0.1.38):** se a caixinha estava sendo editada ao
-  SAIR do app (`_tinhaFocoAoParar`, gravado em `inactive`/`paused`/`hidden`),
-  ao voltar (`resumed`) recriamos a conexão de entrada: `_foco.unfocus()` +
-  `requestFocus()` + `SystemChannels.textInput 'TextInput.show'`. ⚠️ O ATRASO
-  é essencial (`_reabrirTeclado` em 180ms e 480ms): logo no resume a janela
-  ainda não recuperou o foco do sistema e o pedido de teclado seria ignorado
-  — por isso a tentativa anterior (só `postFrame`, V0.1.37) falhava. O texto e
-  o cursor ficam intactos (o controlador preserva a seleção).
+- **Reabertura do teclado (V0.1.38; refinada V0.1.54):** se a caixinha estava
+  sendo editada ao SAIR do app (`_tinhaFocoAoParar`, gravado em
+  `inactive`/`paused`/`hidden`), ao voltar (`resumed`) recriamos a conexão de
+  entrada: `_foco.unfocus()` + `requestFocus()` + `SystemChannels.textInput
+  'TextInput.show'`. ⚠️ O ATRASO é essencial (`_reabrirTeclado` em 220ms e
+  520ms): logo no resume a janela ainda não recuperou o foco do sistema e o
+  pedido de teclado seria ignorado — por isso a tentativa anterior (só
+  `postFrame`, V0.1.37) falhava. O texto e o cursor ficam intactos (o
+  controlador preserva a seleção).
+- ⚠️ **V0.1.54 (anti-flicker "sobe e desce"):** o `unfocus()`+`requestFocus()`
+  passou a ser feito ATOMICAMENTE dentro de `_reabrirTeclado` (antes o
+  `unfocus()` era imediato no `resumed` e as duas reaberturas só chamavam
+  `requestFocus`+`show` — o teclado subia/descia). A 2ª tentativa (520ms) só
+  dispara se a 1ª NÃO reabriu (`somenteSeFechado`: pula se `viewInsets.bottom
+  > 0`), evitando o duplo-show.
 - O Android, ao sair do app, esconde o teclado e NÃO o reabre sozinho mesmo
   com o foco mantido — daí o bug intermitente "não consigo continuar
   digitando ao voltar", pior nas trocas rápidas.
@@ -416,11 +441,19 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   caixinha — aí qualquer reconstrução (ou a correção de maiúscula em debounce,
   que faz `_ctrl.value = …` num campo focado) REABRE o teclado.
 - **Solução:** `didChangeMetrics` detecta o teclado FECHANDO (viewInsets.bottom
-  `>0 → 0`) e, se a caixinha tem foco e o app está `resumed`, faz `_foco.unfocus()`
-  (e cancela o debounce). O cursor some e o teclado fica fora até tocar na
-  caixinha de novo — comportamento padrão. `_insetBottomAnterior` rastreia a
-  altura; é semeado ao GANHAR foco (`_aoMudarFoco`) para funcionar mesmo na
-  troca entre caixinhas com o teclado já aberto.
+  `>0 → 0`) e, se a caixinha tem foco e o app está `resumed`, solta o foco.
+  O cursor some e o teclado fica fora até tocar na caixinha de novo —
+  comportamento padrão. `_insetBottomAnterior` rastreia a altura; é semeado ao
+  GANHAR foco (`_aoMudarFoco`) para funcionar mesmo na troca entre caixinhas
+  com o teclado já aberto.
+- ⚠️ **V0.1.54 (não desligar o teclado no meio da digitação):** o `unfocus()`
+  virou DEBITADO — ao ver `bottom → 0`, agenda um `Timer` de 320ms
+  (`_fecharTecladoTimer`) e só solta o foco se o teclado CONTINUAR fechado
+  quando ele dispara; se `bottom` voltar a `>0` antes disso, cancela. Motivo:
+  vários teclados (GBoard) reportam `bottom == 0` por um instante ao trocar de
+  layout (emoji/símbolos/uma-mão/barra de sugestão) — o `unfocus()` imediato
+  fechava o teclado sozinho durante a digitação (bug relatado). Testado em
+  `melhorias_test.dart` ("altura 0 passageiro NÃO solta o foco").
 - ⚠️ O guard `resumed` é essencial: ao SAIR para outro app o teclado também
   fecha, mas aí queremos PRESERVAR o foco para reabri-lo ao voltar (não brigar
   com `_reabrirTeclado`).
@@ -524,6 +557,34 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 - ⚠️ Ao CONFIGURAR o Firebase (google-services.json no `android/app/`), ainda
   é preciso aplicar o plugin `com.google.gms.google-services` no Gradle
   (settings.gradle.kts + app/build.gradle.kts), como no calistenia_app.
+- **Micro-copy (V0.1.54):** as dicas da seção Nuvem explicam o fluxo —
+  desconectado: "entre com o Google primeiro"; conectado: "toque em Enviar
+  antes de atualizar/desinstalar; ao reinstalar entre com a MESMA conta e
+  toque em Baixar".
+
+### Lembretes rápidos (notificação local) — sininho (V0.1.54)
+- **`LembretesService`** (lembretes.dart, ChangeNotifier singleton) sobre
+  `flutter_local_notifications` + `timezone`. Inicializado no `main()`
+  (try/catch, como o Firebase). Canal `lembretes` (Importance.high).
+- Fluxo: 🔔 na tela inicial (à ESQUERDA da lupa) → `_LembreteSheet` (folha
+  `isScrollControlled`): campo de texto (autofocus) + `ActionChip`s de tempo
+  (30 min · 2 h · 4 h · 24 h · "Outro…") → `agendar(texto, Duration)`. Três
+  toques: sininho → escrever → tocar no tempo.
+- **`agendar`** pede a permissão (Android 13+, `requestNotificationsPermission`)
+  e chama `zonedSchedule` com `AndroidScheduleMode.exactAllowWhileIdle` — alarme
+  EXATO. O instante é `agora + duração` computado em UTC (lembrete relativo, o
+  fuso não altera o instante absoluto).
+- **Pendentes:** guardados em SharedPreferences (`lembretes_pendentes_v1`, id em
+  `lembretes_prox_id_v1`) só p/ EXIBIR (texto + horário) e cancelar; os vencidos
+  são podados no load. `cancelar(id)` → `plugin.cancel(id)`. A fonte de verdade
+  do agendamento é o AlarmManager do Android (dispara com o app fechado).
+- **Android:** `AndroidManifest.xml` ganhou `POST_NOTIFICATIONS`,
+  `USE_EXACT_ALARM` (concedida automaticamente a apps de lembrete — sem prompt),
+  `RECEIVE_BOOT_COMPLETED`, `VIBRATE` + os 3 receivers do plugin
+  (`ActionBroadcastReceiver`, `ScheduledNotificationReceiver`,
+  `ScheduledNotificationBootReceiver`). `app/build.gradle.kts` habilitou
+  **core library desugaring** (`isCoreLibraryDesugaringEnabled = true` +
+  `desugar_jdk_libs:2.1.4`), exigido pelo plugin.
 
 ### Digitação por voz
 - O formatador `LinhasNumeradas` só age quando o texto CRESCE e termina com `\n` — não interfere com backspace nem com voz.
@@ -694,12 +755,16 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **file_picker:** `^10.3.3` — escolher arquivo de backup para importar
 - **image_picker:** `^1.1.2` — escolher imagem da galeria (OCR)
 - **google_mlkit_text_recognition:** `^0.14.0` — OCR local (ML Kit)
+- **firebase_core / firebase_auth / cloud_firestore** — nuvem manual (§6)
+- **flutter_local_notifications:** `^19.0.0` + **timezone:** `^0.10.0` —
+  lembretes com notificação local (item 5, V0.1.54). Exigem core library
+  desugaring no `app/build.gradle.kts` (`desugar_jdk_libs:2.1.4`).
 - **flutter_launcher_icons:** `^0.14.4` — gerar ícones do app (dev only)
 - Não há pacote `http` — requisições HTTP usam `dart:io` `HttpClient` diretamente.
 
 ---
 
-## 10. Testes (65 testes)
+## 10. Testes (66 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -735,12 +800,14 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Busca destaca o termo no texto da caixinha (via `BuscaController`; a caixinha
   some da lista quando o termo não ocorre)
 
-### `test/melhorias_test.dart` (3 testes — V0.1.42)
+### `test/melhorias_test.dart` (4 testes — V0.1.42 / V0.1.54)
 - to-do criado numa 2ª linha VAZIA nasce na 2ª linha (regressão do bug #2 —
   `_linhaDoCursor` sem o recuo)
 - lupa global acha palavra dentro de Ideias e, ao tocar, abre a `ProjetoScreen`
   na aba certa mostrando a caixinha
 - lupa global também acha projeto por nome (seção "PROJETOS")
+- **(V0.1.54)** esconder o teclado solta o foco só APÓS o debounce; e um
+  "altura 0" passageiro (troca de layout do teclado) NÃO solta o foco
 
 ### `test/desfazer_test.dart` (7 testes)
 - `HistoricoTexto` (undo multi-nível): digitar uma rajada cria UM ponto de
@@ -833,3 +900,7 @@ A cada publicação de APK:
 | **Quadradinho maior REVERTIDO (V0.1.53)** | A V0.1.52 quebrou a digitação nas linhas de to-do no aparelho do usuário (Enter duplicava, palavra gigante na 2ª linha); revertido ao original — a lição: NÃO desenhar o glifo ☐/☑ com estilo próprio no buildTextSpan, o TextField deixa de renderizar o texto corretamente com IME |
 | **ConfigSheet: Tema nasce fechado (V0.1.52)** | Pedido do usuário; nenhuma seção abre sozinha — todas esperam o toque na flechinha |
 | **Caixinha do tema Claude um pouco mais clara (V0.1.42)** | Pedido do usuário; interior `#161617→#1E1E20` e barra `#111213→#18181A`, cada tom em separado |
+| **ConfigSheet `isScrollControlled` + 90% (V0.1.54)** | Pedido do usuário: a folha ficava baixa e a seção Nuvem, ao expandir, caía fora do visível; agora usa até 90% da tela e rola com folga |
+| **Teclado: unfocus debitado 320ms (V0.1.54)** | Pedido do usuário ("teclado pisca/desliga sozinho digitando"); teclados reportam altura 0 passageira ao trocar de layout — o unfocus imediato fechava o teclado no meio da digitação. Debounce com re-checagem + reabertura sem duplo-show |
+| **Lembretes com notificação — sininho (V0.1.54)** | Pedido do usuário: lembrete rápido em 3 toques; `flutter_local_notifications`, alarme EXATO via `USE_EXACT_ALARM` (sem prompt), lista de pendentes p/ cancelar |
+| **Checkbox maior — MANTIDO como está (V0.1.54)** | Mesma família da V0.1.52 (buildTextSpan) re-quebraria o IME; teste headless não pega. Apresentado ao usuário, que optou por NÃO mexer no tamanho. Rota segura futura: só aumentar quando NÃO focado |
