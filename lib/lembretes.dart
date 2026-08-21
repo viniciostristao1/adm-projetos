@@ -153,6 +153,7 @@ class LembretesService extends ChangeNotifier {
     if (!await pedirPermissao()) return null;
 
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload(); // pega um contador de id atualizado por outro isolate
     final id = prefs.getInt(_chaveProxId) ?? 1;
     await prefs.setInt(_chaveProxId, id + 1);
 
@@ -222,6 +223,7 @@ class LembretesService extends ChangeNotifier {
 
     final texto = resposta.payload ?? '';
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
     final id = prefs.getInt(_chaveProxId) ?? 1;
     await prefs.setInt(_chaveProxId, id + 1);
 
@@ -257,6 +259,10 @@ class LembretesService extends ChangeNotifier {
   Future<void> _carregarPendentes() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // reload(): relê do disco. O snooze da notificação roda em OUTRO isolate
+      // e grava direto no arquivo; sem o reload, o cache em memória deste
+      // isolate ficaria velho e o lembrete reprogramado não apareceria.
+      await prefs.reload();
       final raw = prefs.getString(_chavePendentes);
       _pendentes.clear();
       if (raw == null) return;

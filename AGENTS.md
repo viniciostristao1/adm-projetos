@@ -568,10 +568,15 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   (try/catch, como o Firebase). Canal `lembretes` (Importance.high).
 - Fluxo: 🔔 na tela inicial (à ESQUERDA da lupa) → `_LembreteSheet` (folha
   `isScrollControlled` + **`useSafeArea` V0.1.55** para não subir por baixo da
-  barra de status; foco do campo com ATRASO ~280ms + `AnimatedPadding` p/ a
-  folha subir suave, não "travada"): campo de texto + `ActionChip`s de tempo
-  (30 min · 2 h · 4 h · 24 h · "Outro…") → `agendar(texto, Duration)`. Três
-  toques: sininho → escrever → tocar no tempo.
+  barra de status): campo de texto + `ActionChip`s de tempo
+  (30 min · 2 h · 4 h · 24 h · "Outro…") → `agendar(texto, Duration)`.
+- ⚠️ **Fluidez da folha (V0.1.56):** SEM `autofocus` e com `Padding` SIMPLES
+  (não `AnimatedPadding`). A V0.1.55 tinha foco atrasado ~280ms + `AnimatedPadding`
+  e o usuário sentiu "dois estágios + travadinha": o foco atrasado abria o
+  teclado num 2º movimento e o `AnimatedPadding` animava POR CIMA da animação do
+  próprio teclado (lag). Agora a folha sobe limpa (sem teclado) e o teclado só
+  abre quando o usuário toca no campo, seguido 1:1 pelo `Padding`. `initState`
+  chama `recarregar()` para a lista já vir fresca do disco.
 - **`agendar`** pede a permissão (Android 13+, `requestNotificationsPermission`)
   e chama `zonedSchedule` com `AndroidScheduleMode.exactAllowWhileIdle` — alarme
   EXATO. O instante é `agora + duração` computado em UTC (lembrete relativo, o
@@ -587,6 +592,12 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   é registrado em `initialize` (+ `_respostaNotificacaoForeground` p/ o app vivo,
   que ainda dá `recarregar()` na lista visível). `showsUserInterface:false` +
   `cancelNotification:true` nos botões.
+- ⚠️ **`SharedPreferences.reload()` (V0.1.56):** o snooze grava a lista de
+  pendentes noutro isolate (app fechado). Sem `reload()`, o cache em memória do
+  isolate do app ficava velho e o lembrete reprogramado NÃO aparecia nos
+  "agendados". `_carregarPendentes` e a leitura do contador de id (`agendar` e
+  `reagendarPorAcao`) fazem `reload()` antes de ler; a folha chama `recarregar()`
+  no `initState`.
 - **Pendentes:** guardados em SharedPreferences (`lembretes_pendentes_v1`, id em
   `lembretes_prox_id_v1`) só p/ EXIBIR (texto + horário) e cancelar; os vencidos
   são podados no load. `cancelar(id)` → `plugin.cancel(id)`. A fonte de verdade
@@ -920,3 +931,27 @@ A cada publicação de APK:
 | **Botões de snooze na notificação (V0.1.55)** | Pedido do usuário: reprogramar (30 min·2 h·24 h) direto no aviso, sem escrever de novo; `AndroidNotificationAction` + handler de background `@pragma('vm:entry-point')` que reagenda com o app fechado. Android mostra até ~3 botões → escolhidos 3 |
 | **Folha de lembrete: useSafeArea + subida suave (V0.1.55)** | Pedido do usuário: a folha subia por baixo da barra de status e "travava" ao subir. `useSafeArea:true` + `maxHeight 92%`; foco do campo com atraso (~280ms) + `AnimatedPadding` no lugar de `autofocus`+`Padding` |
 | **Limpeza de artefatos + reescrita de histórico (V0.1.55)** | Pedido do usuário (autorizado): caches locais da VPS (~191 MB), runs antigos do GitHub Actions e `git filter-branch` p/ remover o `app-release.apk` de 51 MB do histórico (force-push). O `.gitignore` já barra o APK; a regra continua: NUNCA commitar `app-release.apk` |
+| **Folha de lembrete: fluidez revista (V0.1.56)** | O foco atrasado + `AnimatedPadding` da V0.1.55 deram "dois estágios + travadinha". Revertido p/ SEM autofocus + `Padding` simples (segue o teclado 1:1); teclado só abre ao tocar no campo |
+| **Snooze aparece nos agendados: `reload()` (V0.1.56)** | O snooze grava a lista noutro isolate; sem `SharedPreferences.reload()` o app mostrava cache velho e o lembrete reprogramado sumia da lista |
+
+---
+
+## 14. Sugestões futuras (backlog de ideias)
+
+> Ideias levantadas e ainda NÃO implementadas (nenhuma aprovada até agora).
+> Ordem = da mais sinérgica com o que já existe para a menos.
+
+- ⭐ **Data de vencimento por tarefa + lembrete automático** — marcar "vence tal
+  dia/hora" numa caixinha e ela agenda a notificação sozinha (reusa
+  `LembretesService`); tarefas atrasadas ganham destaque. Fecha o ciclo notas ↔
+  lembretes.
+- **Widget na tela inicial do Android** com as tarefas de um projeto —
+  **INTERESSA ao usuário, mas NÃO agora** (marcado 2026-08-21 p/ retomar depois).
+- **Arquivar projeto** (em vez de só excluir) — concluídos saem da lista
+  principal sem perder conteúdo; aba/filtro "Arquivados".
+- **Fixar (pin) projeto no topo** — além de "em andamento".
+- **Lembrete recorrente** (diário/semanal) — reusa o motor de notificação
+  (`matchDateTimeComponents`).
+- **Etiquetas/cores por projeto** + filtro rápido.
+- **"Limpar concluídas"** — apagar/arquivar de uma vez as caixinhas marcadas.
+- **Compartilhar 1 projeto como texto** (hoje há PDF e "copiar tudo").
