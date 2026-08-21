@@ -61,11 +61,6 @@ class BuscaController extends TextEditingController {
 
   static const _corDestaque = Color(0x59FFC107);
 
-  /// Escala dos quadradinhos ☐/☑ em relação ao texto da caixinha (V0.1.52):
-  /// maiores, com `fontSize × height` CONSTANTE para a linha manter a MESMA
-  /// altura e o resto do texto não se mexer.
-  static const _todoEscala = 1.3;
-
   @override
   TextSpan buildTextSpan({
     required BuildContext context,
@@ -74,72 +69,32 @@ class BuscaController extends TextEditingController {
   }) {
     final t = termo.trim().toLowerCase();
     final texto = value.text;
-    final lower = texto.toLowerCase();
-    final temTermo = t.isNotEmpty && lower.contains(t);
-    final temTodo = texto.contains('☐') || texto.contains('☑');
-    // Sem termo ativo E sem quadradinhos: comportamento PADRÃO (inclui o
-    // sublinhado da palavra em composição do teclado). Só assumimos o desenho
-    // quando há o que destacar ou o que ampliar.
-    if (!temTermo && !temTodo) {
+    // Sem termo ativo: comportamento PADRÃO (inclui o sublinhado da palavra em
+    // composição do teclado). Só assumimos o desenho quando há o que destacar.
+    if (t.isEmpty || !texto.toLowerCase().contains(t)) {
       return super.buildTextSpan(
           context: context, style: style, withComposing: withComposing);
     }
     final base = style ?? const TextStyle();
-    final fBase = base.fontSize ?? 14.5;
-    final hBase = base.height ?? 1.0;
     final destaque = base.copyWith(backgroundColor: _corDestaque);
-    // Quadradinho MAIOR (o glifo vem da fonte fallback Noto Sans Symbols 2).
-    final todo = base.copyWith(
-      fontSize: fBase * _todoEscala,
-      height: hBase / _todoEscala,
-    );
-
-    // Sublinhado da palavra em composição do IME, como o super.buildTextSpan.
-    final compondo = withComposing &&
-        value.composing.isValid &&
-        !value.composing.isCollapsed;
-    final compIni = compondo ? value.composing.start : -1;
-    final compFim = compondo ? value.composing.end : -1;
-
+    final lower = texto.toLowerCase();
     final spans = <TextSpan>[];
-    var segInicio = 0;
-    TextStyle? segEstilo;
-    void flush(int ate) {
-      if (ate <= segInicio) return;
-      var s = segEstilo;
-      if (compondo && ate > compIni && segInicio < compFim) {
-        s = (s ?? base).copyWith(
-          decoration: TextDecoration.underline,
-          decorationColor: s?.color,
-        );
+    var from = 0;
+    while (true) {
+      final idx = lower.indexOf(t, from);
+      if (idx < 0) {
+        spans.add(TextSpan(text: texto.substring(from)));
+        break;
       }
-      spans.add(TextSpan(text: texto.substring(segInicio, ate), style: s));
+      if (idx > from) {
+        spans.add(TextSpan(text: texto.substring(from, idx)));
+      }
+      spans.add(TextSpan(
+        text: texto.substring(idx, idx + t.length),
+        style: destaque,
+      ));
+      from = idx + t.length;
     }
-
-    var i = 0;
-    while (i < texto.length) {
-      final ch = texto[i];
-      if (ch == '☐' || ch == '☑') {
-        flush(i);
-        segEstilo = todo;
-        flush(i + 1);
-        segEstilo = null;
-        segInicio = i + 1;
-        i++;
-        continue;
-      }
-      if (temTermo && lower.startsWith(t, i)) {
-        flush(i);
-        segEstilo = destaque;
-        flush(i + t.length);
-        segEstilo = null;
-        segInicio = i + t.length;
-        i += t.length;
-        continue;
-      }
-      i++;
-    }
-    flush(texto.length);
     return TextSpan(style: base, children: spans);
   }
 }

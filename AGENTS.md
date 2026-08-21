@@ -386,12 +386,13 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 - O estilo do texto é montado em `build` (`_estiloCampo`: fonte do tema +
   fallback + fontSize/height) e REUSADO no hit-test (`_toqueTexto`) — assim
   as métricas do `TextPainter` batem com o texto renderizado.
-- **Quadradinho MAIOR (V0.1.52):** o `BuscaController.buildTextSpan` desenha
-  os glifos ☐/☑ com `fontSize × 1.3` e `height / 1.3` (altura de linha
-  constante — o resto do texto da linha não se mexe); o glifo continua vindo
-  do fallback Noto Sans Symbols 2. A faixa de toque do `_toqueTexto` foi
-  alargada de 40px para 48px para acompanhar o glifo maior.
-- **Tocar no quadradinho** (faixa esquerda de ~48px de uma linha ☐/☑) alterna
+- ⚠️ **Quadradinho maior REVERTIDO (V0.1.52 → V0.1.53):** a tentativa de
+  ampliar os glifos ☐/☑ via `BuscaController.buildTextSpan` (fontSize×1.3,
+  height compensado, faixa de toque 48px) quebrou a digitação nas linhas de
+  to-do no aparelho do usuário (Enter duplicava texto, palavra gigante na
+  2ª linha). REVERTIDO ao código original — o `buildTextSpan` voltou a só
+  cuidar do destaque de busca e a faixa de toque voltou a 40px. NÃO re-aplicar.
+- **Tocar no quadradinho** (faixa esquerda de ~40px de uma linha ☐/☑) alterna
   marcado/desmarcado — hit-test com `TextPainter` no `_toqueTexto`, detectado
   por `Listener` (eventos crus, sem disputa de gestos com o campo de texto).
 
@@ -829,5 +830,6 @@ A cada publicação de APK:
 | **Lupa da tela inicial vira busca GLOBAL (V0.1.42)** | Pedido do usuário: achar qualquer palavra em Tarefas/Ideias de qualquer projeto e ir até a caixinha |
 | **ConfigSheet com `showDragHandle` (V0.1.42)** | Não dava para fechar arrastando (o scroll do conteúdo engolia o gesto) |
 | **Quadradinhos ☐/☑ maiores (V0.1.52)** | Pedido do usuário; `BuscaController.buildTextSpan` amplia o glifo (fontSize×1.3, height compensado p/ a linha não crescer) e a faixa de toque vai a 48px |
+| **Quadradinho maior REVERTIDO (V0.1.53)** | A V0.1.52 quebrou a digitação nas linhas de to-do no aparelho do usuário (Enter duplicava, palavra gigante na 2ª linha); revertido ao original — a lição: NÃO desenhar o glifo ☐/☑ com estilo próprio no buildTextSpan, o TextField deixa de renderizar o texto corretamente com IME |
 | **ConfigSheet: Tema nasce fechado (V0.1.52)** | Pedido do usuário; nenhuma seção abre sozinha — todas esperam o toque na flechinha |
 | **Caixinha do tema Claude um pouco mais clara (V0.1.42)** | Pedido do usuário; interior `#161617→#1E1E20` e barra `#111213→#18181A`, cada tom em separado |
