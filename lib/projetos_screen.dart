@@ -198,6 +198,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
+      // useSafeArea: a folha respeita o topo (barra de status: relógio,
+      // bateria, rede) — sem isso, com o teclado aberto ela subia demais e
+      // entrava por baixo dessas informações.
+      useSafeArea: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1466,6 +1473,7 @@ class _LembreteSheet extends StatefulWidget {
 
 class _LembreteSheetState extends State<_LembreteSheet> {
   final TextEditingController _ctrl = TextEditingController();
+  final FocusNode _foco = FocusNode();
   bool _agendando = false;
 
   static const List<(Duration, String)> _presets = [
@@ -1476,8 +1484,22 @@ class _LembreteSheetState extends State<_LembreteSheet> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Foca o campo SÓ depois de a folha terminar de subir (~280 ms): abrir o
+    // teclado junto com a animação da folha deixava a subida "travada". Assim
+    // a folha sobe suave primeiro e só então o teclado aparece.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 280), () {
+        if (mounted) _foco.requestFocus();
+      });
+    });
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
+    _foco.dispose();
     super.dispose();
   }
 
@@ -1556,6 +1578,7 @@ class _LembreteSheetState extends State<_LembreteSheet> {
         ),
       ),
     );
+    ctrl.dispose();
     if (d == null) return;
     final rotulo = d.inMinutes % 60 == 0 && d.inHours >= 1
         ? '${d.inHours} h'
@@ -1579,8 +1602,11 @@ class _LembreteSheetState extends State<_LembreteSheet> {
   @override
   Widget build(BuildContext context) {
     final s = Theme.of(context).colorScheme;
-    return Padding(
-      // Sobe a folha acima do teclado (o campo abre o teclado com autofocus).
+    return AnimatedPadding(
+      // Acompanha o teclado de forma ANIMADA (sem "salto"): a folha sobe acima
+      // do teclado suavemente.
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SafeArea(
         child: SingleChildScrollView(
@@ -1601,7 +1627,7 @@ class _LembreteSheetState extends State<_LembreteSheet> {
               const SizedBox(height: 12),
               TextField(
                 controller: _ctrl,
-                autofocus: true,
+                focusNode: _foco,
                 minLines: 1,
                 maxLines: 3,
                 textCapitalization: TextCapitalization.sentences,

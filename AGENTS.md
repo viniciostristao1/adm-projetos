@@ -562,18 +562,31 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   antes de atualizar/desinstalar; ao reinstalar entre com a MESMA conta e
   toque em Baixar".
 
-### Lembretes rápidos (notificação local) — sininho (V0.1.54)
+### Lembretes rápidos (notificação local) — sininho (V0.1.54/55)
 - **`LembretesService`** (lembretes.dart, ChangeNotifier singleton) sobre
   `flutter_local_notifications` + `timezone`. Inicializado no `main()`
   (try/catch, como o Firebase). Canal `lembretes` (Importance.high).
 - Fluxo: 🔔 na tela inicial (à ESQUERDA da lupa) → `_LembreteSheet` (folha
-  `isScrollControlled`): campo de texto (autofocus) + `ActionChip`s de tempo
+  `isScrollControlled` + **`useSafeArea` V0.1.55** para não subir por baixo da
+  barra de status; foco do campo com ATRASO ~280ms + `AnimatedPadding` p/ a
+  folha subir suave, não "travada"): campo de texto + `ActionChip`s de tempo
   (30 min · 2 h · 4 h · 24 h · "Outro…") → `agendar(texto, Duration)`. Três
   toques: sininho → escrever → tocar no tempo.
 - **`agendar`** pede a permissão (Android 13+, `requestNotificationsPermission`)
   e chama `zonedSchedule` com `AndroidScheduleMode.exactAllowWhileIdle` — alarme
   EXATO. O instante é `agora + duração` computado em UTC (lembrete relativo, o
-  fuso não altera o instante absoluto).
+  fuso não altera o instante absoluto). O `payload` carrega o texto.
+- **Botões de reprogramar na notificação (snooze, V0.1.55):** o aviso traz
+  `AndroidNotificationAction` **30 min · 2 h · 24 h** (`_snoozes`; Android mostra
+  até ~3). Tocar num botão chama `LembretesService.reagendarPorAcao` — ESTÁTICO
+  e autossuficiente (roda no isolate de BACKGROUND, com o app fechado):
+  `DartPluginRegistrant.ensureInitialized()` + init tz/plugin, mapeia o
+  `actionId` → `Duration`, lê o `payload` (texto) e reagenda; edita a lista
+  persistida (`_mexerPendentesPrefs`: tira o id que disparou, põe o novo). O
+  handler top-level `respostaNotificacaoBackground` (`@pragma('vm:entry-point')`)
+  é registrado em `initialize` (+ `_respostaNotificacaoForeground` p/ o app vivo,
+  que ainda dá `recarregar()` na lista visível). `showsUserInterface:false` +
+  `cancelNotification:true` nos botões.
 - **Pendentes:** guardados em SharedPreferences (`lembretes_pendentes_v1`, id em
   `lembretes_prox_id_v1`) só p/ EXIBIR (texto + horário) e cancelar; os vencidos
   são podados no load. `cancelar(id)` → `plugin.cancel(id)`. A fonte de verdade
@@ -904,3 +917,6 @@ A cada publicação de APK:
 | **Teclado: unfocus debitado 320ms (V0.1.54)** | Pedido do usuário ("teclado pisca/desliga sozinho digitando"); teclados reportam altura 0 passageira ao trocar de layout — o unfocus imediato fechava o teclado no meio da digitação. Debounce com re-checagem + reabertura sem duplo-show |
 | **Lembretes com notificação — sininho (V0.1.54)** | Pedido do usuário: lembrete rápido em 3 toques; `flutter_local_notifications`, alarme EXATO via `USE_EXACT_ALARM` (sem prompt), lista de pendentes p/ cancelar |
 | **Checkbox maior — MANTIDO como está (V0.1.54)** | Mesma família da V0.1.52 (buildTextSpan) re-quebraria o IME; teste headless não pega. Apresentado ao usuário, que optou por NÃO mexer no tamanho. Rota segura futura: só aumentar quando NÃO focado |
+| **Botões de snooze na notificação (V0.1.55)** | Pedido do usuário: reprogramar (30 min·2 h·24 h) direto no aviso, sem escrever de novo; `AndroidNotificationAction` + handler de background `@pragma('vm:entry-point')` que reagenda com o app fechado. Android mostra até ~3 botões → escolhidos 3 |
+| **Folha de lembrete: useSafeArea + subida suave (V0.1.55)** | Pedido do usuário: a folha subia por baixo da barra de status e "travava" ao subir. `useSafeArea:true` + `maxHeight 92%`; foco do campo com atraso (~280ms) + `AnimatedPadding` no lugar de `autofocus`+`Padding` |
+| **Limpeza de artefatos + reescrita de histórico (V0.1.55)** | Pedido do usuário (autorizado): caches locais da VPS (~191 MB), runs antigos do GitHub Actions e `git filter-branch` p/ remover o `app-release.apk` de 51 MB do histórico (force-push). O `.gitignore` já barra o APK; a regra continua: NUNCA commitar `app-release.apk` |
