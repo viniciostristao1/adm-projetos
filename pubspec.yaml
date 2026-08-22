@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.1.60+60
+version: 0.1.61+61
 
 environment:
   sdk: ^3.12.2
@@ -43,6 +43,9 @@ dependencies:
   firebase_core: ^4.12.1
   firebase_auth: ^6.5.6
   cloud_firestore: ^6.7.1
+  # Login NATIVO do Google (evita o fluxo web "Generic IDP" que dava o erro
+  # "public encryption key"). Usa o SHA-1 já registrado.
+  google_sign_in: ^6.2.1
   image_picker: ^1.1.2
   google_mlkit_text_recognition: ^0.14.0
   # Lembretes com notificação local (item 5) — agendados pelo AlarmManager do

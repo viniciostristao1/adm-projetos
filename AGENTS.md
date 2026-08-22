@@ -555,6 +555,14 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
     `Storage.substituir()` pelos dados da nuvem.
 - **Entrar com Google** só autentica e mostra o estado (`nuvemMaisNova` é apenas
   uma DICA, comparando `atualizadoEm` remoto vs local — nunca aplica sozinho).
+- ⚠️ **Login NATIVO do Google (V0.1.61):** `entrarComGoogle` usa
+  `google_sign_in` (`signIn` → `signInWithCredential`), NÃO mais
+  `signInWithProvider(GoogleAuthProvider())`. O fluxo web "Generic IDP" dava
+  `[firebase_auth/unknown] Failed to generate/retrieve public encryption key`
+  mesmo com SHA-1 **e** SHA-256 registrados. O nativo usa o SHA-1 já registrado
+  + `serverClientId` = web client (oauth_client type 3). `sair()` também faz
+  `GoogleSignIn().signOut()`. Requer o provedor **Google habilitado** em
+  Firebase Auth (senão dá `operation-not-allowed`, agora visível no dialog).
 - 🐛 **Por que virou manual (regressão da perda de texto — V0.1.24):** o modo
   automático anterior aplicava a nuvem (inclusive o ECO do próprio envio) via
   `Storage.substituir()`, que TROCA os objetos do modelo por novos. Se isso
@@ -977,7 +985,8 @@ A cada publicação de APK:
 | **NUNCA mandar desinstalar p/ atualizar (incidente 2026-08-22)** | Sugeri desinstalar antes da V0.1.57 (p/ recriar o canal de notificação). A reinstalação restaurou um **auto-backup ANTIGO do Android** e o usuário perdeu o conteúdo recente. Update in-place preserva tudo; canal novo/permissões aplicam in-place. **Sempre instalar por cima.** |
 | **Restaurar de texto colado (V0.1.58)** | Resposta ao incidente: recuperar projetos a partir do texto do "Copiar backup" (o único backup que o usuário tinha). `projetosDeBackupColado` + `RestaurarTextoScreen`. Lição maior: o app precisa de backup MENOS escondido (ver §14) |
 | **"Copiar backup" lossless + erro real do login (V0.1.59)** | Pedido do usuário: copiar deve preservar caixinhas/comentários/links → bloco JSON completo anexado (`marcadorBackupJson`). E `_entrarGoogle` passou a mostrar o ERRO REAL (antes engolia como "Firebase não configurado"). **Diagnóstico:** o SHA-1 do keystore de release BATE com o registrado no `google-services.json` → a falha do login Google é server-side (provedor Google no Console / consent), não assinatura |
-| **Restaurar separa caixinhas por linha em branco (V0.1.60)** | Pedido do usuário ("organizado por pasta e caixinha separadas"). O texto antigo do "Copiar backup" não delimita caixinhas → `caixinhas()` divide cada aba nos espaços em branco. Erro real do login Google resolvido = `[firebase_auth/unknown] Failed to generate/retrieve public encryption key for Generic IDP flow` → **falta o SHA-256** no Console (SHA1 sozinho não basta p/ o fluxo web). SHA-256 do release: `62:4D:6E:9C:...:EB:72` |
+| **Restaurar separa caixinhas por linha em branco (V0.1.60)** | Pedido do usuário ("organizado por pasta e caixinha separadas"). O texto antigo do "Copiar backup" não delimita caixinhas → `caixinhas()` divide cada aba nos espaços em branco. |
+| **Login Google NATIVO (V0.1.61)** | O `signInWithProvider` (fluxo web Generic IDP) dava "Failed to generate/retrieve public encryption key" mesmo com SHA-1 **e** SHA-256 registrados. Trocado para `google_sign_in` (`signInWithCredential`), que usa o SHA-1 nativo e não passa pelo fluxo web problemático |
 
 ---
 

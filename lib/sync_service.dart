@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
@@ -60,12 +61,34 @@ class SyncService extends ChangeNotifier {
     _auth.authStateChanges().listen(_aoMudarAuth);
   }
 
+  /// Web client ID (oauth_client type 3 do google-services.json) — necessário
+  /// para o `idToken` no login NATIVO.
+  static const String _webClientId =
+      '326190358442-lqmg6g7v556tb1m2i1bb7cmmbku95ehr.apps.googleusercontent.com';
+
+  GoogleSignIn get _googleSignIn =>
+      GoogleSignIn(serverClientId: _webClientId);
+
+  /// Login NATIVO do Google (Play Services) → credencial do Firebase. Substitui
+  /// o `signInWithProvider` (fluxo web "Generic IDP"), que dava o erro
+  /// "Failed to generate/retrieve public encryption key". O nativo usa o SHA-1
+  /// já registrado no Firebase.
   Future<void> entrarComGoogle() async {
-    await _auth.signInWithProvider(GoogleAuthProvider());
+    final conta = await _googleSignIn.signIn();
+    if (conta == null) return; // usuário cancelou a escolha da conta
+    final auth = await conta.authentication;
+    final cred = GoogleAuthProvider.credential(
+      accessToken: auth.accessToken,
+      idToken: auth.idToken,
+    );
+    await _auth.signInWithCredential(cred);
   }
 
   Future<void> sair() async {
     _desligar();
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
     await _auth.signOut();
   }
 
