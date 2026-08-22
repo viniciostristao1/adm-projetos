@@ -531,6 +531,10 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
       return;
     }
     if (!_foco.hasFocus) return;
+    // Mata a correção de maiúscula pendente AGORA (não só quando o unfocus
+    // dispara): senão ela poderia reabrir o teclado dentro da janela de
+    // debounce — o bug de "minimizar duas vezes".
+    _debounce?.cancel();
     // Debounce: só solta o foco se o teclado CONTINUAR fechado após a folga.
     // Assim um "altura 0" passageiro durante a digitação não desliga o teclado.
     _fecharTecladoTimer?.cancel();
@@ -613,6 +617,13 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     // salvar (ditado por voz não pode ser interrompido pela correção).
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 2), () {
+      // ⚠️ NÃO corrigir se o teclado já foi escondido: mexer no `_ctrl.value`
+      // com o campo AINDA focado REABRE o teclado — era o motivo de, às vezes,
+      // ter de "minimizar o teclado duas vezes" (a correção disparava dentro
+      // da janela em que o campo ainda tinha foco após esconder). Só corrige
+      // com o teclado à vista.
+      if (!mounted || !_foco.hasFocus) return;
+      if (View.of(context).viewInsets.bottom == 0) return;
       final corrigido = maiusculaAposItem(_ctrl.text);
       if (corrigido != _ctrl.text) {
         _ctrl.value = TextEditingValue(

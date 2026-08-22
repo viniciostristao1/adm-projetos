@@ -457,6 +457,13 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 - ⚠️ O guard `resumed` é essencial: ao SAIR para outro app o teclado também
   fecha, mas aí queremos PRESERVAR o foco para reabri-lo ao voltar (não brigar
   com `_reabrirTeclado`).
+- ⚠️ **"Minimizar o teclado duas vezes" (V0.1.57):** a correção de maiúscula
+  (`_debounce`, 2s) fazia `_ctrl.value = …` num campo AINDA focado → REABRIA o
+  teclado se disparasse logo depois de o usuário esconder (intermitente, pior em
+  listas numeradas onde a correção existe). Dois freios: (1) o callback da
+  correção só age com o teclado À VISTA (`viewInsets.bottom > 0` e
+  `_foco.hasFocus`); (2) `didChangeMetrics`, ao ver o teclado fechar, cancela o
+  `_debounce` na hora (não só quando o unfocus dispara).
 
 ### Caderno (caixinha longa)
 - `maxLines: 24`; além disso o texto rola por dentro (Scrollbar). Botão
@@ -598,6 +605,24 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   "agendados". `_carregarPendentes` e a leitura do contador de id (`agendar` e
   `reagendarPorAcao`) fazem `reload()` antes de ler; a folha chama `recarregar()`
   no `initState`.
+- ⚠️ **Reforço de entrega (V0.1.57):** contra "às vezes sem som / não aparece na
+  tela bloqueada / conteúdo não aparece / ~1 min atrasado":
+  - **Canal NOVO `lembretes_v2`** (`_canal`, `Importance.max` + `playSound` +
+    `enableVibration`). O Android CONGELA som/importância na criação do canal —
+    por isso trocamos o id; o antigo `lembretes` é apagado (`deleteNotificationChannel`).
+  - `_detalhes(texto)`: `Importance.max`, `category.reminder`,
+    `visibility.public` (mostra na tela bloqueada), `playSound`,
+    `enableVibration` e **`BigTextStyleInformation(texto)`** (mostra o texto
+    escrito inteiro; sem BigText o corpo era truncado).
+  - **Arredonda o disparo para o minuto** (`_quandoAgendar`: zera os segundos) —
+    tocava nos segundos seguintes e parecia ~1 min atrasado. Como a duração é
+    sempre ≥ 1 min, o alvo nunca cai no passado.
+  - Manifesto ganhou **`SCHEDULE_EXACT_ALARM`** (cobre Android 12, onde
+    `USE_EXACT_ALARM` não existe) — sem alarme EXATO o Doze atrasa/segura o
+    disparo com a tela bloqueada.
+  - ⚠️ Reincidência de "não chega com o app fechado" costuma ser OEM (Xiaomi/
+    Samsung/etc. matam o app) → orientar o usuário a liberar o app da economia
+    de bateria. Não há fix 100% em código para isso.
 - **Pendentes:** guardados em SharedPreferences (`lembretes_pendentes_v1`, id em
   `lembretes_prox_id_v1`) só p/ EXIBIR (texto + horário) e cancelar; os vencidos
   são podados no load. `cancelar(id)` → `plugin.cancel(id)`. A fonte de verdade
@@ -933,6 +958,8 @@ A cada publicação de APK:
 | **Limpeza de artefatos + reescrita de histórico (V0.1.55)** | Pedido do usuário (autorizado): caches locais da VPS (~191 MB), runs antigos do GitHub Actions e `git filter-branch` p/ remover o `app-release.apk` de 51 MB do histórico (force-push). O `.gitignore` já barra o APK; a regra continua: NUNCA commitar `app-release.apk` |
 | **Folha de lembrete: fluidez revista (V0.1.56)** | O foco atrasado + `AnimatedPadding` da V0.1.55 deram "dois estágios + travadinha". Revertido p/ SEM autofocus + `Padding` simples (segue o teclado 1:1); teclado só abre ao tocar no campo |
 | **Snooze aparece nos agendados: `reload()` (V0.1.56)** | O snooze grava a lista noutro isolate; sem `SharedPreferences.reload()` o app mostrava cache velho e o lembrete reprogramado sumia da lista |
+| **Notificação: som/tela bloqueada/conteúdo/atraso (V0.1.57)** | Canal novo `lembretes_v2` (max+som — o Android congela o canal antigo), `BigTextStyle` (mostra o texto), `visibility.public` (tela bloqueada), arredonda o disparo ao minuto (fim do "~1 min atrasado") e `SCHEDULE_EXACT_ALARM` (Android 12/Doze). Entrega com app morto pode depender do OEM (bateria) |
+| **Teclado "minimizar 2×" (V0.1.57)** | A correção de maiúscula reabria o teclado num campo ainda focado ao esconder; agora só corrige com o teclado à vista + cancela o debounce ao fechar |
 
 ---
 

@@ -66,7 +66,10 @@ class LembretesService extends ChangeNotifier {
   bool _pronto = false;
   bool get pronto => _pronto;
 
-  static const String _canalId = 'lembretes';
+  // ⚠️ id NOVO (v2): o Android CONGELA som/importância de um canal na criação —
+  // mudar depois não pega. Trocamos o id para garantir som + prioridade máxima.
+  static const String _canalId = 'lembretes_v2';
+  static const String _canalIdAntigo = 'lembretes';
   static const String _canalNome = 'Lembretes';
   static const String _canalDesc = 'Lembretes rápidos do Taskix';
   static const String _chavePendentes = 'lembretes_pendentes_v1';
@@ -96,24 +99,57 @@ class LembretesService extends ChangeNotifier {
 
   /// Detalhes da notificação COM os botões de reprogramar. Estático para o
   /// handler de background (outro isolate) montar igual ao do app.
-  static NotificationDetails _detalhes() => NotificationDetails(
-        android: AndroidNotificationDetails(
-          _canalId,
-          _canalNome,
-          channelDescription: _canalDesc,
-          importance: Importance.high,
-          priority: Priority.high,
-          actions: [
-            for (final s in _snoozes)
-              AndroidNotificationAction(
-                s.$1,
-                s.$2,
-                showsUserInterface: false,
-                cancelNotification: true,
-              ),
-          ],
-        ),
-      );
+  /// [texto] entra no `BigTextStyle` para o conteúdo escrito aparecer inteiro.
+  static NotificationDetails _detalhes(String texto) {
+    final corpo = texto.isEmpty ? 'Toque para abrir o Taskix' : texto;
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        _canalId,
+        _canalNome,
+        channelDescription: _canalDesc,
+        importance: Importance.max,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.reminder,
+        // Aparece com conteúdo na tela BLOQUEADA.
+        visibility: NotificationVisibility.public,
+        playSound: true,
+        enableVibration: true,
+        // Mostra o texto escrito INTEIRO (sem BigText, o corpo é truncado).
+        styleInformation: BigTextStyleInformation(corpo),
+        actions: [
+          for (final s in _snoozes)
+            AndroidNotificationAction(
+              s.$1,
+              s.$2,
+              showsUserInterface: false,
+              cancelNotification: true,
+            ),
+        ],
+      ),
+    );
+  }
+
+  static const AndroidNotificationChannel _canal = AndroidNotificationChannel(
+    _canalId,
+    _canalNome,
+    description: _canalDesc,
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+  );
+
+  /// Instante do disparo = agora + [daqui], ARREDONDADO para BAIXO no minuto
+  /// (segundos zerados) — assim toca no HH:MM que aparece em "AGENDADOS", não
+  /// nos segundos seguintes (parecia ~1 min atrasada). Como [daqui] é sempre
+  /// ≥ 1 min, o resultado nunca cai no passado. Retorna (local, tz UTC).
+  static (DateTime, tz.TZDateTime) _quandoAgendar(Duration daqui) {
+    final alvo = DateTime.now().add(daqui);
+    final local =
+        DateTime(alvo.year, alvo.month, alvo.day, alvo.hour, alvo.minute);
+    final agendado = tz.TZDateTime.fromMillisecondsSinceEpoch(
+        tz.UTC, local.millisecondsSinceEpoch);
+    return (local, agendado);
+  }
 
   /// Inicializa o plugin + timezone + canal. Chamado no `main()` (try/catch).
   Future<void> init() async {
@@ -127,12 +163,10 @@ class LembretesService extends ChangeNotifier {
       onDidReceiveBackgroundNotificationResponse:
           respostaNotificacaoBackground,
     );
-    await _android?.createNotificationChannel(const AndroidNotificationChannel(
-      _canalId,
-      _canalNome,
-      description: _canalDesc,
-      importance: Importance.high,
-    ));
+    await _android?.createNotificationChannel(_canal);
+    // Remove o canal antigo (importância high sem som garantido) para não
+    // ficar duplicado nas configurações do Android.
+    await _android?.deleteNotificationChannel(_canalIdAntigo);
     await _carregarPendentes();
     _pronto = true;
   }
@@ -157,17 +191,14 @@ class LembretesService extends ChangeNotifier {
     final id = prefs.getInt(_chaveProxId) ?? 1;
     await prefs.setInt(_chaveProxId, id + 1);
 
-    final quando = DateTime.now().add(daqui);
-    // Instante ABSOLUTO = agora + duração. Como o lembrete é relativo, computar
-    // em UTC dá o mesmo instante independentemente do fuso do aparelho.
-    final agendado = tz.TZDateTime.now(tz.UTC).add(daqui);
+    final (quando, agendado) = _quandoAgendar(daqui);
 
     await _plugin.zonedSchedule(
       id,
       'Lembrete',
       texto.isEmpty ? 'Toque para abrir o Taskix' : texto,
       agendado,
-      _detalhes(),
+      _detalhes(texto),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: texto,
     );
@@ -214,12 +245,7 @@ class LembretesService extends ChangeNotifier {
     await plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-      _canalId,
-      _canalNome,
-      description: _canalDesc,
-      importance: Importance.high,
-    ));
+        ?.createNotificationChannel(_canal);
 
     final texto = resposta.payload ?? '';
     final prefs = await SharedPreferences.getInstance();
@@ -227,15 +253,14 @@ class LembretesService extends ChangeNotifier {
     final id = prefs.getInt(_chaveProxId) ?? 1;
     await prefs.setInt(_chaveProxId, id + 1);
 
-    final quando = DateTime.now().add(dur);
-    final agendado = tz.TZDateTime.now(tz.UTC).add(dur);
+    final (quando, agendado) = _quandoAgendar(dur);
 
     await plugin.zonedSchedule(
       id,
       'Lembrete',
       texto.isEmpty ? 'Toque para abrir o Taskix' : texto,
       agendado,
-      _detalhes(),
+      _detalhes(texto),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: texto,
     );

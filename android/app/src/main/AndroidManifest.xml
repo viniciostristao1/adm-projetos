@@ -4,6 +4,10 @@
          apps de lembrete/alarme, sem prompt) e reagendar após reboot. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <!-- SCHEDULE_EXACT_ALARM cobre o Android 12 (onde USE_EXACT_ALARM ainda não
+         existe): sem alarme EXATO, o Android atrasa o disparo (Doze) → lembrete
+         atrasado / não entregue com a tela bloqueada. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <application
