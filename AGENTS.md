@@ -512,10 +512,12 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 - **Restaurar de texto colado (V0.1.58):** ⚙️ → Backup → "Restaurar de um texto
   colado" (`RestaurarTextoScreen`) → cola o texto do botão **"Copiar backup"**
   (ou um JSON) → `projetosDeBackupColado` (storage.dart) reconstrói e importa
-  (Somar/Substituir). ⚠️ O texto do "Copiar backup" NÃO delimita caixinhas nem
-  guarda checkbox/comentário/link → cada aba vira UMA caixinha (recuperação de
-  emergência quando não há arquivo nem nuvem). Nasceu do incidente 2026-08-22
-  (perda de dados na reinstalação).
+  (Somar/Substituir). Ordem de tentativa: (0) bloco `###TASKIX-BACKUP-JSON###`
+  no fim = restauração FIEL; (1) JSON puro; (2) texto legível — neste caso as
+  **caixinhas são separadas por linha(s) em branco** (V0.1.60; checkbox/
+  comentário/link só vêm no bloco JSON). Recuperação de emergência quando não há
+  arquivo nem nuvem. Nasceu do incidente 2026-08-22 (perda de dados na
+  reinstalação).
 
 ### Backup automático (.bak) + snapshots + backup do Google (V0.1.42–45)
 - **`.bak` no disco:** cada gravação (`salvar`/`marcarModificacaoEm`) guarda a
@@ -975,6 +977,7 @@ A cada publicação de APK:
 | **NUNCA mandar desinstalar p/ atualizar (incidente 2026-08-22)** | Sugeri desinstalar antes da V0.1.57 (p/ recriar o canal de notificação). A reinstalação restaurou um **auto-backup ANTIGO do Android** e o usuário perdeu o conteúdo recente. Update in-place preserva tudo; canal novo/permissões aplicam in-place. **Sempre instalar por cima.** |
 | **Restaurar de texto colado (V0.1.58)** | Resposta ao incidente: recuperar projetos a partir do texto do "Copiar backup" (o único backup que o usuário tinha). `projetosDeBackupColado` + `RestaurarTextoScreen`. Lição maior: o app precisa de backup MENOS escondido (ver §14) |
 | **"Copiar backup" lossless + erro real do login (V0.1.59)** | Pedido do usuário: copiar deve preservar caixinhas/comentários/links → bloco JSON completo anexado (`marcadorBackupJson`). E `_entrarGoogle` passou a mostrar o ERRO REAL (antes engolia como "Firebase não configurado"). **Diagnóstico:** o SHA-1 do keystore de release BATE com o registrado no `google-services.json` → a falha do login Google é server-side (provedor Google no Console / consent), não assinatura |
+| **Restaurar separa caixinhas por linha em branco (V0.1.60)** | Pedido do usuário ("organizado por pasta e caixinha separadas"). O texto antigo do "Copiar backup" não delimita caixinhas → `caixinhas()` divide cada aba nos espaços em branco. Erro real do login Google resolvido = `[firebase_auth/unknown] Failed to generate/retrieve public encryption key for Generic IDP flow` → **falta o SHA-256** no Console (SHA1 sozinho não basta p/ o fluxo web). SHA-256 do release: `62:4D:6E:9C:...:EB:72` |
 
 ---
 

@@ -74,16 +74,32 @@ List<Projeto> projetosDeBackupColado(String entrada) {
     atual?.add(l); // linhas antes do 1º "- - -" (cabeçalho) são ignoradas
   }
 
-  String juntar(List<String> ls) {
-    // Tira UM nível de indentação (2 espaços) quando houver.
-    final limpos = ls.map((l) => l.startsWith('  ') ? l.substring(2) : l).toList();
-    while (limpos.isNotEmpty && limpos.first.trim().isEmpty) {
-      limpos.removeAt(0);
+  // Quebra o conteúdo de uma aba em CAIXINHAS: cada bloco separado por linha(s)
+  // em branco vira uma caixinha (o texto do "Copiar backup" não marca as
+  // caixinhas, mas respeitar os espaços em branco recupera a organização na
+  // maioria dos casos). Tira o nível de indentação de 2 espaços.
+  List<String> caixinhas(List<String> ls) {
+    final limpos =
+        ls.map((l) => l.startsWith('  ') ? l.substring(2) : l).toList();
+    final caixas = <String>[];
+    final atual = <String>[];
+    void fechar() {
+      while (atual.isNotEmpty && atual.last.trim().isEmpty) {
+        atual.removeLast();
+      }
+      if (atual.isNotEmpty) caixas.add(atual.join('\n'));
+      atual.clear();
     }
-    while (limpos.isNotEmpty && limpos.last.trim().isEmpty) {
-      limpos.removeLast();
+
+    for (final l in limpos) {
+      if (l.trim().isEmpty) {
+        fechar(); // linha em branco = fim de uma caixinha
+      } else {
+        atual.add(l);
+      }
     }
-    return limpos.join('\n');
+    fechar();
+    return caixas;
   }
 
   final base = DateTime.now().millisecondsSinceEpoch;
@@ -98,19 +114,21 @@ List<Projeto> projetosDeBackupColado(String entrada) {
     final nome = bloco[k].trim();
     final resto = bloco.sublist(k + 1);
     // Divide no PRIMEIRO "--- Ideias ---" (marcador de aba). Ocorrências
-    // seguintes ficam como texto dentro da caixinha de Ideias.
+    // seguintes ficam como texto dentro das caixinhas de Ideias.
     final idx = resto.indexWhere((l) => l.trim() == '--- Ideias ---');
-    final tarefasTxt = juntar(idx < 0 ? resto : resto.sublist(0, idx));
-    final ideiasTxt = idx < 0 ? '' : juntar(resto.sublist(idx + 1));
+    final tCaixas = caixinhas(idx < 0 ? resto : resto.sublist(0, idx));
+    final iCaixas = idx < 0 ? <String>[] : caixinhas(resto.sublist(idx + 1));
     projetos.add(Projeto(
       id: 'restaurado_${base}_$b',
       nome: nome,
-      tarefas: tarefasTxt.isEmpty
-          ? []
-          : [Nota(id: 'restaurado_${base}_${b}_t', texto: tarefasTxt)],
-      futuro: ideiasTxt.isEmpty
-          ? []
-          : [Nota(id: 'restaurado_${base}_${b}_i', texto: ideiasTxt)],
+      tarefas: [
+        for (var c = 0; c < tCaixas.length; c++)
+          Nota(id: 'restaurado_${base}_${b}_t$c', texto: tCaixas[c]),
+      ],
+      futuro: [
+        for (var c = 0; c < iCaixas.length; c++)
+          Nota(id: 'restaurado_${base}_${b}_i$c', texto: iCaixas[c]),
+      ],
     ));
   }
   return projetos;

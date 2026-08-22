@@ -64,6 +64,24 @@ Trabalho
       expect(ids.toSet().length, ids.length);
     });
 
+    test('separa caixinhas nas linhas em branco', () {
+      const t = '''
+- - -
+Multi
+  a1
+  a2
+
+  b1
+  --- Ideias ---
+  i1
+
+  i2
+''';
+      final p = projetosDeBackupColado(t).single;
+      expect(p.tarefas.map((n) => n.texto).toList(), ['a1\na2', 'b1']);
+      expect(p.futuro.map((n) => n.texto).toList(), ['i1', 'i2']);
+    });
+
     test('um 2º "--- Ideias ---" vira texto dentro da caixinha de Ideias', () {
       const t = '''
 - - -
