@@ -1112,6 +1112,163 @@ Future<void> _mostrarDiagnostico(BuildContext context) async {
   );
 }
 
+/// Tela "Restaurar de um texto colado": cola o texto do botão "Copiar backup"
+/// (ou um backup em JSON) e reconstrói os projetos. Recuperação de emergência
+/// quando não há arquivo exportado nem nuvem.
+class RestaurarTextoScreen extends StatefulWidget {
+  const RestaurarTextoScreen({super.key});
+
+  @override
+  State<RestaurarTextoScreen> createState() => _RestaurarTextoScreenState();
+}
+
+class _RestaurarTextoScreenState extends State<RestaurarTextoScreen> {
+  final TextEditingController _ctrl = TextEditingController();
+  bool _ocupado = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _colar() async {
+    final d = await Clipboard.getData(Clipboard.kTextPlain);
+    final t = d?.text;
+    if (t != null && t.isNotEmpty) {
+      setState(() => _ctrl.text = t);
+    } else if (mounted) {
+      mostrarAviso(context, 'A área de transferência está vazia.');
+    }
+  }
+
+  Future<void> _restaurar() async {
+    if (_ocupado) return;
+    final projetos = projetosDeBackupColado(_ctrl.text);
+    if (projetos.isEmpty) {
+      mostrarAviso(context,
+          'Não reconheci nenhum projeto nesse texto. Cole o texto do botão '
+          '"Copiar backup" (ou um backup em JSON).');
+      return;
+    }
+    final acao = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Restaurar?'),
+        content: Text(
+          'Reconheci ${projetos.length} projeto(s). Como quer restaurar?\n\n'
+          '"Somar" mantém o que já existe e acrescenta estes. '
+          '"Substituir" troca tudo pelos projetos deste texto.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'somar'),
+            child: const Text('Somar ao que existe'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'substituir'),
+            child: const Text('Substituir tudo'),
+          ),
+        ],
+      ),
+    );
+    if (acao == null || !mounted) return;
+    setState(() => _ocupado = true);
+    try {
+      if (acao == 'substituir') {
+        await Storage.instance.substituir(projetos);
+      } else {
+        final atuais = await Storage.instance.carregar();
+        final ids = atuais.map((p) => p.id).toSet();
+        await Storage.instance.substituir([
+          ...atuais,
+          ...projetos.where((p) => !ids.contains(p.id)),
+        ]);
+      }
+    } finally {
+      if (mounted) setState(() => _ocupado = false);
+    }
+    if (!mounted) return;
+    mostrarAviso(context, 'Restaurado! ${projetos.length} projeto(s).');
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dim = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Fundo(
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Restaurar de um texto')),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Cole aqui o texto do botão "Copiar backup" (ou um backup em '
+                  'JSON) e toque em Restaurar. Cada projeto volta com o texto '
+                  'em uma caixinha por aba — você pode separar depois.',
+                  style: TextStyle(color: dim, fontSize: 12.5),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.content_paste, size: 18),
+                      label: const Text('Colar'),
+                      onPressed: _colar,
+                    ),
+                    const Spacer(),
+                    if (_ctrl.text.isNotEmpty)
+                      TextButton(
+                        onPressed: () => setState(_ctrl.clear),
+                        child: const Text('Limpar'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    maxLines: null,
+                    expands: true,
+                    textAlignVertical: TextAlignVertical.top,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Cole o texto do backup aqui…',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  icon: _ocupado
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.restore),
+                  label: const Text('Restaurar'),
+                  onPressed: _ocupado ? null : _restaurar,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Folha de configurações (aberta pela engrenagem): seções expansíveis —
 /// toca na seção (Tema, Fonte, Densidade, Barra, Backup, Nuvem) e ela abre
 /// com as opções.
@@ -1304,6 +1461,22 @@ class _ConfigSheet extends StatelessWidget {
                 _dica(
                   'Salve ou restaure seus projetos num arquivo (bom para '
                   'trocar de celular).',
+                  dim,
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.content_paste_go_outlined, size: 18),
+                  label: const Text('Restaurar de um texto colado'),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const RestaurarTextoScreen()),
+                  ),
+                ),
+                _dica(
+                  'Recupera projetos a partir do texto do botão "Copiar backup" '
+                  '(ou de um backup em JSON) — útil se não houver arquivo nem '
+                  'nuvem.',
                   dim,
                 ),
                 const SizedBox(height: 8),

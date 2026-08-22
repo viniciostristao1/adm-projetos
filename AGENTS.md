@@ -509,6 +509,13 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 ### Backup em arquivo (exportar/importar)
 - **Exportar:** gera `adm-projetos-backup-AAAA-MM-DD-hhmm.json` (mesmo JSON do Storage) e abre o menu de compartilhamento (`share_plus`).
 - **Importar:** escolhe arquivo (`file_picker`), valida o JSON e pergunta: **Substituir tudo** ou **Somar ao que existe** (mescla por id).
+- **Restaurar de texto colado (V0.1.58):** ⚙️ → Backup → "Restaurar de um texto
+  colado" (`RestaurarTextoScreen`) → cola o texto do botão **"Copiar backup"**
+  (ou um JSON) → `projetosDeBackupColado` (storage.dart) reconstrói e importa
+  (Somar/Substituir). ⚠️ O texto do "Copiar backup" NÃO delimita caixinhas nem
+  guarda checkbox/comentário/link → cada aba vira UMA caixinha (recuperação de
+  emergência quando não há arquivo nem nuvem). Nasceu do incidente 2026-08-22
+  (perda de dados na reinstalação).
 
 ### Backup automático (.bak) + snapshots + backup do Google (V0.1.42–45)
 - **`.bak` no disco:** cada gravação (`salvar`/`marcarModificacaoEm`) guarda a
@@ -960,6 +967,8 @@ A cada publicação de APK:
 | **Snooze aparece nos agendados: `reload()` (V0.1.56)** | O snooze grava a lista noutro isolate; sem `SharedPreferences.reload()` o app mostrava cache velho e o lembrete reprogramado sumia da lista |
 | **Notificação: som/tela bloqueada/conteúdo/atraso (V0.1.57)** | Canal novo `lembretes_v2` (max+som — o Android congela o canal antigo), `BigTextStyle` (mostra o texto), `visibility.public` (tela bloqueada), arredonda o disparo ao minuto (fim do "~1 min atrasado") e `SCHEDULE_EXACT_ALARM` (Android 12/Doze). Entrega com app morto pode depender do OEM (bateria) |
 | **Teclado "minimizar 2×" (V0.1.57)** | A correção de maiúscula reabria o teclado num campo ainda focado ao esconder; agora só corrige com o teclado à vista + cancela o debounce ao fechar |
+| **NUNCA mandar desinstalar p/ atualizar (incidente 2026-08-22)** | Sugeri desinstalar antes da V0.1.57 (p/ recriar o canal de notificação). A reinstalação restaurou um **auto-backup ANTIGO do Android** e o usuário perdeu o conteúdo recente. Update in-place preserva tudo; canal novo/permissões aplicam in-place. **Sempre instalar por cima.** |
+| **Restaurar de texto colado (V0.1.58)** | Resposta ao incidente: recuperar projetos a partir do texto do "Copiar backup" (o único backup que o usuário tinha). `projetosDeBackupColado` + `RestaurarTextoScreen`. Lição maior: o app precisa de backup MENOS escondido (ver §14) |
 
 ---
 

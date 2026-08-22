@@ -8,6 +8,91 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'versao.dart';
 
+/// Reconstrói projetos a partir de um backup COLADO (texto). Aceita:
+///
+/// 1. O JSON de "Exportar arquivo" (uma lista `[ {...}, ... ]`) — restauração
+///    fiel (com checkbox, comentários, links).
+/// 2. O texto do botão "Copiar backup" — cabeçalho + blocos separados por
+///    `- - -`: a 1ª linha do bloco é o nome; as demais (indentadas com 2
+///    espaços) são o conteúdo; `--- Ideias ---` separa Tarefas de Ideias.
+///    ⚠️ Esse texto NÃO delimita as caixinhas individuais nem guarda
+///    checkbox/comentário/link — então cada aba vira UMA caixinha (o usuário
+///    divide depois). É a recuperação possível quando não há a nuvem/arquivo.
+///
+/// Nunca lança: entrada inválida devolve lista vazia (a UI avisa).
+List<Projeto> projetosDeBackupColado(String entrada) {
+  final texto = entrada.trim();
+  if (texto.isEmpty) return [];
+
+  // Caso 1: JSON de exportação (lista de projetos).
+  if (texto.startsWith('[')) {
+    try {
+      final dados = jsonDecode(texto);
+      if (dados is List) {
+        return dados
+            .map((e) => Projeto.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (_) {
+      // não era JSON válido — cai para o parser de texto abaixo.
+    }
+  }
+
+  // Caso 2: texto do "Copiar backup".
+  final linhas = const LineSplitter().convert(entrada);
+  final blocos = <List<String>>[];
+  List<String>? atual;
+  for (final l in linhas) {
+    if (l.trim() == '- - -') {
+      atual = <String>[];
+      blocos.add(atual);
+      continue;
+    }
+    atual?.add(l); // linhas antes do 1º "- - -" (cabeçalho) são ignoradas
+  }
+
+  String juntar(List<String> ls) {
+    // Tira UM nível de indentação (2 espaços) quando houver.
+    final limpos = ls.map((l) => l.startsWith('  ') ? l.substring(2) : l).toList();
+    while (limpos.isNotEmpty && limpos.first.trim().isEmpty) {
+      limpos.removeAt(0);
+    }
+    while (limpos.isNotEmpty && limpos.last.trim().isEmpty) {
+      limpos.removeLast();
+    }
+    return limpos.join('\n');
+  }
+
+  final base = DateTime.now().millisecondsSinceEpoch;
+  final projetos = <Projeto>[];
+  for (var b = 0; b < blocos.length; b++) {
+    final bloco = blocos[b];
+    var k = 0;
+    while (k < bloco.length && bloco[k].trim().isEmpty) {
+      k++;
+    }
+    if (k >= bloco.length) continue; // bloco sem nome
+    final nome = bloco[k].trim();
+    final resto = bloco.sublist(k + 1);
+    // Divide no PRIMEIRO "--- Ideias ---" (marcador de aba). Ocorrências
+    // seguintes ficam como texto dentro da caixinha de Ideias.
+    final idx = resto.indexWhere((l) => l.trim() == '--- Ideias ---');
+    final tarefasTxt = juntar(idx < 0 ? resto : resto.sublist(0, idx));
+    final ideiasTxt = idx < 0 ? '' : juntar(resto.sublist(idx + 1));
+    projetos.add(Projeto(
+      id: 'restaurado_${base}_$b',
+      nome: nome,
+      tarefas: tarefasTxt.isEmpty
+          ? []
+          : [Nota(id: 'restaurado_${base}_${b}_t', texto: tarefasTxt)],
+      futuro: ideiasTxt.isEmpty
+          ? []
+          : [Nota(id: 'restaurado_${base}_${b}_i', texto: ideiasTxt)],
+    ));
+  }
+  return projetos;
+}
+
 /// Guarda os projetos num arquivo JSON no diretório de documentos do app.
 ///
 /// Formato do arquivo (v2): `{"atualizadoEm": ms, "projetos": [...]}` —
