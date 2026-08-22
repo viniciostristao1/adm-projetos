@@ -711,7 +711,12 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 - Texto em cor mais fraca (alpha 0.55).
 
 ### Backup
-- Botão ao lado da engrenagem na tela principal: copia **todos os projetos** (tarefas + futuro) para o clipboard, com separadores `- - -`.
+- Botão ao lado da engrenagem na tela principal ("Copiar backup"): copia
+  **todos os projetos** para o clipboard. **V0.1.59:** além da parte legível
+  (`- - -`), anexa no fim um bloco `###TASKIX-BACKUP-JSON###` + o JSON COMPLETO
+  (`exportarJson`). Assim "Restaurar de um texto colado" reconstrói TUDO
+  fielmente (caixinhas separadas, comentários, links, checkbox). Backups antigos
+  (só a parte legível) ainda restauram, mas com uma caixinha por aba.
 
 ### Salvamento automático
 - `Storage.instance.salvar()` é chamado após cada ação (criar, editar, excluir, reordenar, check, link, comentário).
@@ -969,6 +974,7 @@ A cada publicação de APK:
 | **Teclado "minimizar 2×" (V0.1.57)** | A correção de maiúscula reabria o teclado num campo ainda focado ao esconder; agora só corrige com o teclado à vista + cancela o debounce ao fechar |
 | **NUNCA mandar desinstalar p/ atualizar (incidente 2026-08-22)** | Sugeri desinstalar antes da V0.1.57 (p/ recriar o canal de notificação). A reinstalação restaurou um **auto-backup ANTIGO do Android** e o usuário perdeu o conteúdo recente. Update in-place preserva tudo; canal novo/permissões aplicam in-place. **Sempre instalar por cima.** |
 | **Restaurar de texto colado (V0.1.58)** | Resposta ao incidente: recuperar projetos a partir do texto do "Copiar backup" (o único backup que o usuário tinha). `projetosDeBackupColado` + `RestaurarTextoScreen`. Lição maior: o app precisa de backup MENOS escondido (ver §14) |
+| **"Copiar backup" lossless + erro real do login (V0.1.59)** | Pedido do usuário: copiar deve preservar caixinhas/comentários/links → bloco JSON completo anexado (`marcadorBackupJson`). E `_entrarGoogle` passou a mostrar o ERRO REAL (antes engolia como "Firebase não configurado"). **Diagnóstico:** o SHA-1 do keystore de release BATE com o registrado no `google-services.json` → a falha do login Google é server-side (provedor Google no Console / consent), não assinatura |
 
 ---
 

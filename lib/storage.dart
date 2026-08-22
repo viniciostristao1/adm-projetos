@@ -8,6 +8,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'versao.dart';
 
+/// Marcador que separa a parte LEGÍVEL do "Copiar backup" do bloco JSON
+/// COMPLETO no fim. O bloco JSON permite restauração 100% fiel (caixinhas
+/// separadas, comentários, links, checkbox). Backups antigos (sem o bloco) caem
+/// no parser de texto (uma caixinha por aba).
+const String marcadorBackupJson = '###TASKIX-BACKUP-JSON###';
+
 /// Reconstrói projetos a partir de um backup COLADO (texto). Aceita:
 ///
 /// 1. O JSON de "Exportar arquivo" (uma lista `[ {...}, ... ]`) — restauração
@@ -23,6 +29,23 @@ import 'versao.dart';
 List<Projeto> projetosDeBackupColado(String entrada) {
   final texto = entrada.trim();
   if (texto.isEmpty) return [];
+
+  // Caso 0 (preferido): "Copiar backup" novo, com o bloco JSON COMPLETO no fim
+  // (após o marcador). Restauração 100% fiel.
+  final iMarc = entrada.lastIndexOf(marcadorBackupJson);
+  if (iMarc >= 0) {
+    final jsonStr = entrada.substring(iMarc + marcadorBackupJson.length).trim();
+    try {
+      final dados = jsonDecode(jsonStr);
+      if (dados is List) {
+        return dados
+            .map((e) => Projeto.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (_) {
+      // bloco corrompido — cai para o parser de texto legível abaixo.
+    }
+  }
 
   // Caso 1: JSON de exportação (lista de projetos).
   if (texto.startsWith('[')) {

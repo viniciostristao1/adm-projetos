@@ -92,6 +92,30 @@ X
     });
   });
 
+  group('bloco JSON completo (Copiar backup novo, lossless)', () {
+    test('usa o JSON após o marcador e ignora a parte legível', () {
+      const json = '[{"id":"p1","nome":"Proj","tarefas":[{"id":"n1",'
+          '"texto":"linha1\\nlinha2","concluida":true,'
+          '"comentario":"meu comentario","links":[{"url":"http://x",'
+          '"titulo":"T"}]}],"futuro":[],"emAndamento":true}]';
+      // A parte de cima tem "- - -"/nome, que o parser de texto pegaria — mas o
+      // marcador tem prioridade e traz a restauração FIEL.
+      final entrada = 'ADM-projetos — Backup\n====\n\n- - -\nProj\n'
+          '  linha legivel ignorada\n\n$marcadorBackupJson\n$json';
+      final ps = projetosDeBackupColado(entrada);
+      expect(ps.length, 1);
+      final p = ps.single;
+      expect(p.nome, 'Proj');
+      expect(p.emAndamento, isTrue);
+      final n = p.tarefas.single;
+      expect(n.texto, 'linha1\nlinha2');
+      expect(n.concluida, isTrue);
+      expect(n.comentario, 'meu comentario');
+      expect(n.links.single.url, 'http://x');
+      expect(n.links.single.titulo, 'T');
+    });
+  });
+
   test('texto vazio ou sem projetos devolve lista vazia', () {
     expect(projetosDeBackupColado(''), isEmpty);
     expect(projetosDeBackupColado('   '), isEmpty);

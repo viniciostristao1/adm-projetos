@@ -133,7 +133,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     _salvar();
   }
 
-  void _copiarTudo() {
+  Future<void> _copiarTudo() async {
     final buf = StringBuffer()
       ..writeln('ADM-projetos  —  Backup')
       ..writeln('=' * 36);
@@ -158,9 +158,18 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         }
       }
     }
+    // Bloco final (não legível) com o backup COMPLETO em JSON: o "Restaurar de
+    // um texto colado" usa isto para reconstruir TUDO fielmente (caixinhas
+    // separadas, comentários, links, checkbox). A parte de cima segue legível.
+    buf
+      ..writeln()
+      ..writeln(marcadorBackupJson)
+      ..write(await Storage.instance.exportarJson());
     final texto = buf.toString();
-    Clipboard.setData(ClipboardData(text: texto));
-    mostrarAviso(context, 'Backup copiado (todos os projetos)!');
+    await Clipboard.setData(ClipboardData(text: texto));
+    if (!mounted) return;
+    mostrarAviso(context,
+        'Backup copiado — restaura tudo (caixinhas, comentários, links).');
   }
 
   Future<void> _abrirConfig() async {
@@ -1906,13 +1915,28 @@ Future<void> _entrarGoogle(BuildContext context) async {
   try {
     await SyncService.instance.entrarComGoogle();
   } catch (e) {
-    if (context.mounted) {
-      mostrarAviso(
-        context,
-        'Não foi possível entrar. O Firebase ainda não está configurado '
-        'neste aparelho.',
-      );
-    }
+    if (!context.mounted) return;
+    // Mostra o ERRO REAL (copiável) — antes engolíamos tudo como "Firebase não
+    // configurado", o que escondia a causa (ex.: provedor Google desativado no
+    // Console, cancelado pelo usuário, sem internet).
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Não foi possível entrar'),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            'Detalhe do erro (para diagnóstico):\n\n$e',
+            style: const TextStyle(fontSize: 12, height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
