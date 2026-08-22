@@ -11,15 +11,16 @@ AppCores _coresDe(Modo m) => switch (m) {
       Modo.neumB => AppCores.neumB,
       Modo.bege => AppCores.bege,
       Modo.claude => AppCores.claude,
+      Modo.onix => AppCores.onix,
     };
 
 void main() {
-  test('Modo tem exatamente 5 temas (Azul, Escuro, Dark Game, Bege, Claude Code)',
+  test('Modo tem exatamente 6 temas (Azul, Escuro, Dark Game, Bege, Terracota, Ônix)',
       () {
-    expect(Modo.values.length, 5);
+    expect(Modo.values.length, 6);
     expect(
       Modo.values.map((m) => m.rotulo).toList(),
-      ['Azul', 'Escuro', 'Dark Game', 'Bege', 'Claude Code'],
+      ['Azul', 'Escuro', 'Dark Game', 'Bege', 'Terracota', 'Ônix'],
     );
   });
 

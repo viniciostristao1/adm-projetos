@@ -576,8 +576,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     return Fundo(
       child: Scaffold(
+      // Home "sem caixa" (Bege): o fundo da tela inicial fica na cor da caixinha
+      // (bege queimado #E0D1B9) e as pastas ficam lisas por cima. Ônix já tem o
+      // fundo preto pelo próprio tema.
+      backgroundColor: app == AppCores.bege ? app.projetoCard : null,
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -823,9 +828,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 // No Bege, o check de "em andamento" fica como o quadradinho
                 // dentro das caixinhas: bolinha PRETA com "v" bege.
                 final ehBege = app == AppCores.bege;
-                // No Claude: bolinhas invisíveis (ícones apagados), borda
-                // 1px #2A2A2B e acento terracota no "em andamento".
+                // No Claude/Terracota: bolinhas invisíveis (ícones apagados),
+                // borda 1px #2A2A2B e acento terracota no "em andamento".
                 final ehClaude = app == AppCores.claude;
+                final ehOnix = app == AppCores.onix;
+                // Bege e Ônix: pastas SEM caixa nem borda (linhas lisas sobre o
+                // fundo). Os demais temas mantêm o cartão.
+                final semCaixa = ehBege || ehOnix;
                 final arrastarCor = ehClaude
                     ? app.projetoTxt.withValues(alpha: 0.45)
                     : app.projetoTxt;
@@ -839,7 +848,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     : (ehClaude ? Colors.transparent : bolaCor);
                 final corCheckAndamento = ehBege
                     ? app.notaInicio
-                    : (ehClaude
+                    : ((ehClaude || ehOnix)
                         ? app.fab
                         : const Color(0xFF4ADE80));
 
@@ -847,28 +856,34 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   key: ValueKey(p.id),
                   padding: EdgeInsets.only(bottom: compacto ? 5 : 10),
                   child: Container(
-                    decoration: BoxDecoration(
-                      color: app.projetoCard,
-                      borderRadius: BorderRadius.circular(ehClaude ? 10 : 14),
-                      border: ehClaude
-                          ? Border(
-                              // Barra terracota à esquerda = projeto
-                              // em andamento.
-                              left: BorderSide(
-                                color: p.emAndamento ? app.fab : app.notaBorda,
-                                width: p.emAndamento ? 3 : 1,
-                              ),
-                              top: const BorderSide(
-                                  color: Color(0xFF2A2A2B)),
-                              right: const BorderSide(
-                                  color: Color(0xFF2A2A2B)),
-                              bottom: const BorderSide(
-                                  color: Color(0xFF2A2A2B)),
-                            )
-                          : Border.all(
-                              color: app.projetoTxt.withValues(alpha: 0.08),
-                            ),
-                    ),
+                    decoration: semCaixa
+                        ? null
+                        : BoxDecoration(
+                            color: app.projetoCard,
+                            borderRadius:
+                                BorderRadius.circular(ehClaude ? 10 : 14),
+                            border: ehClaude
+                                ? Border(
+                                    // Barra terracota à esquerda = projeto
+                                    // em andamento.
+                                    left: BorderSide(
+                                      color: p.emAndamento
+                                          ? app.fab
+                                          : app.notaBorda,
+                                      width: p.emAndamento ? 3 : 1,
+                                    ),
+                                    top: const BorderSide(
+                                        color: Color(0xFF2A2A2B)),
+                                    right: const BorderSide(
+                                        color: Color(0xFF2A2A2B)),
+                                    bottom: const BorderSide(
+                                        color: Color(0xFF2A2A2B)),
+                                  )
+                                : Border.all(
+                                    color:
+                                        app.projetoTxt.withValues(alpha: 0.08),
+                                  ),
+                          ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 10, 4),
                       child: Row(
@@ -1823,21 +1838,31 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final p in _presets)
+              // Todos os tempos numa ÚNICA linha (rola na horizontal se faltar
+              // espaço); "Outro" (sem "…") logo depois do 24 h.
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final p in _presets) ...[
+                      ActionChip(
+                        label: Text(p.$2),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        onPressed:
+                            _agendando ? null : () => _agendar(p.$1, p.$2),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     ActionChip(
-                      label: Text(p.$2),
-                      onPressed: _agendando ? null : () => _agendar(p.$1, p.$2),
+                      label: const Text('Outro'),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onPressed: _agendando ? null : _outro,
                     ),
-                  ActionChip(
-                    avatar: const Icon(Icons.more_horiz, size: 18),
-                    label: const Text('Outro…'),
-                    onPressed: _agendando ? null : _outro,
-                  ),
-                ],
+                  ],
+                ),
               ),
               ListenableBuilder(
                 listenable: LembretesService.instance,
@@ -1990,6 +2015,9 @@ class _PrateleiraRecentes extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final ehClaude = app == AppCores.claude;
+    // Bege/Ônix: a home é "sem caixa" e seu fundo é a própria cor do cartão;
+    // então os cartões de recentes usam [notaFim] para não sumirem no fundo.
+    final semCaixa = app == AppCores.bege || app == AppCores.onix;
     final compacto = temaController.compacto;
     final rotuloCor = app.textoUI.withValues(alpha: 0.55);
     return Padding(
@@ -2116,7 +2144,7 @@ class _PrateleiraRecentes extends StatelessWidget {
                   cartao = Container(
                     width: 130,
                     decoration: BoxDecoration(
-                      color: app.projetoCard,
+                      color: semCaixa ? app.notaFim : app.projetoCard,
                       borderRadius: BorderRadius.circular(ehClaude ? 10 : 14),
                       border: ehClaude
                           ? const Border(

@@ -61,7 +61,7 @@ App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, 
 
 ```
 lib/
-├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege)
+├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege/Terracota/Ônix)
 ├── models.dart          # Nota, Projeto — serialização JSON
 ├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir + recentes (últimos abertos) + backup .bak
 ├── tema.dart            # TemaController (ChangeNotifier) + enums Modo, ModoFonte e Densidade (Confortável/Compacto)
@@ -111,13 +111,21 @@ lib/
 ## 4. Sistema de Temas
 
 ### Modo (enum em `tema.dart`)
-`azul`, `escuro`, `neumB` (Dark Game), `bege`, `claude` (Claude Code) —
-**5 temas** (estilo inspirado no app Calis Timer: azul = navy plano com accent
-azul; bege = claro com as cores do tema madeira — tons amadeirados com accent
-laranja-marrom). Bege é o único claro (roda em `ThemeMode.light`); os demais
-são escuros. `claude` é o tema terminal (Claude Code): preto-quente #0C0C0D,
-superfícies #161617 com borda de 1px #2A2A2B, acento terracota #D97757 e fonte
-monoespaçada JetBrains Mono (sem sombras).
+`azul`, `escuro`, `neumB` (Dark Game), `bege`, `claude` (rótulo **Terracota**),
+`onix` (**Ônix**) — **6 temas** (estilo inspirado no app Calis Timer: azul =
+navy plano com accent azul; bege = claro com as cores do tema madeira — tons
+amadeirados com accent laranja-marrom). Bege é o único claro (roda em
+`ThemeMode.light`); os demais são escuros. `claude` é o tema terminal
+(rótulo **Terracota** desde V0.1.64; `name` do enum segue `claude`):
+preto-quente #0C0C0D, borda 1px #2A2A2B, acento terracota #D97757, fonte
+JetBrains Mono. `onix` é o tema estilo ChatGPT: preto liso #0D0D0D, texto branco
+#ECECEC, verde discreto #19C37D só no accent, fonte sem serifa padrão.
+
+- **Home "sem caixa" (Bege e Ônix):** na tela principal as pastas de projeto
+  ficam LISAS (sem cartão nem borda — `semCaixa` no item da lista e nos
+  recentes). No Bege, o fundo da home usa a cor da caixinha (#E0D1B9, "bege
+  queimado") via `Scaffold.backgroundColor`; no Ônix o fundo já é o preto do
+  tema. Os demais temas mantêm o cartão com borda.
 
 - `themeFlutter`: light para `bege`; dark para os demais.
 - Seletor de tema na engrenagem: `ChoiceChip` para cada `Modo` (usa `Modo.rotulo`).

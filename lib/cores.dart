@@ -159,6 +159,26 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFFF0EEE9),
   );
 
+  /// Tema Ônix (estilo ChatGPT): preto liso (#0D0D0D), texto branco (#ECECEC)
+  /// e um verde discreto (#19C37D) só no accent/botão +. Home sem caixa: o
+  /// cartão de projeto é a própria cor do fundo (as pastas viram linhas), e as
+  /// bolinhas/recentes usam [notaFim] para aparecerem no preto.
+  static const AppCores onix = AppCores(
+    notaInicio: Color(0xFF1E1F20),
+    notaFim: Color(0xFF26272A),
+    notaBorda: Color(0xFF2A2A2B),
+    projetoCard: Color(0xFF0D0D0D),
+    projetoCardFim: Color(0xFF0D0D0D),
+    projetoTxt: Color(0xFFECECEC),
+    fab: Color(0xFF19C37D),
+    fabIcone: Color(0xFF052B1B),
+    barraFerramentas: Color(0xFF171717),
+    barraFerramentasFim: Color(0xFF171717),
+    fundoInicio: Color(0xFF0D0D0D),
+    fundoFim: Color(0xFF0D0D0D),
+    textoUI: Color(0xFFECECEC),
+  );
+
   @override
   AppCores copyWith({
     Color? notaInicio,

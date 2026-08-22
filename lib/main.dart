@@ -507,6 +507,96 @@ class AdmProjetosApp extends StatelessWidget {
     );
   }
 
+  /// Tema Ônix (estilo ChatGPT): preto liso, texto branco e um verde discreto
+  /// só no accent. Home sem caixas (ver projetos_screen). Fonte sem serifa
+  /// padrão do sistema (a do ChatGPT é fechada).
+  ThemeData _temaOnix() {
+    const bg = Color(0xFF0D0D0D);
+    const surface = Color(0xFF1E1F20);
+    const borda = Color(0xFF2A2A2B);
+    const text = Color(0xFFECECEC);
+    const text2 = Color(0xFF9A9A9A);
+    const accent = Color(0xFF19C37D);
+    const onAccent = Color(0xFF052B1B);
+    return ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: accent,
+        brightness: Brightness.dark,
+        surface: surface,
+        onSurface: text,
+      ).copyWith(primary: accent, onPrimary: onAccent),
+      scaffoldBackgroundColor: bg,
+      extensions: const [AppCores.onix],
+      appBarTheme: const AppBarTheme(
+        backgroundColor: bg,
+        foregroundColor: text,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+          color: text,
+        ),
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: text,
+        unselectedLabelColor: text2,
+        dividerColor: Colors.transparent,
+        indicatorColor: accent,
+        indicatorSize: TabBarIndicatorSize.tab,
+      ),
+      cardTheme: const CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: accent,
+        foregroundColor: onAccent,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: surface,
+        hintStyle: TextStyle(color: Color(0xFF6E6E6E)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide(color: borda),
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+      chipTheme: const ChipThemeData(
+        backgroundColor: surface,
+        selectedColor: Color(0x2A19C37D),
+        labelStyle: TextStyle(color: text, fontWeight: FontWeight.w500),
+        side: BorderSide(color: borda),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+        ),
+      ),
+      dialogTheme: const DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          side: BorderSide(color: borda),
+        ),
+        backgroundColor: surface,
+        titleTextStyle: TextStyle(
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+          color: text,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -522,6 +612,7 @@ class AdmProjetosApp extends StatelessWidget {
           Modo.neumB => _temaNeumB(),
           Modo.bege => _temaBege(),
           Modo.claude => _temaClaude(),
+          Modo.onix => _temaOnix(),
         };
         return MaterialApp(
           title: 'Taskix',
