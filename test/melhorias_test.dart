@@ -126,14 +126,10 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
 
-    // Teclado FECHA (setinha para baixo): bottom → 0.
+    // Teclado FECHA (setinha para baixo): bottom → 0. O foco é solto
+    // IMEDIATAMENTE (V0.1.63) — sem debounce, senão o teclado voltava a subir.
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
-
-    // O foco é solto com uma pequena FOLGA (debounce anti-flicker): só depois
-    // de o teclado CONTINUAR fechado é que largamos o foco. pumpAndSettle não
-    // espera o Timer, então avançamos o tempo além do debounce.
-    await tester.pump(const Duration(milliseconds: 400));
 
     expect(tester.takeException(), isNull,
         reason: 'didChangeMetrics não pode lançar');
@@ -141,7 +137,7 @@ void main() {
         reason: 'ao esconder o teclado, o foco é solto (não volta sozinho)');
   });
 
-  testWidgets('altura 0 passageiro NÃO solta o foco (anti-flicker, item 3)',
+  testWidgets('teclado NÃO fecha durante composição IME (troca de layout)',
       (tester) async {
     addTearDown(tester.view.resetViewInsets);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -166,17 +162,23 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
 
-    // "Altura 0" PASSAGEIRO (troca de layout do teclado: emoji/símbolos/…):
-    // bottom cai a 0 por um instante e volta ANTES do debounce.
-    tester.view.viewInsets = FakeViewPadding.zero;
-    await tester.pump(const Duration(milliseconds: 120));
-    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-    await tester.pump(const Duration(milliseconds: 400));
+    // Simula o usuário NO MEIO de uma palavra (IME compondo).
+    final ctrl =
+        tester.widget<EditableText>(find.byType(EditableText).first).controller;
+    ctrl.value = const TextEditingValue(
+      text: 'palavra',
+      selection: TextSelection.collapsed(offset: 7),
+      composing: TextRange(start: 0, end: 7),
+    );
+    await tester.pump();
 
-    // O foco NÃO pode ter sido solto — senão o teclado fecharia no meio da
-    // digitação (bug relatado no item 3).
+    // "Altura 0" passageiro (troca de layout do teclado) COM composição ativa:
+    // não pode soltar o foco (senão fecharia no meio da digitação).
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pump();
+
     expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue,
-        reason: 'um "0" passageiro não pode fechar o teclado');
+        reason: 'compondo (meio da palavra) → não solta o foco');
   });
 
   testWidgets('lupa global também acha projeto por nome (#6)', (tester) async {

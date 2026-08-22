@@ -446,24 +446,28 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   comportamento padrão. `_insetBottomAnterior` rastreia a altura; é semeado ao
   GANHAR foco (`_aoMudarFoco`) para funcionar mesmo na troca entre caixinhas
   com o teclado já aberto.
-- ⚠️ **V0.1.54 (não desligar o teclado no meio da digitação):** o `unfocus()`
-  virou DEBITADO — ao ver `bottom → 0`, agenda um `Timer` de 320ms
-  (`_fecharTecladoTimer`) e só solta o foco se o teclado CONTINUAR fechado
-  quando ele dispara; se `bottom` voltar a `>0` antes disso, cancela. Motivo:
-  vários teclados (GBoard) reportam `bottom == 0` por um instante ao trocar de
-  layout (emoji/símbolos/uma-mão/barra de sugestão) — o `unfocus()` imediato
-  fechava o teclado sozinho durante a digitação (bug relatado). Testado em
-  `melhorias_test.dart` ("altura 0 passageiro NÃO solta o foco").
+- ⚠️ **`unfocus` IMEDIATO ao esconder (V0.1.63) — HISTÓRICO IMPORTANTE:**
+  - V0.1.42: `unfocus()` imediato ao ver `bottom → 0`.
+  - V0.1.54/57: virou DEBITADO (`Timer` 320ms) para não desligar o teclado num
+    `bottom == 0` passageiro (troca de layout). **MAS** isso criou o bug de
+    "minimizar 2-3× com o cursor no fim": o campo focado REABRE a conexão de
+    teclado no frame seguinte → `bottom` volta a `>0` → o código cancelava o
+    unfocus → nunca soltava. O usuário tinha de minimizar várias vezes.
+  - **V0.1.63 (atual):** voltou a soltar o foco **IMEDIATAMENTE** no `bottom →
+    0` (sem debounce) — sem foco, o teclado não reabre. Para não fechar o
+    teclado numa troca de layout transitória, só solta quando **NÃO** há
+    composição IME ativa (`_ctrl.value.composing.isCollapsed`) — ou seja, fora
+    do meio de uma palavra (esconder o teclado normalmente confirma a
+    composição, então o caso comum solta na hora). O `_fecharTecladoTimer` foi
+    removido. Testes: `melhorias_test.dart` ("esconder o teclado solta o foco"
+    + "teclado NÃO fecha durante composição IME"). **NÃO voltar a debouncear.**
 - ⚠️ O guard `resumed` é essencial: ao SAIR para outro app o teclado também
   fecha, mas aí queremos PRESERVAR o foco para reabri-lo ao voltar (não brigar
   com `_reabrirTeclado`).
-- ⚠️ **"Minimizar o teclado duas vezes" (V0.1.57):** a correção de maiúscula
-  (`_debounce`, 2s) fazia `_ctrl.value = …` num campo AINDA focado → REABRIA o
-  teclado se disparasse logo depois de o usuário esconder (intermitente, pior em
-  listas numeradas onde a correção existe). Dois freios: (1) o callback da
-  correção só age com o teclado À VISTA (`viewInsets.bottom > 0` e
-  `_foco.hasFocus`); (2) `didChangeMetrics`, ao ver o teclado fechar, cancela o
-  `_debounce` na hora (não só quando o unfocus dispara).
+- ⚠️ **Maiúscula não reabre o teclado (V0.1.57):** a correção `maiusculaAposItem`
+  (`_debounce`, 2s) fazia `_ctrl.value = …` num campo focado → reabria o teclado.
+  Freio: o callback só age com o teclado À VISTA (`viewInsets.bottom > 0` e
+  `_foco.hasFocus`); e `didChangeMetrics` cancela o `_debounce` ao esconder.
 
 ### Caderno (caixinha longa)
 - `maxLines: 24`; além disso o texto rola por dentro (Scrollbar). Botão
@@ -883,8 +887,8 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - lupa global acha palavra dentro de Ideias e, ao tocar, abre a `ProjetoScreen`
   na aba certa mostrando a caixinha
 - lupa global também acha projeto por nome (seção "PROJETOS")
-- **(V0.1.54)** esconder o teclado solta o foco só APÓS o debounce; e um
-  "altura 0" passageiro (troca de layout do teclado) NÃO solta o foco
+- **(V0.1.63)** esconder o teclado solta o foco IMEDIATAMENTE; e durante
+  composição IME (meio de uma palavra) um "altura 0" passageiro NÃO solta o foco
 
 ### `test/desfazer_test.dart` (7 testes)
 - `HistoricoTexto` (undo multi-nível): digitar uma rajada cria UM ponto de
@@ -993,6 +997,8 @@ A cada publicação de APK:
 | **"Copiar backup" lossless + erro real do login (V0.1.59)** | Pedido do usuário: copiar deve preservar caixinhas/comentários/links → bloco JSON completo anexado (`marcadorBackupJson`). E `_entrarGoogle` passou a mostrar o ERRO REAL (antes engolia como "Firebase não configurado"). **Diagnóstico:** o SHA-1 do keystore de release BATE com o registrado no `google-services.json` → a falha do login Google é server-side (provedor Google no Console / consent), não assinatura |
 | **Restaurar separa caixinhas por linha em branco (V0.1.60)** | Pedido do usuário ("organizado por pasta e caixinha separadas"). O texto antigo do "Copiar backup" não delimita caixinhas → `caixinhas()` divide cada aba nos espaços em branco. |
 | **Login Google NATIVO (V0.1.61)** | O `signInWithProvider` (fluxo web Generic IDP) dava "Failed to generate/retrieve public encryption key" mesmo com SHA-1 **e** SHA-256 registrados. Trocado para `google_sign_in` (`signInWithCredential`), que usa o SHA-1 nativo e não passa pelo fluxo web problemático |
+| **APK versionado na release (V0.1.62)** | Erro "Generic IDP" persistia mesmo após a V0.1.61 porque o usuário reinstalava um APK em CACHE (mesmo nome `app-release.apk`). CI passou a publicar `taskix-v<versao>.apk` (nome distinto por versão) — download sempre fresco |
+| **Teclado `unfocus` imediato (V0.1.63)** | O debounce da V0.1.57 fazia o teclado "voltar a subir" (minimizar 2-3× com o cursor no fim). Voltou a soltar o foco na hora, guardado por composição IME. Notificação: config já é max+som+public+exact; misses raros (1/10) e sem-som em testes rápidos = OEM/Doze/rate-limit, não código → orientar liberar bateria |
 
 ---
 

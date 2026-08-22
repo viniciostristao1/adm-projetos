@@ -430,10 +430,6 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   final ScrollController _scroll = ScrollController();
   final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
-  // Fechamento de teclado com folga: só solta o foco se o teclado continuar
-  // fechado após uma pausa (evita fechar no meio da digitação por causa de um
-  // "altura 0" passageiro que alguns teclados reportam ao trocar de layout).
-  Timer? _fecharTecladoTimer;
   bool _tinhaFocoAoParar = false;
   // Última altura do teclado (viewInsets.bottom) que vimos — usado para
   // detectar o instante em que o teclado FECHA (>0 → 0) e soltar o foco.
@@ -501,10 +497,16 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
 
   /// Solta o foco quando o usuário ESCONDE o teclado (setinha para baixo) com
   /// o app em primeiro plano. O Android some com o teclado mas o Flutter
-  /// mantém o foco na caixinha — aí qualquer reconstrução (ou a correção de
-  /// maiúscula em debounce) reabria o teclado, dando o efeito chato de "sai e
-  /// volta". Ao detectar o teclado fechando (altura >0 → 0), largamos o foco:
-  /// o cursor some e o teclado fica fora até tocar na caixinha de novo.
+  /// mantém o foco na caixinha — e um campo focado REABRE a conexão de teclado
+  /// no frame seguinte, fazendo o teclado "voltar a subir" (era o bug de ter de
+  /// minimizar 2-3× com o cursor no fim). Por isso soltamos o foco IMEDIATAMENTE
+  /// ao detectar o teclado fechando (altura >0 → 0): sem foco, nada reabre.
+  ///
+  /// ⚠️ V0.1.63: era um `unfocus` com DEBOUNCE de 320ms; mas o teclado reabria
+  /// dentro da folga e o `bottom>0` cancelava o unfocus → nunca soltava. Voltou
+  /// a ser imediato. Para não fechar o teclado numa troca de layout transitória
+  /// (emoji/símbolos), só solta quando NÃO há composição IME ativa (fora do
+  /// meio de uma palavra).
   ///
   /// ⚠️ Só age com o app `resumed` — ao SAIR para outro app o teclado também
   /// fecha, mas aí queremos PRESERVAR o foco para reabri-lo ao voltar
@@ -515,46 +517,22 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     final bottom = View.of(context).viewInsets.bottom;
     final fechou = _insetBottomAnterior > 0 && bottom == 0;
     _insetBottomAnterior = bottom;
-    // O teclado (voltou a) estar aberto: cancela um fechamento pendente. Vários
-    // teclados reportam altura 0 por um instante ao trocar de layout (emoji,
-    // símbolos, uma-mão, barra de sugestão) — não queremos largar o foco nisso.
-    if (bottom > 0) {
-      _fecharTecladoTimer?.cancel();
-      _fecharTecladoTimer = null;
-      return;
-    }
     if (!fechou) return;
-    // Só age com o app em primeiro plano: ao SAIR para outro app o teclado
-    // também fecha, mas aí queremos PRESERVAR o foco para reabri-lo ao voltar
-    // (didChangeAppLifecycleState/_reabrirTeclado).
     if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
     }
     if (!_foco.hasFocus) return;
-    // Mata a correção de maiúscula pendente AGORA (não só quando o unfocus
-    // dispara): senão ela poderia reabrir o teclado dentro da janela de
-    // debounce — o bug de "minimizar duas vezes".
+    // Composição IME ativa = usuário no meio de uma palavra → o "0" é provável
+    // troca de layout (transitório); não solta o foco.
+    if (!_ctrl.value.composing.isCollapsed) return;
+    // Mata a correção de maiúscula pendente (senão ela reabriria o teclado).
     _debounce?.cancel();
-    // Debounce: só solta o foco se o teclado CONTINUAR fechado após a folga.
-    // Assim um "altura 0" passageiro durante a digitação não desliga o teclado.
-    _fecharTecladoTimer?.cancel();
-    _fecharTecladoTimer = Timer(const Duration(milliseconds: 320), () {
-      if (!mounted) return;
-      if (View.of(context).viewInsets.bottom > 0) return; // teclado voltou
-      if (WidgetsBinding.instance.lifecycleState !=
-          AppLifecycleState.resumed) {
-        return;
-      }
-      if (!_foco.hasFocus) return;
-      _debounce?.cancel();
-      _foco.unfocus();
-    });
+    _foco.unfocus();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _fecharTecladoTimer?.cancel();
     _foco.removeListener(_aoMudarFoco);
     // Derrama o que está nos controladores direto no modelo e no disco —
     // cobre o texto que a IME ainda não tinha confirmado (composição) quando
