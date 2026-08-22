@@ -53,12 +53,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          VERSAO=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1)
+          # Nome VERSIONADO do APK (à prova de cache: cada versão é um download
+          # distinto, então o navegador nunca serve um APK antigo).
+          cp build/app/outputs/flutter-apk/app-release.apk "taskix-v${VERSAO}.apk"
           gh release create v0.1.0 \
             --repo "${{ github.repository }}" \
-            --title "ADM-projetos" \
-            --notes "APK de teste (assinado com a chave de debug)." \
+            --title "Taskix v${VERSAO}" \
+            --notes "Última versão: v${VERSAO}. Baixe taskix-v${VERSAO}.apk e instale POR CIMA (não desinstale)." \
             || true
+          # Atualiza título/notas com a versão atual a cada build.
+          gh release edit v0.1.0 \
+            --repo "${{ github.repository }}" \
+            --title "Taskix v${VERSAO}" \
+            --notes "Última versão: v${VERSAO}. Baixe **taskix-v${VERSAO}.apk** e instale POR CIMA (não desinstale)."
+          # Sobe o APK versionado + o nome fixo (compatibilidade).
           gh release upload v0.1.0 \
+            "taskix-v${VERSAO}.apk" \
             build/app/outputs/flutter-apk/app-release.apk \
             --repo "${{ github.repository }}" \
             --clobber

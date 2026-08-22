@@ -762,7 +762,13 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 3. Decodifica `secrets.KEYSTORE_BASE64` → `android/app/upload-keystore.jks`
 4. Cria `android/key.properties` com senhas do `secrets.KEYSTORE_PASSWORD`
 5. `flutter build apk --release`
-6. Publica APK na release `v0.1.0` (sobrescreve a cada build com `--clobber`)
+6. Publica na release `v0.1.0`: sobe **`taskix-v<versao>.apk`** (nome VERSIONADO,
+   à prova de cache — cada versão é um download distinto) + o `app-release.apk`
+   fixo (compat.), e ajusta título/notas da release para a versão atual. ⚠️
+   Motivo (V0.1.62): reinstalar do mesmo nome `app-release.apk` servia APK em
+   CACHE → usuário reinstalava versão velha achando que atualizou. Sempre
+   orientar a baixar o **`taskix-v<versao>.apk`** e conferir a versão no topo da
+   tela inicial.
 
 **Secrets necessários:** `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`
 
