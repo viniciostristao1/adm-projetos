@@ -1940,34 +1940,29 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              // Linha 1 — toca e agenda JÁ (rola na horizontal se faltar espaço).
-              SizedBox(
-                height: 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (final p in _presets)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ActionChip(
-                          label: Text(p.$2),
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          onPressed:
-                              _agendando ? null : () => _agendar(p.$1, p.$2),
-                        ),
-                      ),
-                    // "Outro" (tempo exato) ao lado do 24 h — lembrete rápido preciso.
+              // Linha 1 — toca e agenda JÁ. Wrap: cabem todos na linha (quebra
+              // p/ a linha de baixo se faltar espaço), sem rolagem horizontal.
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final p in _presets)
                     ActionChip(
-                      avatar: const Icon(Icons.more_horiz, size: 18),
-                      label: const Text('Outro'),
+                      label: Text(p.$2),
                       visualDensity: VisualDensity.compact,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onPressed: _agendando ? null : _outro,
+                      onPressed:
+                          _agendando ? null : () => _agendar(p.$1, p.$2),
                     ),
-                  ],
-                ),
+                  // "Outro" (tempo exato) — SEM ícone de reticências, p/ caber
+                  // na mesma linha dos tempos.
+                  ActionChip(
+                    label: const Text('Outro'),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onPressed: _agendando ? null : _outro,
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               // Linha 2 — SOMA um tempo (cor diferente); mostra data/hora + Salvar.

@@ -629,6 +629,16 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   silhueta branca) em vez de `@mipmap/ic_launcher` (que virava um quadrado na
   barra de status). Referenciado nos dois `AndroidInitializationSettings` (init
   foreground e background) e em `AndroidNotificationDetails(icon:)`.
+- ⚠️⚠️ **`ic_notif` PRECISA de referência no manifesto (V0.1.67):** como ele é
+  usado só por STRING em runtime (não via `R.drawable` no código), o build de
+  RELEASE o REMOVIA (shrink de recurso "não usado") → `PlatformException(
+  invalid_icon, resource ic_notif could not be found)` = notificações
+  QUEBRADAS. Confirmado: no `resources.arsc` do APK v0.1.66, `ic_launcher`
+  aparecia e `ic_notif` NÃO. Fix: um `<meta-data android:resource=
+  "@drawable/ic_notif">` no `AndroidManifest.xml` cria uma referência ESTÁTICA
+  (como o `android:icon="@mipmap/ic_launcher"`), mantendo o recurso no APK.
+  **Regra:** qualquer drawable usado só por nome em runtime precisa ser
+  referenciado no manifesto (ou num `res/raw/keep.xml`).
 - **Busca da home acha lembretes (V0.1.65):** `_resultadosBusca` também casa
   `LembretesService.pendentes` por `texto` → seção "LEMBRETES"
   (`_cartaoLembreteResultado`, toca → abre a folha). Sem busca separada dentro
@@ -1034,6 +1044,7 @@ A cada publicação de APK:
 | **Login Google NATIVO (V0.1.61)** | O `signInWithProvider` (fluxo web Generic IDP) dava "Failed to generate/retrieve public encryption key" mesmo com SHA-1 **e** SHA-256 registrados. Trocado para `google_sign_in` (`signInWithCredential`), que usa o SHA-1 nativo e não passa pelo fluxo web problemático |
 | **APK versionado na release (V0.1.62)** | Erro "Generic IDP" persistia mesmo após a V0.1.61 porque o usuário reinstalava um APK em CACHE (mesmo nome `app-release.apk`). CI passou a publicar `taskix-v<versao>.apk` (nome distinto por versão) — download sempre fresco |
 | **Teclado `unfocus` imediato (V0.1.63)** | O debounce da V0.1.57 fazia o teclado "voltar a subir" (minimizar 2-3× com o cursor no fim). Voltou a soltar o foco na hora, guardado por composição IME. Notificação: config já é max+som+public+exact; misses raros (1/10) e sem-som em testes rápidos = OEM/Doze/rate-limit, não código → orientar liberar bateria |
+| **`ic_notif` no manifesto + "Outro" sem reticências (V0.1.67)** | Notificações quebraram (`invalid_icon`): o `ic_notif` da V0.1.65 era removido no build release (usado só por string em runtime) → referenciado no manifesto p/ manter no APK. E o chip "Outro" perdeu o ícone `more_horiz` (parecia "…Outro") e a linha dos tempos virou `Wrap` (cabe sem rolar) |
 
 ---
 

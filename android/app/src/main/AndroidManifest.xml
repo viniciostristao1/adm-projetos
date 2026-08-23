@@ -17,6 +17,14 @@
         android:allowBackup="true"
         android:fullBackupContent="true"
         android:dataExtractionRules="@xml/data_extraction_rules">
+        <!-- Referência ESTÁTICA ao ícone de notificação: sem isto o build de
+             release REMOVE (shrink) o @drawable/ic_notif — ele só é usado por
+             string em runtime (flutter_local_notifications) → dava
+             "invalid_icon: resource ic_notif could not be found". Referenciar no
+             manifesto mantém o recurso no APK (como acontece com ic_launcher). -->
+        <meta-data
+            android:name="taskix.notification_icon"
+            android:resource="@drawable/ic_notif" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
