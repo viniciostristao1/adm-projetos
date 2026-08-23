@@ -231,6 +231,25 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     await _salvar();
   }
 
+  /// Envolve o cartão de projeto num Dismissible: arrastar para a ESQUERDA
+  /// exclui a pasta (com Desfazer via [_excluirComUndo]).
+  Widget _arrastavel(Projeto p, Widget filho) => Dismissible(
+        key: ValueKey(p.id),
+        direction: DismissDirection.endToStart,
+        onDismissed: (_) => _excluirComUndo(p),
+        background: Container(
+          alignment: Alignment.centerRight,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(right: 22),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.delete_outline, color: Colors.redAccent),
+        ),
+        child: filho,
+      );
+
   Future<void> _renomear(Projeto p) async {
     final nome = await _pedirNome(context, titulo: 'Renomear projeto',
         inicial: p.nome);
@@ -254,56 +273,47 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     _salvar();
   }
 
-  Future<void> _excluir(Projeto p) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Excluir projeto?'),
-        content: Text('"${p.nome}" e todas as suas caixas serão apagados.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Excluir',
-                  style: TextStyle(color: Colors.red))),
-        ],
-      ),
+  /// Remoção SEGURA + Desfazer, sem diálogo. Único ponto de exclusão de projeto:
+  /// usado pelo arrastar-para-excluir (Dismissible) e pelo botão de excluir de
+  /// DENTRO do projeto (que confirma e devolve 'excluir' para cá).
+  Future<void> _excluirComUndo(Projeto p) async {
+    final idx = _projetos.indexOf(p);
+    if (idx < 0) return;
+    setState(() => _projetos.remove(p));
+    // Exclusão EXPLÍCITA do último projeto: autoriza a gravação da lista vazia
+    // (a guarda anti-esvaziamento do Storage bloqueia o resto).
+    if (_projetos.isEmpty) Storage.instance.liberarEsvaziamento();
+    await _salvar();
+    Storage.instance.removerRecente(p.id);
+    _recarregarRecentes();
+    if (!mounted) return;
+    mostrarAvisoAcao(
+      context,
+      'Projeto excluído',
+      'Desfazer',
+      () {
+        setState(() => _projetos.insert(
+            idx > _projetos.length ? _projetos.length : idx, p));
+        Storage.instance.registrarAbertura(p.id);
+        _recarregarRecentes();
+        _salvar();
+      },
     );
-    if (ok == true) {
-      final idx = _projetos.indexOf(p);
-      setState(() => _projetos.remove(p));
-      // Exclusão EXPLÍCITA do último projeto: autoriza a gravação da lista
-      // vazia (a guarda anti-esvaziamento do Storage bloqueia o resto).
-      if (_projetos.isEmpty) Storage.instance.liberarEsvaziamento();
-      await _salvar();
-      Storage.instance.removerRecente(p.id);
-      _recarregarRecentes();
-      if (!mounted) return;
-      mostrarAvisoAcao(
-        context,
-        'Projeto excluído',
-        'Desfazer',
-        () {
-          setState(() => _projetos.insert(
-              idx > _projetos.length ? _projetos.length : idx, p));
-          Storage.instance.registrarAbertura(p.id);
-          _recarregarRecentes();
-          _salvar();
-        },
-      );
-    }
   }
 
   /// Abre o projeto (também registra na prateleira "Últimos abertos").
   Future<void> _abrirProjeto(Projeto p) async {
     await Storage.instance.registrarAbertura(p.id);
     if (!mounted) return;
-    await Navigator.push(
+    final r = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ProjetoScreen(projeto: p)),
     );
+    if (!mounted) return;
+    if (r == 'excluir') {
+      await _excluirComUndo(p);
+      return;
+    }
     await _salvar();
     if (mounted) setState(() {});
     _recarregarRecentes();
@@ -327,7 +337,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   Future<void> _abrirNota(_ResultadoBusca r) async {
     await Storage.instance.registrarAbertura(r.projeto.id);
     if (!mounted) return;
-    await Navigator.push(
+    final res = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ProjetoScreen(
@@ -338,6 +348,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         ),
       ),
     );
+    if (!mounted) return;
+    if (res == 'excluir') {
+      await _excluirComUndo(r.projeto);
+      return;
+    }
     await _salvar();
     if (mounted) setState(() {});
     _recarregarRecentes();
@@ -368,7 +383,12 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       varrer(p.tarefas, 0);
       varrer(p.futuro, 1);
     }
-    if (projetosNome.isEmpty && conteudo.isEmpty) {
+    // Também acha LEMBRETES pelo texto escrito (ponto: buscar lembretes junto
+    // na busca da home, em vez de uma busca só dentro dos lembretes).
+    final lembretes = LembretesService.instance.pendentes
+        .where((l) => l.texto.toLowerCase().contains(q))
+        .toList();
+    if (projetosNome.isEmpty && conteudo.isEmpty && lembretes.isEmpty) {
       return const Center(
           child: Text('Nada encontrado.',
               style: TextStyle(color: Colors.grey)));
@@ -383,6 +403,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         if (conteudo.isNotEmpty) ...[
           _cabecalhoResultado('NAS CAIXINHAS', app),
           for (final r in conteudo) _cartaoConteudoResultado(r, q, app),
+        ],
+        if (lembretes.isNotEmpty) ...[
+          _cabecalhoResultado('LEMBRETES', app),
+          for (final l in lembretes) _cartaoLembreteResultado(l, q, app),
         ],
       ],
     );
@@ -516,6 +540,60 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     color: app.projetoTxt,
                   ),
                   maxLines: 1,
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 20, color: app.projetoTxt.withValues(alpha: 0.4)),
+            ],
+          ),
+        ),
+      );
+
+  /// Data/hora curta de um lembrete ("hoje 14:30", "amanhã 09:00", "23/08 14:30").
+  String _quandoBreve(DateTime dt) {
+    final agora = DateTime.now();
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    final dia = DateTime(dt.year, dt.month, dt.day);
+    final hm = '${dt.hour.toString().padLeft(2, '0')}:'
+        '${dt.minute.toString().padLeft(2, '0')}';
+    final d = dia.difference(hoje).inDays;
+    if (d == 0) return 'hoje $hm';
+    if (d == 1) return 'amanhã $hm';
+    return '${dt.day.toString().padLeft(2, '0')}/'
+        '${dt.month.toString().padLeft(2, '0')} $hm';
+  }
+
+  /// Card de um lembrete achado na busca; toca → abre a folha de lembretes.
+  Widget _cartaoLembreteResultado(Lembrete l, String q, AppCores app) =>
+      _cartaoResultado(
+        app: app,
+        onTap: _abrirLembretes,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          child: Row(
+            children: [
+              Icon(Icons.alarm, size: 18, color: app.fab),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _textoDestacado(
+                      l.texto.isEmpty ? '(sem texto)' : l.texto,
+                      q,
+                      TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.5,
+                        color: app.projetoTxt,
+                      ),
+                      maxLines: 1,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(_quandoBreve(l.quando),
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            color: app.projetoTxt.withValues(alpha: 0.6))),
+                  ],
                 ),
               ),
               Icon(Icons.chevron_right,
@@ -730,8 +808,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   Future<void> onTapProjeto() => _abrirProjeto(p);
 
                   if (app.neumorfico) {
-                    return Padding(
-                      key: ValueKey(p.id),
+                    return _arrastavel(
+                        p,
+                        Padding(
                       padding: EdgeInsets.only(bottom: compacto ? 8 : 16),
                       child: Caixa3D(
                         cor: app.projetoCard,
@@ -798,26 +877,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                                     child: Icon(Icons.edit_outlined,
                                         size: 17, color: app.projetoTxt),
                                   ),
-                                  const SizedBox(width: 10),
-                                  BotaoNeum(
-                                    raio: 999,
-                                    padding: const EdgeInsets.all(7),
-                                    corInicio: app.projetoCard,
-                                    corFim: app.projetoCardFim,
-                                    tooltip: 'Excluir',
-                                    onTap: () => _excluir(p),
-                                    child: Icon(Icons.delete_outline,
-                                        size: 17,
-                                        color: Colors.redAccent
-                                            .withValues(alpha: 0.85)),
-                                  ),
                                 ],
                               ),
                             ),
                           ),
                         ),
                       ),
-                    );
+                    ));
                   }
 
                 // Temas planos (Azul, Escuro, Bege e Claude): cartão na cor
@@ -852,8 +918,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                         ? app.fab
                         : const Color(0xFF4ADE80));
 
-                return Padding(
-                  key: ValueKey(p.id),
+                return _arrastavel(
+                    p,
+                    Padding(
                   padding: EdgeInsets.only(bottom: compacto ? 5 : 10),
                   child: Container(
                     decoration: semCaixa
@@ -953,27 +1020,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                               padding: EdgeInsets.zero,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: bolaCor,
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 18),
-                              color: iconeCor,
-                              tooltip: 'Excluir',
-                              onPressed: () => _excluir(p),
-                              padding: EdgeInsets.zero,
-                            ),
-                          ),
                         ],
                       ),
                     ),
                   ),
-                );
+                ));
               },
             );
             }),
@@ -1671,6 +1722,9 @@ class _LembreteSheet extends StatefulWidget {
 class _LembreteSheetState extends State<_LembreteSheet> {
   final TextEditingController _ctrl = TextEditingController();
   bool _agendando = false;
+  // Tempo "montado" somando os botões da 2ª linha (ponto: somar em vez de
+  // agendar direto). Zera após Salvar ou Limpar.
+  Duration _somado = Duration.zero;
 
   static const List<(Duration, String)> _presets = [
     (Duration(minutes: 30), '30 min'),
@@ -1715,71 +1769,21 @@ class _LembreteSheetState extends State<_LembreteSheet> {
     mostrarAviso(context, 'Lembrete daqui a $rotulo ⏰');
   }
 
-  /// "Outro…": pede um tempo personalizado (minutos ou horas).
-  Future<void> _outro() async {
-    final ctrl = TextEditingController();
-    var unidade = 'minutos';
-    final d = await showDialog<Duration>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('Outro tempo'),
-          content: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 84,
-                child: TextField(
-                  controller: ctrl,
-                  autofocus: true,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(hintText: 'ex.: 45'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              DropdownButton<String>(
-                value: unidade,
-                items: const [
-                  DropdownMenuItem(value: 'minutos', child: Text('minutos')),
-                  DropdownMenuItem(value: 'horas', child: Text('horas')),
-                ],
-                onChanged: (v) {
-                  if (v != null) setLocal(() => unidade = v);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () {
-                final n = int.tryParse(ctrl.text.trim());
-                if (n == null || n <= 0) {
-                  Navigator.pop(ctx);
-                  return;
-                }
-                Navigator.pop(
-                  ctx,
-                  unidade == 'horas'
-                      ? Duration(hours: n)
-                      : Duration(minutes: n),
-                );
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      ),
-    );
-    ctrl.dispose();
-    if (d == null) return;
-    final rotulo = d.inMinutes % 60 == 0 && d.inHours >= 1
-        ? '${d.inHours} h'
-        : '${d.inMinutes} min';
-    await _agendar(d, rotulo);
+  /// Salva o tempo MONTADO na 2ª linha (soma dos botões) como um lembrete.
+  Future<void> _salvarSomado() async {
+    if (_somado <= Duration.zero) return;
+    final d = _somado;
+    await _agendar(d, _humanizar(d));
+    if (mounted) setState(() => _somado = Duration.zero);
+  }
+
+  /// "2 h 30 min", "4 h", "45 min" — texto amigável de uma duração.
+  String _humanizar(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes % 60;
+    if (h > 0 && m > 0) return '$h h $m min';
+    if (h > 0) return '$h h';
+    return '$m min';
   }
 
   String _quando(DateTime dt) {
@@ -1838,32 +1842,99 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              // Todos os tempos numa ÚNICA linha (rola na horizontal se faltar
-              // espaço); "Outro" (sem "…") logo depois do 24 h.
+              // Linha 1 — toca e agenda JÁ (rola na horizontal se faltar espaço).
               SizedBox(
                 height: 40,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
-                    for (final p in _presets) ...[
-                      ActionChip(
-                        label: Text(p.$2),
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        onPressed:
-                            _agendando ? null : () => _agendar(p.$1, p.$2),
+                    for (final p in _presets)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          label: Text(p.$2),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          onPressed:
+                              _agendando ? null : () => _agendar(p.$1, p.$2),
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                    ActionChip(
-                      label: const Text('Outro'),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onPressed: _agendando ? null : _outro,
-                    ),
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              // Linha 2 — SOMA um tempo (cor diferente); mostra data/hora + Salvar.
+              Text('Ou monte o tempo (vai somando)',
+                  style: TextStyle(
+                      color: s.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final p in _presets)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          label: Text('+ ${p.$2}'),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: s.primary.withValues(alpha: 0.14),
+                          side:
+                              BorderSide(color: s.primary.withValues(alpha: 0.5)),
+                          labelStyle: TextStyle(
+                              color: s.primary, fontWeight: FontWeight.w700),
+                          onPressed: () => setState(() => _somado += p.$1),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (_somado > Duration.zero) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                  decoration: BoxDecoration(
+                    color: s.primary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: s.primary.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.alarm, size: 20, color: s.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Daqui a ${_humanizar(_somado)}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 14)),
+                            Text(_quando(DateTime.now().add(_somado)),
+                                style: TextStyle(
+                                    fontSize: 12, color: s.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            setState(() => _somado = Duration.zero),
+                        child: const Text('Limpar'),
+                      ),
+                      FilledButton(
+                        onPressed: _agendando ? null : _salvarSomado,
+                        child: const Text('Salvar'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               ListenableBuilder(
                 listenable: LembretesService.instance,
                 builder: (context, _) {

@@ -516,6 +516,13 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   mudanças intermediárias é suspenso durante a ação) — desfazer volta ao
   estado anterior, inclusive desfazendo a centralização.
 - Excluir caixinha, excluir projeto e mover entre abas mostram aviso com **Desfazer** por 4s.
+- ⚠️ **Excluir PROJETO (V0.1.65):** único caminho = `_excluirComUndo` (home) — sem
+  diálogo, com **Desfazer**. Dois gatilhos: (1) **arrastar a pasta para a
+  esquerda** na home (`Dismissible`/`_arrastavel`, envolve o cartão nos dois
+  branches — neumórfico e plano); (2) botão **excluir DENTRO do projeto**
+  (`projeto_screen`, na linha do nome, junto de PDF/Copiar) que CONFIRMA e devolve
+  `'excluir'` no `Navigator.pop` → `_abrirProjeto`/`_abrirNota` chamam
+  `_excluirComUndo`. O botão de excluir SAIU da linha da pasta na home.
 - `mostrarAviso`/`mostrarAvisoAcao` (editor.dart) usam SnackBar **+ Timer** para forçar o fechamento mesmo com animações do sistema desativadas.
 
 ### Backup em arquivo (exportar/importar)
@@ -546,7 +553,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   `carregar()` é: principal → `.bak` → snapshots (mais novo primeiro).
 - **Guarda anti-esvaziamento (V0.1.45):** `_gravar` BLOQUEIA gravações cuja
   lista fique VAZIA se o arquivo atual tem projetos — só a exclusão explícita
-  do último projeto passa (`liberarEsvaziamento()` chamado em `_excluir`).
+  do último projeto passa (`liberarEsvaziamento()` chamado em `_excluirComUndo`).
   Impede que um bug/versão nova "abra vazio e grave por cima".
 - **Google Drive:** `AndroidManifest.xml` com `allowBackup="true"` +
   `fullBackupContent="true"` + `dataExtractionRules` (xml que inclui tudo:
@@ -604,8 +611,21 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   (try/catch, como o Firebase). Canal `lembretes` (Importance.high).
 - Fluxo: 🔔 na tela inicial (à ESQUERDA da lupa) → `_LembreteSheet` (folha
   `isScrollControlled` + **`useSafeArea` V0.1.55** para não subir por baixo da
-  barra de status): campo de texto + `ActionChip`s de tempo
-  (30 min · 2 h · 4 h · 24 h · "Outro…") → `agendar(texto, Duration)`.
+  barra de status): campo de texto + DUAS linhas de `ActionChip`s de tempo
+  (30 min · 2 h · 4 h · 24 h).
+- ⚠️ **Duas linhas de tempo (V0.1.65):** a **1ª linha** agenda DIRETO ao tocar
+  (`agendar(texto, Duration)`). A **2ª linha** (chips com "+" e cor de accent)
+  **SOMA** em `_somado` (`Duration`) em vez de agendar; abaixo aparece um resumo
+  "Daqui a X · data/hora" com **Limpar** e **Salvar** (`_salvarSomado` → agenda o
+  total e zera). O "Outro…" (diálogo de tempo custom) FOI REMOVIDO — a soma cobre.
+- ⚠️ **Ícone da notificação (V0.1.65):** `@drawable/ic_notif` (um "T" vetorial,
+  silhueta branca) em vez de `@mipmap/ic_launcher` (que virava um quadrado na
+  barra de status). Referenciado nos dois `AndroidInitializationSettings` (init
+  foreground e background) e em `AndroidNotificationDetails(icon:)`.
+- **Busca da home acha lembretes (V0.1.65):** `_resultadosBusca` também casa
+  `LembretesService.pendentes` por `texto` → seção "LEMBRETES"
+  (`_cartaoLembreteResultado`, toca → abre a folha). Sem busca separada dentro
+  dos lembretes.
 - ⚠️ **Fluidez da folha (V0.1.56):** SEM `autofocus` e com `Padding` SIMPLES
   (não `AnimatedPadding`). A V0.1.55 tinha foco atrasado ~280ms + `AnimatedPadding`
   e o usuário sentiu "dois estágios + travadinha": o foco atrasado abria o

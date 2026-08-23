@@ -1,0 +1,12 @@
+<!-- Ícone da notificação (barra de status): um "T" de Taskix, silhueta branca.
+     Na barra de status o Android usa só o alfa e pinta de branco/cinza; por isso
+     é monocromático. Referenciado em lembretes.dart. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:pathData="M4,3.5 L20,3.5 L20,8.5 L14.25,8.5 L14.25,20.5 L9.75,20.5 L9.75,8.5 L4,8.5 Z" />
+</vector>

@@ -110,6 +110,9 @@ class LembretesService extends ChangeNotifier {
         importance: Importance.max,
         priority: Priority.high,
         category: AndroidNotificationCategory.reminder,
+        // Ícone da barra de status: o "T" de Taskix (silhueta branca), em vez
+        // do quadrado do ic_launcher.
+        icon: 'ic_notif',
         // Aparece com conteúdo na tela BLOQUEADA.
         visibility: NotificationVisibility.public,
         playSound: true,
@@ -155,7 +158,7 @@ class LembretesService extends ChangeNotifier {
   Future<void> init() async {
     if (_pronto) return;
     tzdata.initializeTimeZones();
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('ic_notif');
     const initSettings = InitializationSettings(android: androidInit);
     await _plugin.initialize(
       initSettings,
@@ -238,7 +241,7 @@ class LembretesService extends ChangeNotifier {
     tzdata.initializeTimeZones();
 
     final plugin = FlutterLocalNotificationsPlugin();
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('ic_notif');
     await plugin.initialize(
       const InitializationSettings(android: androidInit),
     );

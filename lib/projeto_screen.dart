@@ -190,6 +190,30 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     _salvar();
   }
 
+  /// Excluir o projeto de DENTRO dele: confirma e devolve 'excluir' para a tela
+  /// inicial, que faz a remoção segura (com Desfazer). Assim a exclusão passa
+  /// SEMPRE pelo caminho protegido único da home (guarda anti-esvaziamento).
+  Future<void> _excluirProjeto() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Excluir projeto?'),
+        content: Text(
+            '"${widget.projeto.nome}" e todas as suas caixas serão apagados.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Excluir',
+                  style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true && mounted) Navigator.pop(context, 'excluir');
+  }
+
   void _copiarProjeto() {
     final p = widget.projeto;
     final buf = StringBuffer()
@@ -339,6 +363,11 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               icon: const Icon(Icons.copy_outlined, size: 18),
               tooltip: 'Copiar tudo do projeto',
               onPressed: _copiarProjeto,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 18),
+              tooltip: 'Excluir projeto',
+              onPressed: _excluirProjeto,
             ),
           ],
         ),
