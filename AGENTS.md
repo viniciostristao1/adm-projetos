@@ -614,10 +614,17 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   barra de status): campo de texto + DUAS linhas de `ActionChip`s de tempo
   (30 min · 2 h · 4 h · 24 h).
 - ⚠️ **Duas linhas de tempo (V0.1.65):** a **1ª linha** agenda DIRETO ao tocar
-  (`agendar(texto, Duration)`). A **2ª linha** (chips com "+" e cor de accent)
-  **SOMA** em `_somado` (`Duration`) em vez de agendar; abaixo aparece um resumo
-  "Daqui a X · data/hora" com **Limpar** e **Salvar** (`_salvarSomado` → agenda o
-  total e zera). O "Outro…" (diálogo de tempo custom) FOI REMOVIDO — a soma cobre.
+  (`_agendar`), e tem o chip **"Outro"** (tempo exato via diálogo, `_outro`) ao
+  lado do 24 h — readicionado na V0.1.66 (lembrete rápido preciso). A **2ª linha**
+  (chips com "+" e cor de accent) **SOMA** em `_somado` (`Duration`); abaixo
+  aparece um resumo "Daqui a X · data/hora" com **Limpar** e **Salvar**
+  (`_salvarSomado`).
+- ⚠️ **`_agendar` à prova de falha (V0.1.66):** retorna `Future<bool>` e usa
+  `try/catch/finally` — o `finally` SEMPRE rearma `_agendando` (o botão nunca
+  fica travado em cinza) e um erro de `zonedSchedule`/permissão vira um diálogo
+  copiável (`_mostrarErroAgendar`). `_salvarSomado` só zera `_somado` se
+  `_agendar` retornou true. Bug anterior (V0.1.65): se `agendar()` lançava, o
+  `_agendando` ficava true → Salvar cinza para sempre e o lembrete não ia.
 - ⚠️ **Ícone da notificação (V0.1.65):** `@drawable/ic_notif` (um "T" vetorial,
   silhueta branca) em vez de `@mipmap/ic_launcher` (que virava um quadrado na
   barra de status). Referenciado nos dois `AndroidInitializationSettings` (init

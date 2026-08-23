@@ -1753,28 +1753,58 @@ class _LembreteSheetState extends State<_LembreteSheet> {
     super.dispose();
   }
 
-  Future<void> _agendar(Duration d, String rotulo) async {
-    if (_agendando) return;
+  /// Agenda [d] (com o texto do campo) e devolve true se deu certo. Robusto: o
+  /// `finally` SEMPRE rearma o botão (`_agendando=false`), então nunca fica
+  /// travado; um erro de agendamento aparece num diálogo copiável (diagnóstico).
+  Future<bool> _agendar(Duration d, String rotulo) async {
+    if (_agendando) return false;
     setState(() => _agendando = true);
-    final l =
-        await LembretesService.instance.agendar(_ctrl.text.trim(), d);
-    if (!mounted) return;
-    setState(() => _agendando = false);
-    if (l == null) {
-      mostrarAviso(context,
-          'Ative as notificações do Taskix nas configurações do Android.');
-      return;
+    try {
+      final l = await LembretesService.instance.agendar(_ctrl.text.trim(), d);
+      if (l == null) {
+        if (mounted) {
+          mostrarAviso(context,
+              'Ative as notificações do Taskix nas configurações do Android.');
+        }
+        return false;
+      }
+      _ctrl.clear();
+      if (mounted) mostrarAviso(context, 'Lembrete daqui a $rotulo ⏰');
+      return true;
+    } catch (e) {
+      if (mounted) _mostrarErroAgendar(e);
+      return false;
+    } finally {
+      if (mounted) setState(() => _agendando = false);
     }
-    _ctrl.clear();
-    mostrarAviso(context, 'Lembrete daqui a $rotulo ⏰');
   }
 
-  /// Salva o tempo MONTADO na 2ª linha (soma dos botões) como um lembrete.
+  void _mostrarErroAgendar(Object e) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Não consegui agendar o lembrete'),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            'Detalhe do erro (para diagnóstico):\n\n$e',
+            style: const TextStyle(fontSize: 12, height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fechar')),
+        ],
+      ),
+    );
+  }
+
+  /// Salva o tempo MONTADO na 2ª linha (soma dos botões) como um lembrete. Só
+  /// zera a soma se o agendamento REALMENTE deu certo.
   Future<void> _salvarSomado() async {
     if (_somado <= Duration.zero) return;
-    final d = _somado;
-    await _agendar(d, _humanizar(d));
-    if (mounted) setState(() => _somado = Duration.zero);
+    final ok = await _agendar(_somado, _humanizar(_somado));
+    if (ok && mounted) setState(() => _somado = Duration.zero);
   }
 
   /// "2 h 30 min", "4 h", "45 min" — texto amigável de uma duração.
@@ -1784,6 +1814,74 @@ class _LembreteSheetState extends State<_LembreteSheet> {
     if (h > 0 && m > 0) return '$h h $m min';
     if (h > 0) return '$h h';
     return '$m min';
+  }
+
+  /// "Outro" (na 1ª linha, ao lado do 24 h): tempo exato personalizado (minutos
+  /// ou horas) → agenda direto. Bom para lembretes rápidos e precisos.
+  Future<void> _outro() async {
+    final ctrl = TextEditingController();
+    var unidade = 'minutos';
+    final d = await showDialog<Duration>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Outro tempo'),
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 84,
+                child: TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: 'ex.: 45'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              DropdownButton<String>(
+                value: unidade,
+                items: const [
+                  DropdownMenuItem(value: 'minutos', child: Text('minutos')),
+                  DropdownMenuItem(value: 'horas', child: Text('horas')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setLocal(() => unidade = v);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                final n = int.tryParse(ctrl.text.trim());
+                if (n == null || n <= 0) {
+                  Navigator.pop(ctx);
+                  return;
+                }
+                Navigator.pop(
+                  ctx,
+                  unidade == 'horas'
+                      ? Duration(hours: n)
+                      : Duration(minutes: n),
+                );
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ),
+    );
+    ctrl.dispose();
+    if (d == null) return;
+    final rotulo = d.inMinutes % 60 == 0 && d.inHours >= 1
+        ? '${d.inHours} h'
+        : '${d.inMinutes} min';
+    await _agendar(d, rotulo);
   }
 
   String _quando(DateTime dt) {
@@ -1860,6 +1958,14 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                               _agendando ? null : () => _agendar(p.$1, p.$2),
                         ),
                       ),
+                    // "Outro" (tempo exato) ao lado do 24 h — lembrete rápido preciso.
+                    ActionChip(
+                      avatar: const Icon(Icons.more_horiz, size: 18),
+                      label: const Text('Outro'),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onPressed: _agendando ? null : _outro,
+                    ),
                   ],
                 ),
               ),
