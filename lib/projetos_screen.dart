@@ -129,12 +129,23 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     final grupoSem = grupo.where((p) => p.id != alvo.id).toList();
     final dest = (newIndex - ini).clamp(0, grupoSem.length);
     final novoGrupo = [...grupoSem]..insert(dest, alvo);
+    var gi = 0;
+    final reordenado = <Projeto>[
+      for (final p in _projetos)
+        if (grupo.any((g) => g.id == p.id)) novoGrupo[gi++] else p,
+    ];
+    // ⚠️ MUTAR a lista NO LUGAR (clear+addAll), NÃO reatribuir `_projetos`:
+    // ela é a MESMA referência da lista interna do Storage (carregar() a
+    // devolve e a tela faz `_projetos = p`). Reatribuir quebrava esse vínculo
+    // → `salvar()` gravava a ordem ANTIGA do Storage e o `notifyListeners()`
+    // disparava `_aoMudarStorage`, que reapontava `_projetos` para a lista
+    // interna (antiga) → a pasta "voltava" ao lugar. Como só quebrava com
+    // seções (o `_reordenar` plano já muta no lugar), o sintoma era: com um
+    // projeto EM ANDAMENTO, as pastas de OUTROS não saíam do lugar.
     setState(() {
-      var gi = 0;
-      _projetos = [
-        for (final p in _projetos)
-          if (grupo.any((g) => g.id == p.id)) novoGrupo[gi++] else p,
-      ];
+      _projetos
+        ..clear()
+        ..addAll(reordenado);
     });
     _salvar();
   }

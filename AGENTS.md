@@ -308,6 +308,18 @@ ProjetosScreen (lista de projetos)
   │    do usuário. Fix: deixar o `dest = (newIndex-ini).clamp(0, len)` cuidar
   │    (arrastar além gruda na BORDA da própria seção, nunca sai dela).
   │    Teste real de arraste: `test/reorder_secoes_test.dart`.
+  │    ⚠️⚠️⚠️ CAUSA RAIZ (V0.1.70) — a que realmente resolveu: `_projetos` é a
+  │    MESMA referência da lista interna do Storage (carregar() a devolve e a
+  │    tela faz `_projetos = p`). `_reordenarComSecoes` fazia `_projetos = [..]`
+  │    (REATRIBUÍA p/ lista nova) → quebrava o vínculo → `salvar()` gravava a
+  │    ordem ANTIGA do Storage e o `notifyListeners()`→`_aoMudarStorage`
+  │    reapontava `_projetos` p/ a interna (antiga) = a pasta VOLTAVA. Sintoma
+  │    do usuário: com 1 projeto EM ANDAMENTO, as pastas de OUTROS "não saíam
+  │    do lugar". Só quebrava com seções porque o `_reordenar` (lista plana) já
+  │    MUTA no lugar (removeAt/insert). FIX: `_projetos..clear()..addAll(nova)`
+  │    (mutar no lugar, preservar a referência). Regra geral: reorder/edição
+  │    NUNCA reatribui `_projetos`; muta no lugar. Só carregar() da Storage
+  │    pode (re)apontar. Teste do widget real: `test/reorder_real_screen_test.dart`.
   ├─ Card → ProjetoScreen (projeto aberto)
   │    ├─ Tab "Tarefas" → ReorderableListView de _CaixaNota
   │    ├─ Tab "Ideias" → idem
@@ -1023,6 +1035,7 @@ A cada publicação de APK:
 | Seções "EM ANDAMENTO"/"OUTROS" na lista de projetos | Ideia do usuário: o marcador de em andamento vira agrupamento; arrastar só dentro da seção |
 | **Arrastar pasta PARA BAIXO consertado (V0.1.68)** | `onReorderItem` (Flutter 3.44.7) já entrega `newIndex` ajustado; o antigo `if (newIndex > oldIndex) newIndex--` ajustava de novo → todo move para baixo caía em `newIndex == oldIndex` e virava no-op (só subir funcionava). Removido o ajuste em `_reordenarComSecoes`. Não toca em Storage/dados. |
 | **Reorder na seção EM ANDAMENTO consertado (V0.1.69)** | Cartão (60px) mais alto que o cabeçalho da próxima seção (30px): ao soltar no fim da seção, o SDK devolve o índice do CABEÇALHO seguinte → o `if (newIndex > fim) return` rejeitava e a pasta voltava. Travava TODO reorder da seção EM ANDAMENTO (seguida por cabeçalho); OUTROS (última, sem cabeçalho) funcionava. Fix: removido o early-return, o `dest.clamp` mantém a pasta na própria seção. Validado com arraste real: `test/reorder_secoes_test.dart` (7 testes). |
+| **CAUSA RAIZ do reorder com seções (V0.1.70)** | `_reordenarComSecoes` fazia `_projetos = [..]` (reatribuía p/ lista nova), quebrando o vínculo com a lista INTERNA do Storage (`_projetos` é a mesma referência que `carregar()` devolve). Resultado: `salvar()` gravava a ordem antiga e o `notifyListeners()`→`_aoMudarStorage` revertia a tela → com um projeto EM ANDAMENTO, as pastas de OUTROS "não saíam do lugar". Fix: mutar no lugar (`_projetos..clear()..addAll(...)`), como o `_reordenar` plano já fazia. Regra: reorder/edição nunca reatribui `_projetos`. Teste do widget REAL: `test/reorder_real_screen_test.dart`. |
 | Densidade Confortável/Compacto nas Configurações | Ideia do usuário: mais conteúdo por tela, valendo para lista e caixinhas |
 | Data do último envio à nuvem na linha "RECENTES" | Pedido do usuário: saber quando o backup na nuvem foi feito |
 | Keystore fixa (não debug) | Evitar conflito de assinatura entre builds |
