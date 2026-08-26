@@ -293,6 +293,13 @@ ProjetosScreen (lista de projetos)
   ├─ SEÇÕES (V0.1.46): com ≥1 projeto em andamento, a lista vira
   │    "EM ANDAMENTO · N" (acento) + "OUTROS · N"; arrastar só move DENTRO
   │    da seção (_reordenarComSecoes)
+  │    ⚠️ REORDER via `onReorderItem` (Flutter 3.44.7 deprecou `onReorder`):
+  │    o callback JÁ entrega `newIndex` ajustado para o item removido — NÃO
+  │    aplicar `if (newIndex > oldIndex) newIndex--`. Fazer isso ajustava
+  │    DUAS vezes e todo arraste PARA BAIXO virava no-op (a pasta voltava ao
+  │    lugar; só subir funcionava). Bug em V0.1.46→V0.1.67, corrigido em
+  │    V0.1.68. O intervalo válido da seção é [ini, fim] em `linhas`
+  │    (cabeçalhos são Strings; projetos, `Projeto`).
   ├─ Card → ProjetoScreen (projeto aberto)
   │    ├─ Tab "Tarefas" → ReorderableListView de _CaixaNota
   │    ├─ Tab "Ideias" → idem
@@ -999,6 +1006,7 @@ A cada publicação de APK:
 | Tema Claude Code (terminal) com JetBrains Mono | Escolha do usuário: preto-quente + terracota + fonte mono, cartões como linhas de 1px |
 | Prateleira "Recentes" (5 projetos) na página principal | Ideia do usuário (prateleira rolante) aplicada aos projetos mais recentes |
 | Seções "EM ANDAMENTO"/"OUTROS" na lista de projetos | Ideia do usuário: o marcador de em andamento vira agrupamento; arrastar só dentro da seção |
+| **Arrastar pasta PARA BAIXO consertado (V0.1.68)** | `onReorderItem` (Flutter 3.44.7) já entrega `newIndex` ajustado; o antigo `if (newIndex > oldIndex) newIndex--` ajustava de novo → todo move para baixo caía em `newIndex == oldIndex` e virava no-op (só subir funcionava). Removido o ajuste em `_reordenarComSecoes`. Não toca em Storage/dados. |
 | Densidade Confortável/Compacto nas Configurações | Ideia do usuário: mais conteúdo por tela, valendo para lista e caixinhas |
 | Data do último envio à nuvem na linha "RECENTES" | Pedido do usuário: saber quando o backup na nuvem foi feito |
 | Keystore fixa (não debug) | Evitar conflito de assinatura entre builds |

@@ -107,7 +107,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     ];
     final alvo = linhas[oldIndex];
     if (alvo is! Projeto) return;
-    if (newIndex > oldIndex) newIndex--;
+    // ⚠️ NÃO ajustar `newIndex` (o antigo `if (newIndex > oldIndex) newIndex--`):
+    // esta versão do Flutter usa `onReorderItem`, que JÁ entrega o newIndex
+    // ajustado para o item removido. O ajuste a mais fazia mover PARA BAIXO
+    // cair em `newIndex == oldIndex` e não mover (só mover para cima funcionava).
     if (newIndex == oldIndex) return;
     // Limites visuais da seção (só posições de projeto).
     var ini = oldIndex;
