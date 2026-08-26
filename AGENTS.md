@@ -996,6 +996,13 @@ A cada publicação de APK:
 2. A versão aparece no topo da tela principal (ao lado de "ADM-projetos") —
    o usuário confirma que está rodando o APK certo.
 3. **Informar o número da versão na resposta do chat** (ex.: "Versão publicada: **V0.1.23**").
+4. **SEMPRE mandar o LINK DIRETO do APK na resposta do chat** (pedido do
+   usuário — não esquecer ao terminar qualquer tarefa que gera build). O CI
+   sobe DOIS assets na release fixa `v0.1.0`: `app-release.apk` (nome fixo) e
+   `taskix-v0.1.<N>.apk` (versionado). Mandar o **versionado**:
+   `https://github.com/viniciostristao1/adm-projetos/releases/download/v0.1.0/taskix-v0.1.<N>.apk`
+   Só enviar depois que `gh run list --workflow=build-apk.yml` mostrar
+   `completed success` e o asset existir (`gh release view v0.1.0 --json assets`).
 
 ## 13. Histórico de Decisões
 
