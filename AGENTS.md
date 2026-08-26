@@ -298,8 +298,16 @@ ProjetosScreen (lista de projetos)
   │    aplicar `if (newIndex > oldIndex) newIndex--`. Fazer isso ajustava
   │    DUAS vezes e todo arraste PARA BAIXO virava no-op (a pasta voltava ao
   │    lugar; só subir funcionava). Bug em V0.1.46→V0.1.67, corrigido em
-  │    V0.1.68. O intervalo válido da seção é [ini, fim] em `linhas`
-  │    (cabeçalhos são Strings; projetos, `Projeto`).
+  │    V0.1.68.
+  │    ⚠️⚠️ 2ª CAUSA (V0.1.69): NÃO rejeitar por `if (newIndex > fim) return`.
+  │    O cartão (60px) é mais ALTO que o cabeçalho da próxima seção (30px);
+  │    ao soltar no FIM da seção o SDK devolve o índice DO CABEÇALHO seguinte
+  │    (fora de [ini,fim]) e o return fazia a pasta VOLTAR. Como EM ANDAMENTO
+  │    é seguida por um cabeçalho, TODO reorder dentro dela travava; OUTROS
+  │    (última seção, sem cabeçalho depois) funcionava — esse era o "padrão"
+  │    do usuário. Fix: deixar o `dest = (newIndex-ini).clamp(0, len)` cuidar
+  │    (arrastar além gruda na BORDA da própria seção, nunca sai dela).
+  │    Teste real de arraste: `test/reorder_secoes_test.dart`.
   ├─ Card → ProjetoScreen (projeto aberto)
   │    ├─ Tab "Tarefas" → ReorderableListView de _CaixaNota
   │    ├─ Tab "Ideias" → idem
@@ -1014,6 +1022,7 @@ A cada publicação de APK:
 | Prateleira "Recentes" (5 projetos) na página principal | Ideia do usuário (prateleira rolante) aplicada aos projetos mais recentes |
 | Seções "EM ANDAMENTO"/"OUTROS" na lista de projetos | Ideia do usuário: o marcador de em andamento vira agrupamento; arrastar só dentro da seção |
 | **Arrastar pasta PARA BAIXO consertado (V0.1.68)** | `onReorderItem` (Flutter 3.44.7) já entrega `newIndex` ajustado; o antigo `if (newIndex > oldIndex) newIndex--` ajustava de novo → todo move para baixo caía em `newIndex == oldIndex` e virava no-op (só subir funcionava). Removido o ajuste em `_reordenarComSecoes`. Não toca em Storage/dados. |
+| **Reorder na seção EM ANDAMENTO consertado (V0.1.69)** | Cartão (60px) mais alto que o cabeçalho da próxima seção (30px): ao soltar no fim da seção, o SDK devolve o índice do CABEÇALHO seguinte → o `if (newIndex > fim) return` rejeitava e a pasta voltava. Travava TODO reorder da seção EM ANDAMENTO (seguida por cabeçalho); OUTROS (última, sem cabeçalho) funcionava. Fix: removido o early-return, o `dest.clamp` mantém a pasta na própria seção. Validado com arraste real: `test/reorder_secoes_test.dart` (7 testes). |
 | Densidade Confortável/Compacto nas Configurações | Ideia do usuário: mais conteúdo por tela, valendo para lista e caixinhas |
 | Data do último envio à nuvem na linha "RECENTES" | Pedido do usuário: saber quando o backup na nuvem foi feito |
 | Keystore fixa (não debug) | Evitar conflito de assinatura entre builds |

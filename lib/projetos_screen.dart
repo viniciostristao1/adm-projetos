@@ -112,16 +112,19 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     // ajustado para o item removido. O ajuste a mais fazia mover PARA BAIXO
     // cair em `newIndex == oldIndex` e não mover (só mover para cima funcionava).
     if (newIndex == oldIndex) return;
-    // Limites visuais da seção (só posições de projeto).
+    // Início da seção do item arrastado (só posições de projeto acima dele).
     var ini = oldIndex;
     while (ini > 0 && linhas[ini - 1] is Projeto) {
       ini--;
     }
-    var fim = oldIndex;
-    while (fim < linhas.length - 1 && linhas[fim + 1] is Projeto) {
-      fim++;
-    }
-    if (newIndex < ini || newIndex > fim) return;
+    // ⚠️ NÃO rejeitar por [ini, fim] (o antigo `if (newIndex > fim) return`):
+    // o cartão arrastado (60px) é mais ALTO que o cabeçalho da próxima seção
+    // (30px), então ao soltar no FIM da seção o SDK devolve o índice DO
+    // CABEÇALHO seguinte (fora de [ini, fim]) — e o return fazia a pasta
+    // VOLTAR. Como a seção EM ANDAMENTO é seguida por um cabeçalho, isso
+    // travava todo reorder dentro dela (o OUTROS, última seção, não tinha
+    // cabeçalho depois → funcionava). Deixar o `dest` fazer o clamp mantém a
+    // pasta na PRÓPRIA seção (arrastar um pouco além gruda na borda, não volta).
     final grupo = alvo.emAndamento ? ativos : outros;
     final grupoSem = grupo.where((p) => p.id != alvo.id).toList();
     final dest = (newIndex - ini).clamp(0, grupoSem.length);
