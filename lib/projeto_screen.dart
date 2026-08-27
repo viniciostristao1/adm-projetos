@@ -132,14 +132,27 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   void _excluir(int aba, int i) {
     final lst = _lista(aba);
     final nota = lst[i];
-    setState(() => lst.removeAt(i));
+    final eraConcluida = nota.concluida;
+    final emAndamentoAntes = widget.projeto.emAndamento;
+    setState(() {
+      lst.removeAt(i);
+      if (eraConcluida) {
+        final aindaTem = widget.projeto.tarefas.any((n) => n.concluida) ||
+            widget.projeto.futuro.any((n) => n.concluida);
+        if (!aindaTem) widget.projeto.emAndamento = false;
+      }
+    });
     _salvar();
     mostrarAvisoAcao(
       context,
       'Caixinha excluída',
       'Desfazer',
       () {
-        setState(() => lst.insert(i > lst.length ? lst.length : i, nota));
+        setState(() {
+          lst.insert(i > lst.length ? lst.length : i, nota);
+          if (eraConcluida) widget.projeto.emAndamento = true;
+          else widget.projeto.emAndamento = emAndamentoAntes;
+        });
         _salvar();
       },
     );
