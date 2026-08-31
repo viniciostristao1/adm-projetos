@@ -112,7 +112,7 @@ class LembretesService extends ChangeNotifier {
         visibility: NotificationVisibility.public,
         category: AndroidNotificationCategory.reminder,
         icon: 'ic_notif',
-        styleInformation: BigTextStyleInformation(corpo, contentTitle: corpo, summaryText: 'Taskix'),
+        styleInformation: BigTextStyleInformation('', contentTitle: corpo, summaryText: 'Taskix'),
         ticker: corpo,
         playSound: true,
         enableVibration: true,
@@ -197,10 +197,11 @@ class LembretesService extends ChangeNotifier {
 
     final (quando, agendado) = _quandoAgendar(daqui);
 
+    final corpo = texto.isEmpty ? 'Toque para abrir o Taskix' : texto;
     await _plugin.zonedSchedule(
       id,
-      'Lembrete',
-      texto.isEmpty ? 'Toque para abrir o Taskix' : texto,
+      corpo,
+      '',
       agendado,
       _detalhes(texto),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -259,10 +260,11 @@ class LembretesService extends ChangeNotifier {
 
     final (quando, agendado) = _quandoAgendar(dur);
 
+    final corpo2 = texto.isEmpty ? 'Toque para abrir o Taskix' : texto;
     await plugin.zonedSchedule(
       id,
-      'Lembrete',
-      texto.isEmpty ? 'Toque para abrir o Taskix' : texto,
+      corpo2,
+      '',
       agendado,
       _detalhes(texto),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
