@@ -108,17 +108,17 @@ class LembretesService extends ChangeNotifier {
         _canalNome,
         channelDescription: _canalDesc,
         importance: Importance.max,
-        priority: Priority.high,
-        category: AndroidNotificationCategory.reminder,
-        // Ícone da barra de status: o "T" de Taskix (silhueta branca), em vez
-        // do quadrado do ic_launcher.
-        icon: 'ic_notif',
-        // Aparece com conteúdo na tela BLOQUEADA.
+        priority: Priority.max,
         visibility: NotificationVisibility.public,
+        category: AndroidNotificationCategory.reminder,
+        icon: 'ic_notif',
+        styleInformation: BigTextStyleInformation(corpo, contentTitle: 'Lembrete', summaryText: 'Taskix \u2022 Lembrete'),
+        ticker: 'Lembrete',
         playSound: true,
         enableVibration: true,
-        // Mostra o texto escrito INTEIRO (sem BigText, o corpo é truncado).
-        styleInformation: BigTextStyleInformation(corpo),
+        autoCancel: true,
+        showWhen: true,
+        ongoing: false,
         actions: [
           for (final s in _snoozes)
             AndroidNotificationAction(
@@ -129,6 +129,7 @@ class LembretesService extends ChangeNotifier {
             ),
         ],
       ),
+      iOS: const DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true, threadIdentifier: _canalId),
     );
   }
 
