@@ -339,8 +339,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 ),
                 const SizedBox(height: 16),
                 Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                  spacing: 10,
+                  runSpacing: 10,
                   children: [
                     _bolhaCor(null, sel == null, ctx),
                     for (final e in mapaCoresPasta.entries) _bolhaCor(e.key, sel == e.key, ctx),
@@ -368,8 +368,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isNone ? Colors.transparent : cor,
@@ -377,18 +377,18 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 color: selecionado
                     ? Theme.of(ctx).colorScheme.primary
                     : (isNone ? Colors.grey.shade400 : Colors.transparent),
-                width: selecionado ? 3 : 1.2,
+                width: selecionado ? 2.2 : 1.2,
               ),
             ),
             child: isNone
-                ? Icon(Icons.block, size: 22, color: Colors.grey.shade500)
+                ? Icon(Icons.block, size: 16, color: Colors.grey.shade500)
                 : selecionado
-                    ? const Icon(Icons.check, color: Colors.white, size: 22)
+                    ? const Icon(Icons.check, color: Colors.white, size: 16)
                     : null,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(isNone ? 'sem cor' : nome!,
-              style: TextStyle(fontSize: 11, fontWeight: selecionado ? FontWeight.w700 : FontWeight.w500)),
+              style: TextStyle(fontSize: 10, fontWeight: selecionado ? FontWeight.w700 : FontWeight.w500)),
         ],
       ),
     );
