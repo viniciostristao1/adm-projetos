@@ -103,12 +103,17 @@ class Projeto {
   /// Projeto em andamento (mostra ✓ verde no cartão da lista).
   bool emAndamento;
 
+  /// Cor escolhida para a pasta quando NÃO está em andamento (null = sem cor).
+  /// Valores: azul, amarelo, vermelho, verde, roxo, marrom, bege.
+  String? cor;
+
   Projeto({
     required this.id,
     required this.nome,
     List<Nota>? tarefas,
     List<Nota>? futuro,
     this.emAndamento = false,
+    this.cor,
   })  : tarefas = tarefas ?? [],
         futuro = futuro ?? [];
 
@@ -118,6 +123,7 @@ class Projeto {
         'tarefas': tarefas.map((n) => n.toJson()).toList(),
         'futuro': futuro.map((n) => n.toJson()).toList(),
         'emAndamento': emAndamento,
+        if (cor != null) 'cor': cor,
       };
 
   factory Projeto.fromJson(Map<String, dynamic> j) {
@@ -133,6 +139,7 @@ class Projeto {
       tarefas: ler('tarefas').isNotEmpty ? ler('tarefas') : velhas,
       futuro: ler('futuro'),
       emAndamento: (j['emAndamento'] ?? false) as bool,
+      cor: j['cor'] as String?,
     );
   }
 }

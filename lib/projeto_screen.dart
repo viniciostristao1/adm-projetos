@@ -108,7 +108,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   void _adicionar(int aba, {String? comTexto}) {
     final nota = Nota(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      texto: comTexto ?? (aba == 0 ? '1- ' : ''),
+      texto: comTexto ?? '',
     );
     setState(() => _lista(aba).add(nota));
     WidgetsBinding.instance.addPostFrameCallback((_) {

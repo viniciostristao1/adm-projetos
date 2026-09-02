@@ -19,6 +19,23 @@ import 'sync_service.dart';
 import 'tema.dart';
 import 'versao.dart';
 
+const Map<String, Color> mapaCoresPasta = {
+  'azul': Color(0xFF3B82F6),
+  'amarelo': Color(0xFFEAB308),
+  'vermelho': Color(0xFFEF4444),
+  'verde': Color(0xFF22C55E),
+  'roxo': Color(0xFFA855F7),
+  'marrom': Color(0xFF8D6E63),
+  'bege': Color(0xFFD7B98E),
+};
+
+Color? corPastaDeNome(String? nome) => nome == null ? null : mapaCoresPasta[nome];
+
+Color? corEfetivaPasta(Projeto p, AppCores app) {
+  if (p.emAndamento) return app.fab;
+  return corPastaDeNome(p.cor);
+}
+
 /// Página principal: a lista de projetos.
 class ProjetosScreen extends StatefulWidget {
   const ProjetosScreen({super.key});
@@ -288,6 +305,93 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       }
     });
     _salvar();
+  }
+
+  void _definirCorPasta(Projeto p, String? cor) {
+    setState(() => p.cor = cor);
+    _salvar();
+  }
+
+  Future<void> _mostrarSeletorCor(Projeto p) async {
+    final escolha = await showModalBottomSheet<String?>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final sel = p.cor;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Cor da pasta: ${p.nome}',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(
+                  p.emAndamento
+                      ? 'Em andamento: mostra a cor do tema. Sua cor volta ao desmarcar.'
+                      : 'Toque numa cor. Segure a pasta para trocar a qualquer hora.',
+                  style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _bolhaCor(null, sel == null, ctx),
+                    for (final e in mapaCoresPasta.entries) _bolhaCor(e.key, sel == e.key, ctx),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (escolha == '__nenhuma__') {
+      _definirCorPasta(p, null);
+    } else if (escolha != null) {
+      _definirCorPasta(p, escolha);
+    }
+  }
+
+  Widget _bolhaCor(String? nome, bool selecionado, BuildContext ctx) {
+    final isNone = nome == null;
+    final cor = isNone ? null : mapaCoresPasta[nome];
+    return GestureDetector(
+      onTap: () => Navigator.pop(ctx, isNone ? '__nenhuma__' : nome),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isNone ? Colors.transparent : cor,
+              border: Border.all(
+                color: selecionado
+                    ? Theme.of(ctx).colorScheme.primary
+                    : (isNone ? Colors.grey.shade400 : Colors.transparent),
+                width: selecionado ? 3 : 1.2,
+              ),
+            ),
+            child: isNone
+                ? Icon(Icons.block, size: 22, color: Colors.grey.shade500)
+                : selecionado
+                    ? const Icon(Icons.check, color: Colors.white, size: 22)
+                    : null,
+          ),
+          const SizedBox(height: 4),
+          Text(isNone ? 'sem cor' : nome!,
+              style: TextStyle(fontSize: 11, fontWeight: selecionado ? FontWeight.w700 : FontWeight.w500)),
+        ],
+      ),
+    );
   }
 
   /// Remoção SEGURA + Desfazer, sem diálogo. Único ponto de exclusão de projeto:
@@ -824,83 +928,101 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
 
                   Future<void> onTapProjeto() => _abrirProjeto(p);
 
+                  final corEfetiva = corEfetivaPasta(p, app);
                   if (app.neumorfico) {
-                    return _arrastavel(
-                        p,
-                        Padding(
-                      padding: EdgeInsets.only(bottom: compacto ? 8 : 16),
-                      child: Caixa3D(
-                        cor: app.projetoCard,
-                        corInicio: app.projetoCard,
-                        corFim: app.projetoCardFim,
-                        raio: 18,
-                        child: Material(
-                          type: MaterialType.transparency,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(18),
-                            onTap: onTapProjeto,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(12, 10, 10, 10),
-                              child: Row(
-                                children: [
-                                  q.isNotEmpty
-                                      ? Icon(Icons.drag_indicator,
-                                          color: app.projetoTxt
-                                              .withValues(alpha: 0.5))
-                                      : ReorderableDragStartListener(
-                                          index: i,
-                                          child: Icon(Icons.drag_indicator,
-                                              color: app.projetoTxt
-                                                  .withValues(alpha: 0.5)),
-                                        ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      p.nome,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 15,
-                                        color: app.projetoTxt,
+                    Widget card = Caixa3D(
+                      cor: app.projetoCard,
+                      corInicio: app.projetoCard,
+                      corFim: app.projetoCardFim,
+                      raio: 18,
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: onTapProjeto,
+                          onLongPress: () => _mostrarSeletorCor(p),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                            child: Row(
+                              children: [
+                                q.isNotEmpty
+                                    ? Icon(Icons.drag_indicator,
+                                        color: app.projetoTxt
+                                            .withValues(alpha: 0.5))
+                                    : ReorderableDragStartListener(
+                                        index: i,
+                                        child: Icon(Icons.drag_indicator,
+                                            color: app.projetoTxt
+                                                .withValues(alpha: 0.5)),
                                       ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    p.nome,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                      color: app.projetoTxt,
                                     ),
                                   ),
-                                  BotaoNeum(
-                                    raio: 999,
-                                    padding: const EdgeInsets.all(7),
-                                    corInicio: app.projetoCard,
-                                    corFim: app.projetoCardFim,
-                                    tooltip: p.emAndamento
-                                        ? 'Parar (não está mais em andamento)'
-                                        : 'Marcar como em andamento',
-                                    onTap: () => _alternarAndamento(p),
-                                    child: Icon(
-                                        p.emAndamento
-                                            ? Icons.check_box
-                                            : Icons.check_box_outline_blank,
-                                        size: 17,
-                                        color: p.emAndamento
-                                            ? const Color(0xFF4ADE80)
-                                            : app.projetoTxt),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  BotaoNeum(
-                                    raio: 999,
-                                    padding: const EdgeInsets.all(7),
-                                    corInicio: app.projetoCard,
-                                    corFim: app.projetoCardFim,
-                                    tooltip: 'Renomear',
-                                    onTap: () => _renomear(p),
-                                    child: Icon(Icons.edit_outlined,
-                                        size: 17, color: app.projetoTxt),
-                                  ),
-                                ],
-                              ),
+                                ),
+                                BotaoNeum(
+                                  raio: 999,
+                                  padding: const EdgeInsets.all(7),
+                                  corInicio: app.projetoCard,
+                                  corFim: app.projetoCardFim,
+                                  tooltip: p.emAndamento
+                                      ? 'Parar (não está mais em andamento)'
+                                      : 'Marcar como em andamento',
+                                  onTap: () => _alternarAndamento(p),
+                                  child: Icon(
+                                      p.emAndamento
+                                          ? Icons.check_box
+                                          : Icons.check_box_outline_blank,
+                                      size: 17,
+                                      color: p.emAndamento
+                                          ? const Color(0xFF4ADE80)
+                                          : app.projetoTxt),
+                                ),
+                                const SizedBox(width: 10),
+                                BotaoNeum(
+                                  raio: 999,
+                                  padding: const EdgeInsets.all(7),
+                                  corInicio: app.projetoCard,
+                                  corFim: app.projetoCardFim,
+                                  tooltip: 'Renomear',
+                                  onTap: () => _renomear(p),
+                                  child: Icon(Icons.edit_outlined,
+                                      size: 17, color: app.projetoTxt),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                    ));
+                    );
+                    if (corEfetiva != null) {
+                      card = ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Stack(
+                          children: [
+                            card,
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              child: Container(width: 4, color: corEfetiva),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return _arrastavel(
+                        p,
+                        Padding(
+                          padding: EdgeInsets.only(bottom: compacto ? 8 : 16),
+                          child: card,
+                        ));
                   }
 
                 // Temas planos (Azul, Escuro, Bege e Claude): cartão na cor
@@ -935,113 +1057,115 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                         ? app.fab
                         : const Color(0xFF4ADE80));
 
-                return _arrastavel(
-                    p,
-                    Padding(
-                  padding: EdgeInsets.only(bottom: compacto ? 5 : 10),
-                  child: Container(
-                    decoration: semCaixa
-                        ? null
-                        : BoxDecoration(
-                            color: app.projetoCard,
-                            borderRadius:
-                                BorderRadius.circular(ehClaude ? 10 : 14),
-                            border: ehClaude
-                                ? Border(
-                                    // Barra terracota à esquerda = projeto
-                                    // em andamento.
-                                    left: BorderSide(
-                                      color: p.emAndamento
-                                          ? app.fab
-                                          : app.notaBorda,
-                                      width: p.emAndamento ? 3 : 1,
-                                    ),
-                                    top: const BorderSide(
-                                        color: Color(0xFF2A2A2B)),
-                                    right: const BorderSide(
-                                        color: Color(0xFF2A2A2B)),
-                                    bottom: const BorderSide(
-                                        color: Color(0xFF2A2A2B)),
-                                  )
-                                : Border.all(
-                                    color:
-                                        app.projetoTxt.withValues(alpha: 0.08),
-                                  ),
-                          ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 10, 4),
-                      child: Row(
-                        children: [
-                          q.isNotEmpty
-                              ? Icon(Icons.drag_indicator, color: arrastarCor)
-                              : ReorderableDragStartListener(
-                                  index: i,
-                                  child: Icon(Icons.drag_indicator,
-                                      color: arrastarCor),
-                                ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: InkWell(
-                              onTap: onTapProjeto,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: Text(
-                                  p.nome,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15,
-                                    color: txtCor,
-                                  ),
+                BoxDecoration? baseDecor;
+                if (semCaixa) {
+                  baseDecor = null;
+                } else if (ehClaude) {
+                  baseDecor = BoxDecoration(
+                    color: app.projetoCard,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF2A2A2B)),
+                  );
+                } else {
+                  baseDecor = BoxDecoration(
+                    color: app.projetoCard,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: app.projetoTxt.withValues(alpha: 0.08)),
+                  );
+                }
+
+                Widget cardPlano = Container(
+                  decoration: baseDecor,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 10, 4),
+                    child: Row(
+                      children: [
+                        q.isNotEmpty
+                            ? Icon(Icons.drag_indicator, color: arrastarCor)
+                            : ReorderableDragStartListener(
+                                index: i,
+                                child: Icon(Icons.drag_indicator, color: arrastarCor),
+                              ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: InkWell(
+                            onTap: onTapProjeto,
+                            onLongPress: () => _mostrarSeletorCor(p),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                p.nome,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  color: txtCor,
                                 ),
                               ),
                             ),
                           ),
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: p.emAndamento
-                                  ? corBolaAndamento
-                                  : bolaCor,
-                            ),
-                            child: IconButton(
-                              icon: Icon(
-                                  p.emAndamento
-                                      ? Icons.check
-                                      : Icons.check_box_outline_blank,
-                                  size: 18),
-                              color: p.emAndamento
-                                  ? corCheckAndamento
-                                  : iconeCor,
-                              tooltip: p.emAndamento
-                                  ? 'Parar (não está mais em andamento)'
-                                  : 'Marcar como em andamento',
-                              onPressed: () => _alternarAndamento(p),
-                              padding: EdgeInsets.zero,
-                            ),
+                        ),
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: p.emAndamento ? corBolaAndamento : bolaCor,
                           ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: bolaCor,
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 18),
-                              color: iconeCor,
-                              tooltip: 'Renomear',
-                              onPressed: () => _renomear(p),
-                              padding: EdgeInsets.zero,
-                            ),
+                          child: IconButton(
+                            icon: Icon(
+                                p.emAndamento ? Icons.check : Icons.check_box_outline_blank,
+                                size: 18),
+                            color: p.emAndamento ? corCheckAndamento : iconeCor,
+                            tooltip: p.emAndamento
+                                ? 'Parar (não está mais em andamento)'
+                                : 'Marcar como em andamento',
+                            onPressed: () => _alternarAndamento(p),
+                            padding: EdgeInsets.zero,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: bolaCor,
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            color: iconeCor,
+                            tooltip: 'Renomear',
+                            onPressed: () => _renomear(p),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ));
+                );
+                if (corEfetiva != null) {
+                  final raio = ehClaude ? 10.0 : 14.0;
+                  cardPlano = ClipRRect(
+                    borderRadius: BorderRadius.circular(raio),
+                    child: Stack(
+                      children: [
+                        cardPlano,
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: Container(width: 4, color: corEfetiva),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return _arrastavel(
+                    p,
+                    Padding(
+                      padding: EdgeInsets.only(bottom: compacto ? 5 : 10),
+                      child: cardPlano,
+                    ));
               },
             );
             }),

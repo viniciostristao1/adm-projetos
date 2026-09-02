@@ -1023,6 +1023,8 @@ A cada publicação de APK:
    `https://github.com/viniciostristao1/adm-projetos/releases/download/v0.1.0/taskix-v0.1.<N>.apk`
    Só enviar depois que `gh run list --workflow=build-apk.yml` mostrar
    `completed success` e o asset existir (`gh release view v0.1.0 --json assets`).
+5. **SEMPRE fazer commit e push imediatamente após bump de versão** — nunca
+   deixar a versão só local. Padrão: `git add -A && git -c user.name="Vinicius Tristao" -c user.email="viniciostristao@gmail.com" commit -m "V0.1.<N>: <resumo>" && git push` e só então enviar o link do passo 4. ⚠️ Esquecer o push = o APK nunca é gerado e o usuário fica sem link (falha da V0.1.76).
 
 ## 13. Histórico de Decisões
 
@@ -1082,6 +1084,7 @@ A cada publicação de APK:
 | **APK versionado na release (V0.1.62)** | Erro "Generic IDP" persistia mesmo após a V0.1.61 porque o usuário reinstalava um APK em CACHE (mesmo nome `app-release.apk`). CI passou a publicar `taskix-v<versao>.apk` (nome distinto por versão) — download sempre fresco |
 | **Teclado `unfocus` imediato (V0.1.63)** | O debounce da V0.1.57 fazia o teclado "voltar a subir" (minimizar 2-3× com o cursor no fim). Voltou a soltar o foco na hora, guardado por composição IME. Notificação: config já é max+som+public+exact; misses raros (1/10) e sem-som em testes rápidos = OEM/Doze/rate-limit, não código → orientar liberar bateria |
 | **`ic_notif` no manifesto + "Outro" sem reticências (V0.1.67)** | Notificações quebraram (`invalid_icon`): o `ic_notif` da V0.1.65 era removido no build release (usado só por string em runtime) → referenciado no manifesto p/ manter no APK. E o chip "Outro" perdeu o ícone `more_horiz` (parecia "…Outro") e a linha dos tempos virou `Wrap` (cabe sem rolar) |
+| **Caixinha limpa + cor da pasta (V0.1.76)** | Nova caixinha em Tarefas não inicia mais com `1- ` (limpa; numeração só ao tocar no botão). Pasta: segurar abre leque de 7 cores (azul/amarelo/vermelho/verde/roxo/marrom/bege) + sem cor; `Projeto.cor` guardada; em andamento sobrepõe com `fab` do tema e volta à cor ao desmarcar. Barra de 4px via `ClipRRect+Stack` (evita `borderRadius` em `Border` não-uniforme). |
 
 ---
 
