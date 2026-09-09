@@ -49,6 +49,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   final TextEditingController _ctrlBusca = TextEditingController();
   final FocusNode _focoBusca = FocusNode();
   bool _buscando = false;
+  bool _modoPastas = false;
 
   int get _qtdAbas => widget.projeto.qtdAbas;
   String _nomeAba(int i) => widget.projeto.nomeAba(i);
@@ -529,34 +530,113 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     );
   }
 
+  Widget _gradePastas() {
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 100),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.25,
+      ),
+      itemCount: _qtdAbas,
+      itemBuilder: (_, i) {
+        final nome = _nomeAba(i);
+        final qtd = _lista(i).length;
+        final ehAtual = _tabCtrl.index == i;
+        Widget card = Container(
+          decoration: BoxDecoration(
+            color: app.projetoCard,
+            borderRadius: BorderRadius.circular(app.neumorfico ? 18 : 14),
+            border: Border.all(
+              color: ehAtual ? app.fab : app.projetoTxt.withValues(alpha: 0.08),
+              width: ehAtual ? 1.6 : 1,
+            ),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(app.neumorfico ? 18 : 14),
+            onTap: () => setState(() {
+              _modoPastas = false;
+              _tabCtrl.animateTo(i);
+            }),
+            onLongPress: () => _renomearAba(i),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14, 14, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(i == 0 ? Icons.checklist_rounded : i == 1 ? Icons.lightbulb_outline : Icons.folder_outlined, size: 22, color: app.fab),
+                    Spacer(),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(color: app.fab.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                      child: Text('$qtd', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: app.fab)),
+                    ),
+                  ]),
+                  Spacer(),
+                  Text(nome, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: app.projetoTxt)),
+                  SizedBox(height: 2),
+                  Text(qtd == 1 ? '1 caixa' : '$qtd caixas', style: TextStyle(fontSize: 11.5, color: app.projetoTxt.withValues(alpha: 0.6))),
+                ],
+              ),
+            ),
+          ),
+        );
+        if (app.neumorfico) {
+          card = Caixa3D(cor: app.projetoCard, corInicio: app.projetoCard, corFim: app.projetoCardFim, raio: 18, child: card);
+        }
+        return card;
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Fundo(
       child: Scaffold(
         appBar: AppBar(
+        titleSpacing: 8,
         title: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(widget.projeto.nome),
-            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                widget.projeto.nome,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ),
             IconButton(
               icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
               tooltip: 'Exportar PDF do projeto',
               onPressed: () => exportarPdfProjeto(context, widget.projeto),
+              visualDensity: VisualDensity.compact,
             ),
             IconButton(
               icon: const Icon(Icons.copy_outlined, size: 18),
               tooltip: 'Copiar tudo do projeto',
               onPressed: _copiarProjeto,
+              visualDensity: VisualDensity.compact,
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 18),
               tooltip: 'Excluir projeto',
               onPressed: _excluirProjeto,
+              visualDensity: VisualDensity.compact,
+            ),
+            IconButton(
+              icon: Icon(_modoPastas ? Icons.view_list_rounded : Icons.folder_outlined, size: 19),
+              tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',
+              onPressed: () => setState(() => _modoPastas = !_modoPastas),
+              visualDensity: VisualDensity.compact,
             ),
           ],
         ),
-        bottom: PreferredSize(
+        bottom: _modoPastas
+            ? null
+            : PreferredSize(
           preferredSize: const Size.fromHeight(kTextTabBarHeight),
           child: Row(
             children: [
@@ -588,20 +668,28 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           ),
         ),
       ),
-      floatingActionButton: GestureDetector(
-        onLongPress: _adicionarDeImagem,
-        child: FloatingActionButton(
-          onPressed: () => _adicionar(_tabCtrl.index),
-          tooltip: 'Nova caixa de texto',
-          child: const Icon(Icons.add),
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          for (var i = 0; i < _qtdAbas; i++) _listaCard(i),
-        ],
-      ),
+      floatingActionButton: _modoPastas
+          ? FloatingActionButton(
+              onPressed: _criarNovaAba,
+              tooltip: 'Nova pasta',
+              child: const Icon(Icons.create_new_folder_outlined),
+            )
+          : GestureDetector(
+              onLongPress: _adicionarDeImagem,
+              child: FloatingActionButton(
+                onPressed: () => _adicionar(_tabCtrl.index),
+                tooltip: 'Nova caixa de texto',
+                child: const Icon(Icons.add),
+              ),
+            ),
+      body: _modoPastas
+          ? _gradePastas()
+          : TabBarView(
+              controller: _tabCtrl,
+              children: [
+                for (var i = 0; i < _qtdAbas; i++) _listaCard(i),
+              ],
+            ),
       ),
     );
   }
