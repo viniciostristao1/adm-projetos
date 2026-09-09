@@ -1909,64 +1909,49 @@ class _DialogoLinksState extends State<_DialogoLinks> {
         ),
       ),
       actions: [
-        // Linha 1: Copiar · Colar · Limpar · Fechar. Linha 2 (alinhada à direita,
-        // embaixo de "Fechar"): Salvar.
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Wrap(
-              spacing: 2,
-              runSpacing: 0,
-              alignment: WrapAlignment.end,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      minimumSize: const Size(0, 32)),
-                  onPressed: _copiar,
-                  icon: const Icon(Icons.content_copy_rounded, size: 14),
-                  label: const Text('Copiar', style: TextStyle(fontSize: 12)),
-                ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      minimumSize: const Size(0, 32)),
-                  onPressed: _colar,
-                  icon: const Icon(Icons.content_paste_rounded, size: 14),
-                  label: const Text('Colar', style: TextStyle(fontSize: 12)),
-                ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      minimumSize: const Size(0, 32)),
-                  onPressed: _limpar,
-                  icon: const Icon(Icons.clear_rounded, size: 14),
-                  label: const Text('Limpar', style: TextStyle(fontSize: 12)),
-                ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      minimumSize: const Size(0, 32)),
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, size: 14),
-                  label: const Text('Fechar', style: TextStyle(fontSize: 12)),
-                ),
-              ],
+            IconButton(
+              tooltip: 'Copiar',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: _copiar,
+              icon: const Icon(Icons.content_copy_rounded, size: 18),
             ),
-            const SizedBox(height: 4),
+            IconButton(
+              tooltip: 'Colar',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: _colar,
+              icon: const Icon(Icons.content_paste_rounded, size: 18),
+            ),
+            IconButton(
+              tooltip: 'Limpar',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: _limpar,
+              icon: const Icon(Icons.cleaning_services_rounded, size: 18),
+            ),
+            IconButton(
+              tooltip: 'Fechar',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close_rounded, size: 18),
+            ),
+            const SizedBox(width: 4),
             FilledButton(
-              style:
-                  FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(8),
+                minimumSize: const Size(36, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               onPressed: () {
                 final links = <NotaLink>[
                   for (var i = 0; i < _ctrls.length; i++)
@@ -1978,7 +1963,7 @@ class _DialogoLinksState extends State<_DialogoLinks> {
                 ];
                 Navigator.pop(context, links);
               },
-              child: const Text('Salvar'),
+              child: const Icon(Icons.check_rounded, size: 18),
             ),
           ],
         ),
