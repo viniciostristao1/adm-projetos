@@ -1915,35 +1915,51 @@ class _DialogoLinksState extends State<_DialogoLinks> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            Wrap(
+              spacing: 2,
+              runSpacing: 0,
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                TextButton(
+                TextButton.icon(
                   style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      minimumSize: const Size(0, 32)),
                   onPressed: _copiar,
-                  child: const Text('Copiar'),
+                  icon: const Icon(Icons.content_copy_rounded, size: 14),
+                  label: const Text('Copiar', style: TextStyle(fontSize: 12)),
                 ),
-                const SizedBox(width: 2),
-                TextButton(
+                TextButton.icon(
                   style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      minimumSize: const Size(0, 32)),
                   onPressed: _colar,
-                  child: const Text('Colar'),
+                  icon: const Icon(Icons.content_paste_rounded, size: 14),
+                  label: const Text('Colar', style: TextStyle(fontSize: 12)),
                 ),
-                const SizedBox(width: 2),
-                TextButton(
+                TextButton.icon(
                   style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      minimumSize: const Size(0, 32)),
                   onPressed: _limpar,
-                  child: const Text('Limpar'),
+                  icon: const Icon(Icons.clear_rounded, size: 14),
+                  label: const Text('Limpar', style: TextStyle(fontSize: 12)),
                 ),
-                const SizedBox(width: 2),
-                TextButton(
+                TextButton.icon(
                   style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      minimumSize: const Size(0, 32)),
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Fechar'),
+                  icon: const Icon(Icons.close_rounded, size: 14),
+                  label: const Text('Fechar', style: TextStyle(fontSize: 12)),
                 ),
               ],
             ),
