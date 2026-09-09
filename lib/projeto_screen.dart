@@ -609,6 +609,12 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               ),
             ),
             IconButton(
+              icon: Icon(_modoPastas ? Icons.view_list_rounded : Icons.folder_outlined, size: 19),
+              tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',
+              onPressed: () => setState(() => _modoPastas = !_modoPastas),
+              visualDensity: VisualDensity.compact,
+            ),
+            IconButton(
               icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
               tooltip: 'Exportar PDF do projeto',
               onPressed: () => exportarPdfProjeto(context, widget.projeto),
@@ -624,12 +630,6 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               icon: const Icon(Icons.delete_outline, size: 18),
               tooltip: 'Excluir projeto',
               onPressed: _excluirProjeto,
-              visualDensity: VisualDensity.compact,
-            ),
-            IconButton(
-              icon: Icon(_modoPastas ? Icons.view_list_rounded : Icons.folder_outlined, size: 19),
-              tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',
-              onPressed: () => setState(() => _modoPastas = !_modoPastas),
               visualDensity: VisualDensity.compact,
             ),
           ],
@@ -1794,6 +1794,17 @@ class _DialogoLinksState extends State<_DialogoLinks> {
     });
   }
 
+  Future<void> _copiar() async {
+    final links = _ctrls.map((c) => c.text.trim()).where((s) => s.isNotEmpty).toList();
+    if (links.isEmpty) {
+      mostrarAviso(context, 'Nenhum link para copiar.');
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: links.join('\n')));
+    if (!mounted) return;
+    mostrarAviso(context, links.length == 1 ? 'Link copiado!' : '${links.length} links copiados!');
+  }
+
   Future<String?> _tituloYouTube(String url) async {
     // NUNCA lança (mesmo motivo do _CaixaNotaState): URL inválida ou falha
     // de rede devolvem null.
@@ -1898,7 +1909,7 @@ class _DialogoLinksState extends State<_DialogoLinks> {
         ),
       ),
       actions: [
-        // Linha 1: Colar · Limpar · Fechar. Linha 2 (alinhada à direita,
+        // Linha 1: Copiar · Colar · Limpar · Fechar. Linha 2 (alinhada à direita,
         // embaixo de "Fechar"): Salvar.
         Column(
           mainAxisSize: MainAxisSize.min,
@@ -1907,6 +1918,13 @@ class _DialogoLinksState extends State<_DialogoLinks> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                  onPressed: _copiar,
+                  child: const Text('Copiar'),
+                ),
+                const SizedBox(width: 2),
                 TextButton(
                   style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact),
