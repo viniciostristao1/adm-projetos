@@ -93,6 +93,31 @@ class Nota {
       RegExp('(☐|☑)\uFE0E?'), (m) => '${m.group(1)}\uFE0E');
 }
 
+class AbaExtra {
+  String id;
+  String nome;
+  List<Nota> notas;
+
+  AbaExtra({required this.id, required this.nome, List<Nota>? notas})
+      : notas = notas ?? [];
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'nome': nome,
+        'notas': notas.map((n) => n.toJson()).toList(),
+      };
+
+  factory AbaExtra.fromJson(Map<String, dynamic> j) => AbaExtra(
+        id: (j['id'] ?? '') as String,
+        nome: (j['nome'] as String?)?.trim().isNotEmpty == true
+            ? (j['nome'] as String).trim()
+            : 'Nova aba',
+        notas: ((j['notas'] ?? []) as List)
+            .map((e) => Nota.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 /// Um projeto: nome + duas listas de caixas (tarefas atuais e ideias futuras).
 class Projeto {
   String id;
@@ -107,6 +132,36 @@ class Projeto {
   /// Valores: azul, amarelo, vermelho, verde, roxo, marrom, bege.
   String? cor;
 
+  String? nomeTarefas;
+  String? nomeFuturo;
+  List<AbaExtra> abasExtras;
+
+  String get nomeTarefasEff {
+    final v = nomeTarefas?.trim();
+    return v != null && v.isNotEmpty ? v : 'Tarefas';
+  }
+
+  String get nomeFuturoEff {
+    final v = nomeFuturo?.trim();
+    return v != null && v.isNotEmpty ? v : 'Ideias';
+  }
+
+  String nomeAba(int i) {
+    if (i == 0) return nomeTarefasEff;
+    if (i == 1) return nomeFuturoEff;
+    final idx = i - 2;
+    if (idx >= 0 && idx < abasExtras.length) return abasExtras[idx].nome;
+    return 'Aba';
+  }
+
+  List<Nota> notasDaAba(int i) {
+    if (i == 0) return tarefas;
+    if (i == 1) return futuro;
+    return abasExtras[i - 2].notas;
+  }
+
+  int get qtdAbas => 2 + abasExtras.length;
+
   Projeto({
     required this.id,
     required this.nome,
@@ -114,8 +169,12 @@ class Projeto {
     List<Nota>? futuro,
     this.emAndamento = false,
     this.cor,
+    this.nomeTarefas,
+    this.nomeFuturo,
+    List<AbaExtra>? abasExtras,
   })  : tarefas = tarefas ?? [],
-        futuro = futuro ?? [];
+        futuro = futuro ?? [],
+        abasExtras = abasExtras ?? [];
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -124,6 +183,12 @@ class Projeto {
         'futuro': futuro.map((n) => n.toJson()).toList(),
         'emAndamento': emAndamento,
         if (cor != null) 'cor': cor,
+        if (nomeTarefas != null && nomeTarefas!.trim().isNotEmpty)
+          'nomeTarefas': nomeTarefas!.trim(),
+        if (nomeFuturo != null && nomeFuturo!.trim().isNotEmpty)
+          'nomeFuturo': nomeFuturo!.trim(),
+        if (abasExtras.isNotEmpty)
+          'abasExtras': abasExtras.map((a) => a.toJson()).toList(),
       };
 
   factory Projeto.fromJson(Map<String, dynamic> j) {
@@ -140,6 +205,11 @@ class Projeto {
       futuro: ler('futuro'),
       emAndamento: (j['emAndamento'] ?? false) as bool,
       cor: j['cor'] as String?,
+      nomeTarefas: j['nomeTarefas'] as String?,
+      nomeFuturo: j['nomeFuturo'] as String?,
+      abasExtras: ((j['abasExtras'] ?? []) as List)
+          .map((e) => AbaExtra.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

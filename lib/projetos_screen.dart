@@ -191,6 +191,15 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
           }
         }
       }
+      for (final a in p.abasExtras) {
+        if (a.notas.isEmpty) continue;
+        buf.writeln('  --- ${a.nome} ---');
+        for (final n in a.notas) {
+          for (final linha in n.texto.split('\n')) {
+            buf.writeln('  $linha');
+          }
+        }
+      }
     }
     // Bloco final (não legível) com o backup COMPLETO em JSON: o "Restaurar de
     // um texto colado" usa isto para reconstruir TUDO fielmente (caixinhas
@@ -299,7 +308,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     setState(() {
       p.emAndamento = !p.emAndamento;
       if (!p.emAndamento) {
-        for (final n in [...p.tarefas, ...p.futuro]) {
+        for (final n in [...p.tarefas, ...p.futuro, ...p.abasExtras.expand((a) => a.notas)]) {
           n.concluida = false;
         }
       }
@@ -503,6 +512,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
 
       varrer(p.tarefas, 0);
       varrer(p.futuro, 1);
+      for (var ai = 0; ai < p.abasExtras.length; ai++) {
+        varrer(p.abasExtras[ai].notas, 2 + ai);
+      }
     }
     // Também acha LEMBRETES pelo texto escrito (ponto: buscar lembretes junto
     // na busca da home, em vez de uma busca só dentro dos lembretes).
@@ -725,7 +737,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       );
 
   Widget _cartaoConteudoResultado(_ResultadoBusca r, String q, AppCores app) {
-    final abaTxt = r.aba == 0 ? 'Tarefas' : 'Ideias';
+    final abaTxt = r.projeto.nomeAba(r.aba);
     return _cartaoResultado(
       app: app,
       onTap: () => _abrirNota(r),
@@ -739,7 +751,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 Icon(
                   r.aba == 0
                       ? Icons.check_circle_outline
-                      : Icons.lightbulb_outline,
+                      : r.aba == 1
+                          ? Icons.lightbulb_outline
+                          : Icons.folder_outlined,
                   size: 14,
                   color: app.fab,
                 ),

@@ -59,9 +59,13 @@ Future<void> exportarPdfProjeto(BuildContext context, Projeto p) async {
           style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
         ),
         pw.SizedBox(height: 16),
-        if (p.tarefas.isNotEmpty) secao('Tarefas', p.tarefas),
+        if (p.tarefas.isNotEmpty) secao(p.nomeTarefasEff, p.tarefas),
         if (p.tarefas.isNotEmpty && p.futuro.isNotEmpty) pw.SizedBox(height: 16),
-        if (p.futuro.isNotEmpty) secao('Ideias', p.futuro),
+        if (p.futuro.isNotEmpty) secao(p.nomeFuturoEff, p.futuro),
+        for (final a in p.abasExtras) ...[
+          if (a.notas.isNotEmpty) pw.SizedBox(height: 16),
+          if (a.notas.isNotEmpty) secao(a.nome, a.notas),
+        ],
       ],
     ),
   );

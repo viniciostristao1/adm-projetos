@@ -45,16 +45,147 @@ class ProjetoScreen extends StatefulWidget {
 class _ProjetoScreenState extends State<ProjetoScreen>
     with SingleTickerProviderStateMixin {
   final Map<String, GlobalKey<_CaixaNotaState>> _chaves = {};
-  late final TabController _tabCtrl;
+  late TabController _tabCtrl;
   final TextEditingController _ctrlBusca = TextEditingController();
   final FocusNode _focoBusca = FocusNode();
   bool _buscando = false;
+
+  int get _qtdAbas => widget.projeto.qtdAbas;
+  String _nomeAba(int i) => widget.projeto.nomeAba(i);
+
+  void _recriarTabController([int? novoIndice]) {
+    final idx = (novoIndice ?? _tabCtrl.index).clamp(0, _qtdAbas - 1);
+    _tabCtrl.dispose();
+    _tabCtrl = TabController(length: _qtdAbas, vsync: this, initialIndex: idx);
+  }
+
+  Future<void> _renomearAba(int aba) async {
+    final atual = _nomeAba(aba);
+    final ctrl = TextEditingController(text: atual);
+    final novo = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Renomear aba'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(hintText: atual),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context, ctrl.text), child: Text('Salvar')),
+        ],
+      ),
+    );
+    if (novo == null) return;
+    final t = novo.trim();
+    if (t.isEmpty || t == atual) return;
+    setState(() {
+      if (aba == 0) widget.projeto.nomeTarefas = t;
+      else if (aba == 1) widget.projeto.nomeFuturo = t;
+      else widget.projeto.abasExtras[aba - 2].nome = t;
+    });
+    await _salvar();
+  }
+
+  Future<void> _criarNovaAba() async {
+    final ctrl = TextEditingController(text: 'Nova aba ${widget.projeto.abasExtras.length + 1}');
+    final nome = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Nova aba'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(hintText: 'Nome da aba'),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context, ctrl.text), child: Text('Criar')),
+        ],
+      ),
+    );
+    if (nome == null) return;
+    final t = nome.trim();
+    if (t.isEmpty) return;
+    final aba = AbaExtra(id: DateTime.now().microsecondsSinceEpoch.toString(), nome: t);
+    setState(() => widget.projeto.abasExtras.add(aba));
+    _recriarTabController(_qtdAbas - 1);
+    await _salvar();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Aba "$t" criada')));
+    }
+  }
+
+  void _mostrarSheetAbas() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(Icons.tab_rounded, size: 18, color: Theme.of(ctx).colorScheme.primary),
+                SizedBox(width: 8),
+                Text('Abas deste projeto', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ]),
+              SizedBox(height: 12),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (var i = 0; i < _qtdAbas; i++)
+                      ListTile(
+                        dense: true,
+                        leading: Icon(i == 0 ? Icons.checklist_rounded : i == 1 ? Icons.lightbulb_outline : Icons.folder_outlined, size: 20),
+                        title: Text(_nomeAba(i), style: TextStyle(fontWeight: _tabCtrl.index == i ? FontWeight.w700 : FontWeight.w500)),
+                        selected: _tabCtrl.index == i,
+                        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                          IconButton(icon: Icon(Icons.edit_outlined, size: 18), tooltip: 'Renomear', onPressed: () { Navigator.pop(ctx); _renomearAba(i); }),
+                          if (i >= 2)
+                            IconButton(icon: Icon(Icons.delete_outline, size: 18, color: Colors.redAccent), tooltip: 'Excluir aba', onPressed: () async {
+                              final ok = await showDialog<bool>(context: ctx, builder: (_) => AlertDialog(title: Text('Excluir aba?'), content: Text('Aba "${_nomeAba(i)}" e suas caixinhas serão apagadas.'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancelar')), TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Excluir', style: TextStyle(color: Colors.red)))]));
+                              if (ok != true) return;
+                              Navigator.pop(ctx);
+                              final estava = _tabCtrl.index;
+                              setState(() => widget.projeto.abasExtras.removeAt(i - 2));
+                              final novoIdx = estava >= _qtdAbas ? _qtdAbas - 1 : estava;
+                              _recriarTabController(novoIdx);
+                              await _salvar();
+                            }),
+                        ]),
+                        onTap: () { Navigator.pop(ctx); _tabCtrl.animateTo(i); },
+                      ),
+                    Divider(),
+                    ListTile(
+                      leading: Icon(Icons.add, color: Theme.of(ctx).colorScheme.primary),
+                      title: Text('Criar nova aba', style: TextStyle(color: Theme.of(ctx).colorScheme.primary, fontWeight: FontWeight.w600)),
+                      onTap: () { Navigator.pop(ctx); _criarNovaAba(); },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(
-        length: 2, vsync: this, initialIndex: widget.abaInicial.clamp(0, 1));
+        length: _qtdAbas, vsync: this, initialIndex: widget.abaInicial.clamp(0, _qtdAbas - 1));
     // Vindo da busca global: já abre com a busca ativa (texto destacado) e
     // rola até a caixinha encontrada.
     final termo = widget.termoInicial?.trim() ?? '';
@@ -102,8 +233,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   GlobalKey<_CaixaNotaState> _chaveDa(String id) =>
       _chaves.putIfAbsent(id, () => GlobalKey<_CaixaNotaState>());
 
-  List<Nota> _lista(int aba) =>
-      aba == 0 ? widget.projeto.tarefas : widget.projeto.futuro;
+  List<Nota> _lista(int aba) => widget.projeto.notasDaAba(aba);
 
   void _adicionar(int aba, {String? comTexto}) {
     final nota = Nota(
@@ -138,7 +268,8 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       lst.removeAt(i);
       if (eraConcluida) {
         final aindaTem = widget.projeto.tarefas.any((n) => n.concluida) ||
-            widget.projeto.futuro.any((n) => n.concluida);
+            widget.projeto.futuro.any((n) => n.concluida) ||
+            widget.projeto.abasExtras.any((a) => a.notas.any((n) => n.concluida));
         if (!aindaTem) widget.projeto.emAndamento = false;
       }
     });
@@ -158,27 +289,59 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     );
   }
 
-  /// Move a caixinha para a OUTRA aba (Tarefas <-> Ideias), com desfazer.
-  void _moverOutraAba(int aba, int i) {
-    final nota = _lista(aba).removeAt(i);
-    final destino = aba == 0 ? widget.projeto.futuro : widget.projeto.tarefas;
-    destino.add(nota);
-    final nomeDestino = aba == 0 ? 'Ideias' : 'Tarefas';
-    setState(() {});
-    _salvar();
-    mostrarAvisoAcao(
-      context,
-      'Movida para $nomeDestino',
-      'Desfazer',
-      () {
+  void _moverOutraAba(int aba, int i) async {
+    if (_qtdAbas <= 1) return;
+    if (_qtdAbas == 2) {
+      final nota = _lista(aba).removeAt(i);
+      final destIdx = aba == 0 ? 1 : 0;
+      final destino = _lista(destIdx);
+      destino.add(nota);
+      final nomeDestino = _nomeAba(destIdx);
+      setState(() {});
+      _salvar();
+      mostrarAvisoAcao(context, 'Movida para $nomeDestino', 'Desfazer', () {
         setState(() {
           destino.remove(nota);
           final lst = _lista(aba);
           lst.insert(i > lst.length ? lst.length : i, nota);
         });
         _salvar();
-      },
+      });
+      return;
+    }
+    final escolha = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(padding: EdgeInsets.all(16), child: Text('Mover para…', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
+          for (var j = 0; j < _qtdAbas; j++)
+            if (j != aba)
+              ListTile(
+                leading: Icon(j == 0 ? Icons.checklist_rounded : j == 1 ? Icons.lightbulb_outline : Icons.folder_outlined),
+                title: Text(_nomeAba(j)),
+                onTap: () => Navigator.pop(ctx, j),
+              ),
+          SizedBox(height: 8),
+        ]),
+      ),
     );
+    if (escolha == null) return;
+    final nota = _lista(aba).removeAt(i);
+    final destino = _lista(escolha);
+    destino.add(nota);
+    final nomeDestino = _nomeAba(escolha);
+    setState(() {});
+    _salvar();
+    mostrarAvisoAcao(context, 'Movida para $nomeDestino', 'Desfazer', () {
+      setState(() {
+        destino.remove(nota);
+        final lst = _lista(aba);
+        lst.insert(i > lst.length ? lst.length : i, nota);
+      });
+      _salvar();
+    });
   }
 
   /// Abre/fecha o campo de busca da aba ativa.
@@ -233,6 +396,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       ..writeln(p.nome)
       ..writeln('=' * 32);
     if (p.tarefas.isNotEmpty) {
+      buf.writeln('  --- ${p.nomeTarefasEff} ---');
       for (final n in p.tarefas) {
         for (final linha in n.texto.split('\n')) {
           buf.writeln('  $linha');
@@ -240,8 +404,17 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       }
     }
     if (p.futuro.isNotEmpty) {
-      buf.writeln('  --- Ideias ---');
+      buf.writeln('  --- ${p.nomeFuturoEff} ---');
       for (final n in p.futuro) {
+        for (final linha in n.texto.split('\n')) {
+          buf.writeln('  $linha');
+        }
+      }
+    }
+    for (final a in p.abasExtras) {
+      if (a.notas.isEmpty) continue;
+      buf.writeln('  --- ${a.nome} ---');
+      for (final n in a.notas) {
         for (final linha in n.texto.split('\n')) {
           buf.writeln('  $linha');
         }
@@ -254,6 +427,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   Widget _listaCard(int aba) {
     final itens = _lista(aba);
     final ehTarefas = aba == 0;
+    final nomeAbaAtual = _nomeAba(aba);
 
     if (itens.isEmpty) {
       return Center(
@@ -301,9 +475,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                 focusNode: _focoBusca,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search, size: 20),
-                  hintText: ehTarefas
-                      ? 'Buscar em Tarefas…'
-                      : 'Buscar em Ideias…',
+                  hintText: 'Buscar em $nomeAbaAtual…',
                   isDense: true,
                   filled: preencher,
                   fillColor: preencher ? app.notaFim : null,
@@ -391,12 +563,21 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               Expanded(
                 child: TabBar(
                   controller: _tabCtrl,
+                  isScrollable: _qtdAbas > 3,
                   indicatorSize: TabBarIndicatorSize.tab,
-                  tabs: const [
-                    Tab(text: 'Tarefas'),
-                    Tab(text: 'Ideias'),
+                  tabs: [
+                    for (var i = 0; i < _qtdAbas; i++)
+                      GestureDetector(
+                        onLongPress: () => _renomearAba(i),
+                        child: Tab(text: _nomeAba(i)),
+                      ),
                   ],
                 ),
+              ),
+              IconButton(
+                icon: Icon(Icons.add),
+                tooltip: 'Nova aba / ver abas',
+                onPressed: _mostrarSheetAbas,
               ),
               IconButton(
                 icon: Icon(_buscando ? Icons.close : Icons.search),
@@ -408,7 +589,6 @@ class _ProjetoScreenState extends State<ProjetoScreen>
         ),
       ),
       floatingActionButton: GestureDetector(
-        // Toque longo no "+": nova caixinha a partir de imagem (OCR).
         onLongPress: _adicionarDeImagem,
         child: FloatingActionButton(
           onPressed: () => _adicionar(_tabCtrl.index),
@@ -419,8 +599,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       body: TabBarView(
         controller: _tabCtrl,
         children: [
-          _listaCard(0),
-          _listaCard(1),
+          for (var i = 0; i < _qtdAbas; i++) _listaCard(i),
         ],
       ),
       ),
