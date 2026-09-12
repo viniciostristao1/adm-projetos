@@ -359,10 +359,12 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                           ),
                           onSubmitted: (v) {
                             final t = v.trim();
-                            if (t.isEmpty || t == p.nome) return;
-                            setState(() => p.nome = t);
-                            _salvar();
-                            setLocal(() {});
+                            if (t.isEmpty) return;
+                            if (t != p.nome) {
+                              setState(() => p.nome = t);
+                              _salvar();
+                            }
+                            Navigator.pop(ctx);
                           },
                         ),
                       ),
@@ -374,9 +376,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                           if (t != p.nome) {
                             setState(() => p.nome = t);
                             _salvar();
-                            setLocal(() {});
                           }
-                          FocusScope.of(ctx).unfocus();
+                          Navigator.pop(ctx);
                         },
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.all(12),
@@ -405,13 +406,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     runSpacing: 10,
                     children: [
                       _bolhaCor2(null, sel == null, ctx, () {
-                        setLocal(() => sel = null);
                         _definirCorPasta(p, null);
+                        Navigator.pop(ctx);
                       }),
                       for (final e in mapaCoresPasta.entries)
                         _bolhaCor2(e.key, sel == e.key, ctx, () {
-                          setLocal(() => sel = e.key);
                           _definirCorPasta(p, e.key);
+                          Navigator.pop(ctx);
                         }),
                     ],
                   ),
