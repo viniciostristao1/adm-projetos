@@ -293,6 +293,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         child: filho,
       );
 
+  // ignore: unused_element - mantido para uso futuro / compatibilidade
   Future<void> _renomear(Projeto p) async {
     final nome = await _pedirNome(context, titulo: 'Renomear projeto',
         inicial: p.nome);
@@ -322,57 +323,113 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   }
 
   Future<void> _mostrarSeletorCor(Projeto p) async {
-    final escolha = await showModalBottomSheet<String?>(
+    final ctrl = TextEditingController(text: p.nome);
+    String? sel = p.cor;
+    await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) {
-        final sel = p.cor;
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Cor da pasta: ${p.nome}',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(
-                  p.emAndamento
-                      ? 'Em andamento: mostra a cor do tema. Sua cor volta ao desmarcar.'
-                      : 'Toque numa cor. Segure a pasta para trocar a qualquer hora.',
-                  style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _bolhaCor(null, sel == null, ctx),
-                    for (final e in mapaCoresPasta.entries) _bolhaCor(e.key, sel == e.key, ctx),
-                  ],
-                ),
-              ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Editar pasta',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: ctrl,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText: 'Nome da pasta',
+                            isDense: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                          onSubmitted: (v) {
+                            final t = v.trim();
+                            if (t.isEmpty || t == p.nome) return;
+                            setState(() => p.nome = t);
+                            _salvar();
+                            setLocal(() {});
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () {
+                          final t = ctrl.text.trim();
+                          if (t.isEmpty) return;
+                          if (t != p.nome) {
+                            setState(() => p.nome = t);
+                            _salvar();
+                            setLocal(() {});
+                          }
+                          FocusScope.of(ctx).unfocus();
+                        },
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.all(12),
+                          minimumSize: const Size(44, 44),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Icon(Icons.check_rounded, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Text('Cor da pasta',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(
+                    p.emAndamento
+                        ? 'Em andamento: mostra a cor do tema. Sua cor volta ao desmarcar.'
+                        : 'Toque numa cor. Segure a pasta para trocar a qualquer hora.',
+                    style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      _bolhaCor2(null, sel == null, ctx, () {
+                        setLocal(() => sel = null);
+                        _definirCorPasta(p, null);
+                      }),
+                      for (final e in mapaCoresPasta.entries)
+                        _bolhaCor2(e.key, sel == e.key, ctx, () {
+                          setLocal(() => sel = e.key);
+                          _definirCorPasta(p, e.key);
+                        }),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
-    if (escolha == '__nenhuma__') {
-      _definirCorPasta(p, null);
-    } else if (escolha != null) {
-      _definirCorPasta(p, escolha);
-    }
+    ctrl.dispose();
   }
 
-  Widget _bolhaCor(String? nome, bool selecionado, BuildContext ctx) {
+  Widget _bolhaCor2(String? nome, bool selecionado, BuildContext ctx, VoidCallback onTap) {
     final isNone = nome == null;
     final cor = isNone ? null : mapaCoresPasta[nome];
     return GestureDetector(
-      onTap: () => Navigator.pop(ctx, isNone ? '__nenhuma__' : nome),
+      onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -998,17 +1055,6 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                                           ? const Color(0xFF4ADE80)
                                           : app.projetoTxt),
                                 ),
-                                const SizedBox(width: 10),
-                                BotaoNeum(
-                                  raio: 999,
-                                  padding: const EdgeInsets.all(7),
-                                  corInicio: app.projetoCard,
-                                  corFim: app.projetoCardFim,
-                                  tooltip: 'Renomear',
-                                  onTap: () => _renomear(p),
-                                  child: Icon(Icons.edit_outlined,
-                                      size: 17, color: app.projetoTxt),
-                                ),
                               ],
                             ),
                           ),
@@ -1088,36 +1134,38 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   );
                 }
 
-                Widget cardPlano = Container(
-                  decoration: baseDecor,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 10, 4),
-                    child: Row(
-                      children: [
-                        q.isNotEmpty
-                            ? Icon(Icons.drag_indicator, color: arrastarCor)
-                            : ReorderableDragStartListener(
-                                index: i,
-                                child: Icon(Icons.drag_indicator, color: arrastarCor),
-                              ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: InkWell(
-                            onTap: onTapProjeto,
-                            onLongPress: () => _mostrarSeletorCor(p),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Text(
-                                p.nome,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                  color: txtCor,
+                Widget cardPlano = Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(semCaixa ? 8 : (ehClaude ? 10 : 14)),
+                    onTap: onTapProjeto,
+                    onLongPress: () => _mostrarSeletorCor(p),
+                    child: Container(
+                      decoration: baseDecor,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 10, 4),
+                        child: Row(
+                          children: [
+                            q.isNotEmpty
+                                ? Icon(Icons.drag_indicator, color: arrastarCor)
+                                : ReorderableDragStartListener(
+                                    index: i,
+                                    child: Icon(Icons.drag_indicator, color: arrastarCor),
+                                  ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  p.nome,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    color: txtCor,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
                         Container(
                           width: 36,
                           height: 36,
@@ -1137,26 +1185,12 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                             padding: EdgeInsets.zero,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: bolaCor,
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            color: iconeCor,
-                            tooltip: 'Renomear',
-                            onPressed: () => _renomear(p),
-                            padding: EdgeInsets.zero,
-                          ),
-                        ),
                       ],
                     ),
                   ),
-                );
+                ),
+              ),
+            );
                 if (corEfetiva != null) {
                   final raio = ehClaude ? 10.0 : 14.0;
                   cardPlano = ClipRRect(
