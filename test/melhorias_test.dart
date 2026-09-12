@@ -197,4 +197,117 @@ void main() {
     expect(find.text('PROJETOS'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('V0.1.83: desbloqueio facial — 0 atrasado na retomada não solta o foco',
+      (tester) async {
+    addTearDown(tester.view.resetViewInsets);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+    final p = Projeto(id: 'p1', nome: 'P', tarefas: [Nota(id: 'n1', texto: 'oi')]);
+    await Storage.instance.carregar();
+    await Storage.instance.substituir([p]);
+
+    await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
+    await tester.pump();
+
+    final field = find.byType(TextField).first;
+    await tester.tap(field);
+    await tester.pump();
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pump();
+
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue,
+        reason: '0 atrasado no desbloqueio cai na janela _retomando → não solta');
+
+    await tester.pump(const Duration(milliseconds: 1100));
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue,
+        reason: 'foco preservado pela escada 220/520/900');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('V0.1.83: retomar com teclado fechado mantém foco para reabrir',
+      (tester) async {
+    addTearDown(tester.view.resetViewInsets);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+    final p = Projeto(id: 'p1', nome: 'P', tarefas: [Nota(id: 'n1', texto: 'oi')]);
+    await Storage.instance.carregar();
+    await Storage.instance.substituir([p]);
+
+    await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
+    await tester.pump();
+
+    final field = find.byType(TextField).first;
+    await tester.tap(field);
+    await tester.pump();
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+
+    await tester.pump(const Duration(milliseconds: 1100));
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue,
+        reason: 'reabertura mantém o foco mesmo sem viewInsets > 0 no teste');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('V0.1.83: após a janela de retomada, esconder o teclado volta a soltar o foco',
+      (tester) async {
+    addTearDown(tester.view.resetViewInsets);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+    final p = Projeto(id: 'p1', nome: 'P', tarefas: [Nota(id: 'n1', texto: 'oi')]);
+    await Storage.instance.carregar();
+    await Storage.instance.substituir([p]);
+
+    await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
+    await tester.pump();
+
+    final field = find.byType(TextField).first;
+    await tester.tap(field);
+    await tester.pump();
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1100));
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse,
+        reason: 'fora da janela _retomando, 300→0 solta o foco normalmente');
+    expect(tester.takeException(), isNull);
+  });
 }

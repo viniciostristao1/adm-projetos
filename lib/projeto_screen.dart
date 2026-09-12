@@ -740,9 +740,10 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   final GlobalKey _campoKey = GlobalKey();
   Timer? _debounce;
   bool _tinhaFocoAoParar = false;
-  // Última altura do teclado (viewInsets.bottom) que vimos — usado para
-  // detectar o instante em que o teclado FECHA (>0 → 0) e soltar o foco.
   double _insetBottomAnterior = 0;
+  Timer? _reabrirTimer;
+  int _tentativaReabrir = 0;
+  bool _retomando = false;
   bool _numerado = true;
   bool _comentarioExpandido = false;
   bool _comentarioVisivel = false;
@@ -765,9 +766,11 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
 
   /// Reabre o teclado ao VOLTAR de outro app. O Android, ao sair, esconde o
   /// teclado e NÃO o reabre sozinho — mesmo que o foco continue na caixinha —
-  /// então não dava para continuar digitando (bug intermitente, pior nas
-  /// trocas rápidas). Guardamos que a caixinha estava sendo editada ao sair
-  /// (`_tinhaFocoAoParar`) e, ao voltar, recriamos a conexão de entrada.
+  /// então não dava para continuar digitando. Guardamos que a caixinha estava
+  /// sendo editada ao sair (`_tinhaFocoAoParar`) e, ao voltar, recriamos a
+  /// conexão. V0.1.83: escada 220/520/900 com verificação `viewInsets` e janela
+  /// `_retomando` que suprime o `didChangeMetrics` durante a transição (fix do
+  /// "subiu e baixou" no desbloqueio facial).
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!mounted) return;
@@ -775,32 +778,58 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       if (_foco.hasFocus) _tinhaFocoAoParar = true;
+      _cancelarReabertura();
       return;
     }
     if (state != AppLifecycleState.resumed) return;
     if (!_tinhaFocoAoParar) return;
     _tinhaFocoAoParar = false;
-    // Reabre o teclado ao voltar. O ATRASO é essencial: logo no resume a
-    // janela ainda não recuperou o foco do sistema e o pedido de teclado seria
-    // ignorado. A 2ª tentativa só dispara se a 1ª NÃO reabriu (resume lento) —
-    // pedir duas vezes causava o efeito "sobe e desce". O texto e o cursor
-    // ficam intactos (o controlador preserva a seleção).
-    _reabrirTeclado(220);
-    _reabrirTeclado(520, somenteSeFechado: true);
+    _retomando = true;
+    _tentativaReabrir = 0;
+    _agendarTentativaReabrir();
   }
 
-  void _reabrirTeclado(int ms, {bool somenteSeFechado = false}) {
-    Future.delayed(Duration(milliseconds: ms), () {
+  void _cancelarReabertura() {
+    _reabrirTimer?.cancel();
+    _reabrirTimer = null;
+    _retomando = false;
+    _tentativaReabrir = 0;
+  }
+
+  void _agendarTentativaReabrir() {
+    const atrasosAbs = [220, 520, 900];
+    if (_tentativaReabrir >= atrasosAbs.length) {
+      _retomando = false;
+      return;
+    }
+    final ms = _tentativaReabrir == 0
+        ? atrasosAbs[0]
+        : atrasosAbs[_tentativaReabrir] - atrasosAbs[_tentativaReabrir - 1];
+    _reabrirTimer?.cancel();
+    _reabrirTimer = Timer(Duration(milliseconds: ms), () {
       if (!mounted) return;
-      // Se o teclado já reabriu (1ª tentativa pegou), não pede de novo.
-      if (somenteSeFechado && View.of(context).viewInsets.bottom > 0) return;
-      // Solta e repede o foco no MESMO instante para recriar a conexão de IME:
-      // um requestFocus num nó que ainda "tem" foco é no-op e o teclado não
-      // reabriria. Feito atomicamente aqui, sem o teclado ficar séculos para
-      // baixo entre as duas chamadas.
-      _foco.unfocus();
-      _foco.requestFocus();
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        _retomando = false;
+        return;
+      }
+      final bottom = View.of(context).viewInsets.bottom;
+      if (bottom > 0) {
+        _tentativaReabrir++;
+        if (_tentativaReabrir < atrasosAbs.length) {
+          _agendarTentativaReabrir();
+        } else {
+          _retomando = false;
+        }
+        return;
+      }
+      if (!_foco.hasFocus) _foco.requestFocus();
       SystemChannels.textInput.invokeMethod('TextInput.show');
+      _tentativaReabrir++;
+      if (_tentativaReabrir < atrasosAbs.length) {
+        _agendarTentativaReabrir();
+      } else {
+        _retomando = false;
+      }
     });
   }
 
@@ -827,6 +856,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     final fechou = _insetBottomAnterior > 0 && bottom == 0;
     _insetBottomAnterior = bottom;
     if (!fechou) return;
+    if (_retomando) return;
     if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
     }
@@ -842,6 +872,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   @override
   void dispose() {
     _debounce?.cancel();
+    _reabrirTimer?.cancel();
     _foco.removeListener(_aoMudarFoco);
     // Derrama o que está nos controladores direto no modelo e no disco —
     // cobre o texto que a IME ainda não tinha confirmado (composição) quando

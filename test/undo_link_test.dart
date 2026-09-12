@@ -117,7 +117,7 @@ void main() {
     expect(tester.takeException(), isNull,
         reason: 'digitar no campo de URL não pode crashar');
 
-    await tester.tap(find.text('Salvar'));
+    await tester.tap(find.byIcon(Icons.check_rounded));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });

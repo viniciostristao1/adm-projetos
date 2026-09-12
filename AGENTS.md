@@ -450,21 +450,26 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   por `Listener` (eventos crus, sem disputa de gestos com o campo de texto).
 
 ### Voltar de outro app com o cursor
-- **Reabertura do teclado (V0.1.38; refinada V0.1.54):** se a caixinha estava
-  sendo editada ao SAIR do app (`_tinhaFocoAoParar`, gravado em
+- **Reabertura do teclado (V0.1.38; refinada V0.1.54; robusta V0.1.83):** se a
+  caixinha estava sendo editada ao SAIR do app (`_tinhaFocoAoParar`, gravado em
   `inactive`/`paused`/`hidden`), ao voltar (`resumed`) recriamos a conexão de
-  entrada: `_foco.unfocus()` + `requestFocus()` + `SystemChannels.textInput
-  'TextInput.show'`. ⚠️ O ATRASO é essencial (`_reabrirTeclado` em 220ms e
-  520ms): logo no resume a janela ainda não recuperou o foco do sistema e o
-  pedido de teclado seria ignorado — por isso a tentativa anterior (só
-  `postFrame`, V0.1.37) falhava. O texto e o cursor ficam intactos (o
-  controlador preserva a seleção).
-- ⚠️ **V0.1.54 (anti-flicker "sobe e desce"):** o `unfocus()`+`requestFocus()`
-  passou a ser feito ATOMICAMENTE dentro de `_reabrirTeclado` (antes o
-  `unfocus()` era imediato no `resumed` e as duas reaberturas só chamavam
-  `requestFocus`+`show` — o teclado subia/descia). A 2ª tentativa (520ms) só
-  dispara se a 1ª NÃO reabriu (`somenteSeFechado`: pula se `viewInsets.bottom
-  > 0`), evitando o duplo-show.
+  entrada com escada verificada 220/520/900ms: a cada tick, só chama
+  `TextInput.show` (e `requestFocus` só se o foco foi perdido) se
+  `viewInsets.bottom == 0`; se já `> 0`, não mexe. Cancelável por `Timer`
+  (`_reabrirTimer`) e por `didChangeAppLifecycleState` ao sair. O texto e o
+  cursor ficam intactos (o controlador preserva a seleção).
+- ⚠️ **V0.1.83 (fix "subiu e baixou" no desbloqueio facial):** `didChangeMetrics`
+  suprime o `unfocus` imediato enquanto `_retomando == true` (janela da escada
+  acima). Antes, um `bottom >0 → 0` atrasado do desbloqueio chegava já com o
+  app `resumed` e soltava o foco no meio da reabertura → teclado caía no
+  instante em que subia; o 2º tick reabria (flicker). `_tinhaFocoAoParar` setado
+  em `inactive` mesmo com o IME ainda aberto era o gatilho; agora `_retomando`
+  blinda a transição e a escada só mexe se o IME estiver realmente fechado.
+- ⚠️ **Histórico V0.1.54 (anti-flicker "sobe e desce"):** o `unfocus()`+
+  `requestFocus()` passou a ser atômico dentro de `_reabrirTeclado` (antes o
+  `unfocus` imediato no `resumed` e as duas reaberturas só chamavam
+  `requestFocus`+`show` — o teclado subia/descia). A 2ª tentativa só disparava
+  se a 1ª não reabriu (`somenteSeFechado`).
 - O Android, ao sair do app, esconde o teclado e NÃO o reabre sozinho mesmo
   com o foco mantido — daí o bug intermitente "não consigo continuar
   digitando ao voltar", pior nas trocas rápidas.
@@ -488,7 +493,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
     "minimizar 2-3× com o cursor no fim": o campo focado REABRE a conexão de
     teclado no frame seguinte → `bottom` volta a `>0` → o código cancelava o
     unfocus → nunca soltava. O usuário tinha de minimizar várias vezes.
-  - **V0.1.63 (atual):** voltou a soltar o foco **IMEDIATAMENTE** no `bottom →
+  - **V0.1.63:** voltou a soltar o foco **IMEDIATAMENTE** no `bottom →
     0` (sem debounce) — sem foco, o teclado não reabre. Para não fechar o
     teclado numa troca de layout transitória, só solta quando **NÃO** há
     composição IME ativa (`_ctrl.value.composing.isCollapsed`) — ou seja, fora
@@ -496,6 +501,13 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
     composição, então o caso comum solta na hora). O `_fecharTecladoTimer` foi
     removido. Testes: `melhorias_test.dart` ("esconder o teclado solta o foco"
     + "teclado NÃO fecha durante composição IME"). **NÃO voltar a debouncear.**
+  - **V0.1.83 (atual):** mantém o `unfocus` imediato, mas com janela
+    `_retomando` (220–900ms pós-`resumed` com `_tinhaFocoAoParar`): `didChangeMetrics`
+    ignora `bottom >0 → 0` durante a escada de reabertura, evitando a corrida
+    com o `TextInput.show` do desbloqueio facial. Fora da janela, o
+    comportamento do V0.1.63 segue igual. Testes: `melhorias_test.dart` (3 novos
+    de V0.1.83: 0 atrasado não solta, reabertura mantém foco, após a janela volta
+    a soltar).
 - ⚠️ O guard `resumed` é essencial: ao SAIR para outro app o teclado também
   fecha, mas aí queremos PRESERVAR o foco para reabri-lo ao voltar (não brigar
   com `_reabrirTeclado`).
@@ -1083,6 +1095,7 @@ A cada publicação de APK:
 | **Login Google NATIVO (V0.1.61)** | O `signInWithProvider` (fluxo web Generic IDP) dava "Failed to generate/retrieve public encryption key" mesmo com SHA-1 **e** SHA-256 registrados. Trocado para `google_sign_in` (`signInWithCredential`), que usa o SHA-1 nativo e não passa pelo fluxo web problemático |
 | **APK versionado na release (V0.1.62)** | Erro "Generic IDP" persistia mesmo após a V0.1.61 porque o usuário reinstalava um APK em CACHE (mesmo nome `app-release.apk`). CI passou a publicar `taskix-v<versao>.apk` (nome distinto por versão) — download sempre fresco |
 | **Teclado `unfocus` imediato (V0.1.63)** | O debounce da V0.1.57 fazia o teclado "voltar a subir" (minimizar 2-3× com o cursor no fim). Voltou a soltar o foco na hora, guardado por composição IME. Notificação: config já é max+som+public+exact; misses raros (1/10) e sem-som em testes rápidos = OEM/Doze/rate-limit, não código → orientar liberar bateria |
+| **Teclado no desbloqueio facial — escada + `_retomando` (V0.1.83)** | Face unlock mandava `inactive` com o teclado ainda aberto → `_tinhaFocoAoParar` armava e, ao `resumed`, o `bottom >0→0` atrasado caía já `resumed` e o `unfocus` imediato derrubava o teclado no meio do `TextInput.show` (flicker "subiu e baixou"). Fix: janela `_retomando` que suprime o `unfocus` durante a escada 220/520/900; a escada só mostra o teclado se `bottom == 0` e usa `Timer` cancelável (evita reaberturas sobrepostas do keyguard). `unfocus`+`refocus` síncrono removido (era no-op de `FocusManager`). |
 | **`ic_notif` no manifesto + "Outro" sem reticências (V0.1.67)** | Notificações quebraram (`invalid_icon`): o `ic_notif` da V0.1.65 era removido no build release (usado só por string em runtime) → referenciado no manifesto p/ manter no APK. E o chip "Outro" perdeu o ícone `more_horiz` (parecia "…Outro") e a linha dos tempos virou `Wrap` (cabe sem rolar) |
 | **Caixinha limpa + cor da pasta (V0.1.76)** | Nova caixinha em Tarefas não inicia mais com `1- ` (limpa; numeração só ao tocar no botão). Pasta: segurar abre leque de 7 cores (azul/amarelo/vermelho/verde/roxo/marrom/bege) + sem cor; `Projeto.cor` guardada; em andamento sobrepõe com `fab` do tema e volta à cor ao desmarcar. Barra de 4px via `ClipRRect+Stack` (evita `borderRadius` em `Border` não-uniforme). |
 
