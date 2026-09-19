@@ -2207,7 +2207,11 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                             Text('Daqui a ${_humanizar(_somado)}',
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w700, fontSize: 14)),
-                            Text(_quando(DateTime.now().add(_somado)),
+                            // Data + horário + DIA DA SEMANA abreviado
+                            // (ex.: "22/09 • 09:00 • Ter.").
+                            Text(
+                                quandoComDiaSemana(
+                                    DateTime.now().add(_somado)),
                                 style: TextStyle(
                                     fontSize: 12, color: s.onSurfaceVariant)),
                           ],

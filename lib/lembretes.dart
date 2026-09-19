@@ -42,6 +42,19 @@ void _respostaNotificacaoForeground(NotificationResponse resposta) async {
   await LembretesService.instance.recarregar();
 }
 
+/// Rótulo curto de um lembrete com o DIA DA SEMANA abreviado, usado no resumo
+/// do tempo montado ("monte o tempo (vai somando)"): `22/09 • 09:00 • Ter.`.
+/// Mostra a data completa (não usa "hoje/amanhã") porque o usuário acabou de
+/// somar a duração e quer conferir o dia exato em que vai tocar.
+String quandoComDiaSemana(DateTime dt) {
+  const dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  final dd = dt.day.toString().padLeft(2, '0');
+  final mm = dt.month.toString().padLeft(2, '0');
+  final hm = '${dt.hour.toString().padLeft(2, '0')}:'
+      '${dt.minute.toString().padLeft(2, '0')}';
+  return '$dd/$mm • $hm • ${dias[dt.weekday - 1]}.';
+}
+
 /// Lembretes rápidos com NOTIFICAÇÃO LOCAL do Android.
 ///
 /// Funciona 100% offline num APK: quem dispara é o AlarmManager do próprio

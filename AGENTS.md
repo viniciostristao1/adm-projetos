@@ -679,7 +679,9 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   (`_agendar`), e tem o chip **"Outro"** (tempo exato via diálogo, `_outro`) ao
   lado do 24 h — readicionado na V0.1.66 (lembrete rápido preciso). A **2ª linha**
   (chips com "+" e cor de accent) **SOMA** em `_somado` (`Duration`); abaixo
-  aparece um resumo "Daqui a X · data/hora" com **Limpar** e **Salvar**
+  aparece um resumo "Daqui a X" + data/hora com **dia da semana abreviado**
+  (V0.1.87: ex. "22/09 • 09:00 • Ter.", via `quandoComDiaSemana` em
+  `lembretes.dart`) com **Limpar** e **Salvar**
   (`_salvarSomado`).
 - ⚠️ **`_agendar` à prova de falha (V0.1.66):** retorna `Future<bool>` e usa
   `try/catch/finally` — o `finally` SEMPRE rearma `_agendando` (o botão nunca
@@ -893,7 +895,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 # Análise estática
 flutter analyze
 
-# Testes (95 testes)
+# Testes (99 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -952,7 +954,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (95 testes)
+## 10. Testes (99 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -1012,6 +1014,11 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Nomes antigos (claro/bege/begeNeum) não existem mais
 - Os 5 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
 
+### `test/lembrete_dia_semana_test.dart` (4 testes — V0.1.87)
+- `quandoComDiaSemana`: exemplo do usuário ("22/09 • 09:00 • Ter."), zero à
+  esquerda em dia/mês/hora, os 7 dias abreviados (Seg. a Dom.), meia-noite e
+  23:59
+
 ### `test/minimizar_test.dart` (7 testes — V0.1.86)
 - Serialização de `Nota.minimizada`: round-trip preserva; JSON antigo sem o
   campo vira `false`; `toJson` omite quando false
@@ -1044,7 +1051,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 95 testes devem passar.
+- **Sempre rodar `flutter test`** — 99 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -1132,6 +1139,7 @@ A cada publicação de APK:
 | **Editar pasta por segurar — sem lápis na linha (V0.1.84)** | Segurar a pasta abre folha "Editar pasta" com campo de nome (TextField + botão ✓) + seletor de cor; o lápis `edit_outlined` saiu da linha da pasta (só restam arraste ⋮⋮ à esquerda e ✓ de andamento à direita). Folha com `isScrollControlled` + `viewInsets` para o teclado, cores aplicadas via `_definirCorPasta`. Cartão plano também virou `Material+InkWell` de card inteiro (antes só o texto tinha long-press). |
 | **Folha "Editar pasta" fecha ao salvar (V0.1.85)** | Toque no V do nome (ou Enter) e toque numa cor fecham a folha (`Navigator.pop`) para dar feedback e mostrar a pasta atualizada. Antes a folha ficava aberta e parecia que nada tinha acontecido. |
 | **Minimizar caixinha "•••" — 3 linhas (V0.1.86)** | Pedido do usuário: botão `more_horiz` minimiza a caixinha para as 3 primeiras linhas com reticências. Estado POR caixinha salvo no modelo (`Nota.minimizada`, JSON backward-compatible — escolha do usuário "lembrar sempre"); comentário esconde, títulos de links ficam. Busca ativa expande; ferramentas de edição expandem via `_garantirExpandida()`. |
+| **Dia da semana no resumo do tempo montado (V0.1.87)** | Pedido do usuário: no modo "monte o tempo (vai somando)" o resumo agora mostra a data completa com o dia da semana abreviado (ex.: "22/09 • 09:00 • Ter.") via `quandoComDiaSemana` (nome PT fixo, sem dependência nova). A lista AGENDADOS e a notificação seguem com o formato antigo (`_quando`). |
 
 ---
 
