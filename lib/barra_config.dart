@@ -22,6 +22,7 @@ enum Ferramenta {
   comentario,
   editar,
   centralizar,
+  minimizar,
   limpar,
   excluir,
 }
@@ -41,6 +42,7 @@ extension FerramentaInfo on Ferramenta {
         Ferramenta.comentario => 'Comentário',
         Ferramenta.editar => 'Editar (focar no fim)',
         Ferramenta.centralizar => 'Centralizar linha',
+        Ferramenta.minimizar => 'Minimizar caixinha (3 linhas)',
         Ferramenta.limpar => 'Limpar conteúdo',
         Ferramenta.excluir => 'Excluir',
       };
@@ -59,6 +61,7 @@ extension FerramentaInfo on Ferramenta {
         Ferramenta.comentario => Icons.chat_bubble_outline,
         Ferramenta.editar => Icons.edit_outlined,
         Ferramenta.centralizar => Icons.format_align_center,
+        Ferramenta.minimizar => Icons.more_horiz,
         Ferramenta.limpar => Icons.cleaning_services,
         Ferramenta.excluir => Icons.delete_outline,
       };

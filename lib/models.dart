@@ -25,6 +25,12 @@ class Nota {
   String id;
   String texto;
   bool concluida;
+
+  /// Caixinha minimizada (botão "•••" da barra): o conteúdo aparece só nas
+  /// 3 primeiras linhas, com reticências na 3ª. Estado por caixinha, salvo
+  /// junto com o resto (backward-compatible: ausente no JSON = false).
+  bool minimizada;
+
   String? comentario;
   List<NotaLink> links;
 
@@ -32,6 +38,7 @@ class Nota {
     required this.id,
     required this.texto,
     this.concluida = false,
+    this.minimizada = false,
     this.comentario,
     List<NotaLink>? links,
   }) : links = links ?? [];
@@ -40,6 +47,7 @@ class Nota {
         'id': id,
         'texto': texto,
         'concluida': concluida,
+        if (minimizada) 'minimizada': true,
         if (comentario != null) 'comentario': comentario,
         'links': links.map((l) => l.toJson()).toList(),
       };
@@ -79,6 +87,7 @@ class Nota {
       id: (j['id'] ?? '') as String,
       texto: texto,
       concluida: (j['concluida'] ?? false) as bool,
+      minimizada: (j['minimizada'] ?? false) as bool,
       comentario: (j['link'] is String && (j['link'] as String).isNotEmpty)
           ? null
           : j['comentario'] as String?,

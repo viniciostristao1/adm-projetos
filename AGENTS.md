@@ -92,6 +92,7 @@ lib/
 | `id` | `String` | `id` |
 | `texto` | `String` | `texto` |
 | `concluida` | `bool` | `concluida` |
+| `minimizada` | `bool` | `minimizada` (omisso se false; ausente = false — V0.1.86) |
 | `comentario` | `String?` | `comentario` (omisso se null) |
 | `links` | `List<NotaLink>` | `links` (`url` + `titulo` opcional — título do YouTube) |
 
@@ -391,8 +392,10 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
     no início calculados pela largura real do texto, pois o TextField não
     suporta alinhamento por linha; a palavra fica centralizada NA MESMA
     linha; desfazer reverte; sem seleção mostra aviso)
-13. `cleaning_services` (limpar)
-14. `delete_outline` (excluir, vermelho)
+13. `more_horiz` "•••" (minimizar a caixinha — só as 3 primeiras linhas,
+    com reticências na 3ª; V0.1.86)
+14. `cleaning_services` (limpar)
+15. `delete_outline` (excluir, vermelho)
 
 ---
 
@@ -537,6 +540,26 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   "tremor" e do "cursor no meio". A rolagem da PÁGINA + `scrollPadding` resolve
   tudo isso sem timers nem medições.
 - Sem `ConstrainedBox`, a altura da caixinha é limitada só por `maxLines: 24`.
+
+### Minimizar caixinha (botão "•••" — V0.1.86)
+- O botão `more_horiz` ("•••") da barra alterna minimizar/expandir. Minimizada,
+  a caixinha mostra só as **3 primeiras linhas** do texto, com **reticências**
+  (`TextOverflow.ellipsis`) na 3ª linha; o resto do conteúdo continua intacto.
+- Estado POR caixinha, salvo no modelo (`Nota.minimizada` — JSON backward-
+  compatible: ausente = false; `toJson` omite quando false). É lembrado ao
+  fechar o app e viaja em backup/nuvem.
+- Na visão minimizada o `TextField` é substituído por uma prévia `Text.rich`
+  que reusa `_ctrl.buildTextSpan` (mesmo layout/fonte; o grifo da busca
+  continua correto). **Tocar na prévia expande.**
+- Minimizada esconde o campo de comentário, mas os **títulos dos links**
+  continuam visíveis (subcaixinha) — pedido do usuário.
+- Com **busca ativa** a caixinha aparece EXPANDIDA (sem alterar o estado
+  salvo): a ocorrência pode estar além da 3ª linha.
+- Ferramentas que editam/focam o texto expandem antes de agir via
+  `_garantirExpandida()` (desfazer, numerar, to-do, OCR, centralizar, limpar,
+  editar) — senão a mudança aconteceria com o campo escondido.
+- Ao minimizar/maximizar, `_guardarTudo()` derrama o texto da IME antes de
+  esconder o campo (mesma proteção do resto do app).
 
 ### Desfazer (undo)
 - **Botão `undo` na barra da caixinha:** desfaz o "movimento" anterior, em
@@ -870,7 +893,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 # Análise estática
 flutter analyze
 
-# Testes (65 testes)
+# Testes (95 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -929,7 +952,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (66 testes)
+## 10. Testes (95 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -989,6 +1012,14 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Nomes antigos (claro/bege/begeNeum) não existem mais
 - Os 5 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
 
+### `test/minimizar_test.dart` (7 testes — V0.1.86)
+- Serialização de `Nota.minimizada`: round-trip preserva; JSON antigo sem o
+  campo vira `false`; `toJson` omite quando false
+- Widget real (`ProjetoScreen`): botão `•••` minimiza (campo some, prévia com
+  `maxLines: 3` + `ellipsis`, estado salvo no modelo) e expande de novo
+- Minimizada mantém os títulos dos links visíveis e esconde o comentário
+- Com busca ativa a caixinha minimizada aparece expandida (estado salvo intacto)
+
 ### `test/backup_test.dart` (11 testes — V0.1.43/44/45)
 - `salvar` guarda a versão anterior no `.bak`
 - `carregar` restaura do `.bak` quando o principal está corrompido
@@ -1013,7 +1044,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 65 testes devem passar.
+- **Sempre rodar `flutter test`** — 95 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -1100,6 +1131,7 @@ A cada publicação de APK:
 | **Caixinha limpa + cor da pasta (V0.1.76)** | Nova caixinha em Tarefas não inicia mais com `1- ` (limpa; numeração só ao tocar no botão). Pasta: segurar abre leque de 7 cores (azul/amarelo/vermelho/verde/roxo/marrom/bege) + sem cor; `Projeto.cor` guardada; em andamento sobrepõe com `fab` do tema e volta à cor ao desmarcar. Barra de 4px via `ClipRRect+Stack` (evita `borderRadius` em `Border` não-uniforme). |
 | **Editar pasta por segurar — sem lápis na linha (V0.1.84)** | Segurar a pasta abre folha "Editar pasta" com campo de nome (TextField + botão ✓) + seletor de cor; o lápis `edit_outlined` saiu da linha da pasta (só restam arraste ⋮⋮ à esquerda e ✓ de andamento à direita). Folha com `isScrollControlled` + `viewInsets` para o teclado, cores aplicadas via `_definirCorPasta`. Cartão plano também virou `Material+InkWell` de card inteiro (antes só o texto tinha long-press). |
 | **Folha "Editar pasta" fecha ao salvar (V0.1.85)** | Toque no V do nome (ou Enter) e toque numa cor fecham a folha (`Navigator.pop`) para dar feedback e mostrar a pasta atualizada. Antes a folha ficava aberta e parecia que nada tinha acontecido. |
+| **Minimizar caixinha "•••" — 3 linhas (V0.1.86)** | Pedido do usuário: botão `more_horiz` minimiza a caixinha para as 3 primeiras linhas com reticências. Estado POR caixinha salvo no modelo (`Nota.minimizada`, JSON backward-compatible — escolha do usuário "lembrar sempre"); comentário esconde, títulos de links ficam. Busca ativa expande; ferramentas de edição expandem via `_garantirExpandida()`. |
 
 ---
 

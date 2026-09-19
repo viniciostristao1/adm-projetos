@@ -914,7 +914,27 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     _guardarTudo();
   }
 
+  /// Expande a caixinha se estiver minimizada.
+  void _garantirExpandida() {
+    if (!widget.nota.minimizada) return;
+    setState(() => widget.nota.minimizada = false);
+    Storage.instance.salvar();
+  }
+
+  /// Alterna o estado minimizado (botão "•••"): minimizada mostra só as 3
+  /// primeiras linhas do texto, com reticências na 3ª. Fica salvo no modelo,
+  /// então é lembrado ao fechar e reabrir o projeto/app.
+  void _alternarMinimizada() {
+    // Derrama o texto (inclusive composição da IME) antes de esconder o campo.
+    _guardarTudo();
+    _debounce?.cancel();
+    _foco.unfocus();
+    setState(() => widget.nota.minimizada = !widget.nota.minimizada);
+    Storage.instance.salvar();
+  }
+
   void focarNoFim() {
+    _garantirExpandida();
     _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
     _foco.requestFocus();
   }
@@ -958,6 +978,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   }
 
   void _limpar() {
+    _garantirExpandida();
     _ctrl.clear();
     _mudou('');
   }
@@ -967,6 +988,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   void _desfazer() {
     final restaurado = _historico.desfazer();
     if (restaurado == null) return;
+    _garantirExpandida();
     setState(() {});
     _ctrl.value = TextEditingValue(
       text: restaurado,
@@ -990,6 +1012,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   /// alinhamento por linha). A palavra/frase fica centralizada NA MESMA
   /// linha, sem sair do texto. Desfazer (undo) reverte.
   void _centralizarLinha() {
+    _garantirExpandida();
     final sel = _ctrl.selection;
     if (!sel.isValid || sel.isCollapsed) {
       mostrarAviso(context, 'Selecione uma palavra ou frase para centralizar');
@@ -1064,6 +1087,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   /// adiciona o próximo número. Não insere linhas novas — quem cria linha é
   /// o Enter (que continua a numeração automaticamente).
   void _alternarNumero() {
+    _garantirExpandida();
     _historico.empilhar(_ctrl.text);
     _historico.suprimir();
     final texto = _ctrl.text;
@@ -1104,6 +1128,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   /// um item de to-do, remove o quadradinho (alterna). Funciona em qualquer
   /// linha, não só no fim do texto.
   void _inserirTodo() {
+    _garantirExpandida();
     _historico.empilhar(_ctrl.text);
     _historico.suprimir();
     final texto = _ctrl.text;
@@ -1244,6 +1269,7 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   /// Lê o texto de uma imagem (OCR) e INSERE na caixinha na posição do
   /// cursor — o desfazer (undo) reverte a inserção.
   Future<void> _lerImagem() async {
+    _garantirExpandida();
     final texto = await extrairTextoDeImagem();
     if (!mounted) return;
     if (texto == null) {
@@ -1421,6 +1447,15 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
           onTap: _centralizarLinha,
           cor: onBarra,
         );
+      case Ferramenta.minimizar:
+        return _BotaoMini(
+          icone: Icons.more_horiz,
+          tooltip: widget.nota.minimizada
+              ? 'Expandir caixinha'
+              : 'Minimizar caixinha',
+          onTap: _alternarMinimizada,
+          cor: onBarra,
+        );
       case Ferramenta.limpar:
         return _BotaoMini(
           icone: Icons.cleaning_services,
@@ -1462,9 +1497,22 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     // ocorrências (dentro do layout do texto) — sempre alinhado.
     _ctrl.termo = widget.termoBusca.trim();
 
-    _comentarioVisivel = _comentarioExpandido ||
-        (!widget.modoTarefas &&
-            (widget.nota.comentario?.isNotEmpty ?? false));
+    // Minimizada (botão "•••") mostra só as 3 primeiras linhas com reticências.
+    // Com busca ativa a caixinha aparece EXPANDIDA (sem mudar o estado salvo):
+    // a ocorrência pode estar além da 3ª linha e ficaria escondida.
+    final mostrarMinimizada =
+        widget.nota.minimizada && widget.termoBusca.trim().isEmpty;
+
+    // Minimizada esconde o campo de comentário (os TÍTULOS dos links seguem
+    // visíveis na subcaixinha abaixo).
+    _comentarioVisivel = !mostrarMinimizada &&
+        (_comentarioExpandido ||
+            (!widget.modoTarefas &&
+                (widget.nota.comentario?.isNotEmpty ?? false)));
+
+    final corTexto = widget.nota.concluida
+        ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45)
+        : Theme.of(context).colorScheme.onSurface;
 
     return Caixa3D(
       cor: app.notaInicio,
@@ -1534,48 +1582,66 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
               ],
             ),
           ),
-          Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerDown: _pointerDown,
-            onPointerUp: _pointerUp,
-            child: Scrollbar(
-              controller: _scroll,
-              child: TextField(
-                key: _campoKey,
-                scrollController: _scroll,
-                controller: _ctrl,
-                focusNode: _foco,
-                minLines: 1,
-                maxLines: 24,
-                keyboardType: TextInputType.multiline,
-                textCapitalization: TextCapitalization.sentences,
-                inputFormatters: [LinhasNumeradas()],
-                // Mantém o cursor sempre visível ACIMA do teclado e do botão
-                // "+" enquanto se digita: ao mover o cursor, o Flutter rola a
-                // PÁGINA para deixá-lo a esta distância da borda inferior.
-                // 108 = altura do FAB (56) + margem (16) + folga. É o
-                // mecanismo nativo que substituiu a trava de altura por timers.
-                scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 108),
-                style: (_estiloCampo ?? _estiloTexto).copyWith(
-                  color: widget.nota.concluida
-                      ? Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.45)
-                      : Theme.of(context).colorScheme.onSurface,
+          if (mostrarMinimizada)
+            // Prévia minimizada: só as 3 primeiras linhas do texto, com
+            // reticências na 3ª. Reusa o `BuscaController` (mesmo layout do
+            // campo), então o grifo da busca continua correto. Tocar expande.
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _alternarMinimizada,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
+                child: Text.rich(
+                  _ctrl.buildTextSpan(
+                    context: context,
+                    style: (_estiloCampo ?? _estiloTexto).copyWith(
+                      color: corTexto,
+                    ),
+                    withComposing: false,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                contextMenuBuilder: _menuSelecao,
-                onChanged: _mudou,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+              ),
+            )
+          else
+            Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: _pointerDown,
+              onPointerUp: _pointerUp,
+              child: Scrollbar(
+                controller: _scroll,
+                child: TextField(
+                  key: _campoKey,
+                  scrollController: _scroll,
+                  controller: _ctrl,
+                  focusNode: _foco,
+                  minLines: 1,
+                  maxLines: 24,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  inputFormatters: [LinhasNumeradas()],
+                  // Mantém o cursor sempre visível ACIMA do teclado e do botão
+                  // "+" enquanto se digita: ao mover o cursor, o Flutter rola a
+                  // PÁGINA para deixá-lo a esta distância da borda inferior.
+                  // 108 = altura do FAB (56) + margem (16) + folga. É o
+                  // mecanismo nativo que substituiu a trava de altura por timers.
+                  scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 108),
+                  style: (_estiloCampo ?? _estiloTexto).copyWith(
+                    color: corTexto,
+                  ),
+                  contextMenuBuilder: _menuSelecao,
+                  onChanged: _mudou,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+                  ),
                 ),
               ),
             ),
-          ),
           // Subcaixinha inline: títulos dos links (SEMPRE visíveis quando há
           // links — ex.: título do vídeo do YouTube) + comentário manual.
           if (widget.nota.links.isNotEmpty || _comentarioVisivel)
