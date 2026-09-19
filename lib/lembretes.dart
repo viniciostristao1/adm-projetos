@@ -42,17 +42,27 @@ void _respostaNotificacaoForeground(NotificationResponse resposta) async {
   await LembretesService.instance.recarregar();
 }
 
-/// Rótulo curto de um lembrete com o DIA DA SEMANA abreviado, usado no resumo
-/// do tempo montado ("monte o tempo (vai somando)"): `22/09 • 09:00 • Ter.`.
+/// Rótulo de um lembrete com o DIA DA SEMANA por extenso, usado no resumo do
+/// tempo montado ("monte o tempo (vai somando)"): `22/09 • 09:00 • Terça-feira`.
 /// Mostra a data completa (não usa "hoje/amanhã") porque o usuário acabou de
-/// somar a duração e quer conferir o dia exato em que vai tocar.
+/// somar a duração e quer conferir o dia exato em que vai tocar. O nome
+/// completo pode quebrar para a 2ª linha — de propósito, o usuário pediu para
+/// NÃO abreviar (V0.1.88).
 String quandoComDiaSemana(DateTime dt) {
-  const dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  const dias = [
+    'Segunda-feira',
+    'Terça-feira',
+    'Quarta-feira',
+    'Quinta-feira',
+    'Sexta-feira',
+    'Sábado',
+    'Domingo',
+  ];
   final dd = dt.day.toString().padLeft(2, '0');
   final mm = dt.month.toString().padLeft(2, '0');
   final hm = '${dt.hour.toString().padLeft(2, '0')}:'
       '${dt.minute.toString().padLeft(2, '0')}';
-  return '$dd/$mm • $hm • ${dias[dt.weekday - 1]}.';
+  return '$dd/$mm • $hm • ${dias[dt.weekday - 1]}';
 }
 
 /// Lembretes rápidos com NOTIFICAÇÃO LOCAL do Android.

@@ -679,9 +679,10 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   (`_agendar`), e tem o chip **"Outro"** (tempo exato via diálogo, `_outro`) ao
   lado do 24 h — readicionado na V0.1.66 (lembrete rápido preciso). A **2ª linha**
   (chips com "+" e cor de accent) **SOMA** em `_somado` (`Duration`); abaixo
-  aparece um resumo "Daqui a X" + data/hora com **dia da semana abreviado**
-  (V0.1.87: ex. "22/09 • 09:00 • Ter.", via `quandoComDiaSemana` em
-  `lembretes.dart`) com **Limpar** e **Salvar**
+  aparece um resumo "Daqui a X" + data/hora com **dia da semana por extenso**
+  (V0.1.87/88: ex. "22/09 • 09:00 • Terça-feira", via `quandoComDiaSemana` em
+  `lembretes.dart`; a pedido do usuário NÃO abreviar — pode quebrar para a 2ª
+  linha) com **Limpar** e **Salvar**
   (`_salvarSomado`).
 - ⚠️ **`_agendar` à prova de falha (V0.1.66):** retorna `Future<bool>` e usa
   `try/catch/finally` — o `finally` SEMPRE rearma `_agendando` (o botão nunca
@@ -1014,10 +1015,10 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Nomes antigos (claro/bege/begeNeum) não existem mais
 - Os 5 temas constroem as superfícies (Caixa3D, BotaoNeum, Fundo, TextField) sem erro
 
-### `test/lembrete_dia_semana_test.dart` (4 testes — V0.1.87)
-- `quandoComDiaSemana`: exemplo do usuário ("22/09 • 09:00 • Ter."), zero à
-  esquerda em dia/mês/hora, os 7 dias abreviados (Seg. a Dom.), meia-noite e
-  23:59
+### `test/lembrete_dia_semana_test.dart` (4 testes — V0.1.87/88)
+- `quandoComDiaSemana`: exemplo do usuário ("22/09 • 09:00 • Terça-feira"), zero
+  à esquerda em dia/mês/hora, os 7 dias por extenso (Segunda a Domingo),
+  meia-noite e 23:59
 
 ### `test/minimizar_test.dart` (7 testes — V0.1.86)
 - Serialização de `Nota.minimizada`: round-trip preserva; JSON antigo sem o
@@ -1140,6 +1141,7 @@ A cada publicação de APK:
 | **Folha "Editar pasta" fecha ao salvar (V0.1.85)** | Toque no V do nome (ou Enter) e toque numa cor fecham a folha (`Navigator.pop`) para dar feedback e mostrar a pasta atualizada. Antes a folha ficava aberta e parecia que nada tinha acontecido. |
 | **Minimizar caixinha "•••" — 3 linhas (V0.1.86)** | Pedido do usuário: botão `more_horiz` minimiza a caixinha para as 3 primeiras linhas com reticências. Estado POR caixinha salvo no modelo (`Nota.minimizada`, JSON backward-compatible — escolha do usuário "lembrar sempre"); comentário esconde, títulos de links ficam. Busca ativa expande; ferramentas de edição expandem via `_garantirExpandida()`. |
 | **Dia da semana no resumo do tempo montado (V0.1.87)** | Pedido do usuário: no modo "monte o tempo (vai somando)" o resumo agora mostra a data completa com o dia da semana abreviado (ex.: "22/09 • 09:00 • Ter.") via `quandoComDiaSemana` (nome PT fixo, sem dependência nova). A lista AGENDADOS e a notificação seguem com o formato antigo (`_quando`). |
+| **Dia da semana por extenso (V0.1.88)** | O usuário viu no aparelho que as 3 infos não cabem lado a lado e pediu para NÃO abreviar: `quandoComDiaSemana` passou a devolver "Terça-feira" (etc.), quebrando para a 2ª linha quando preciso. Só mudou o rótulo do resumo do tempo montado. |
 
 ---
 
