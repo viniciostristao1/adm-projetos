@@ -921,9 +921,10 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     Storage.instance.salvar();
   }
 
-  /// Alterna o estado minimizado (botão "•••"): minimizada mostra só as 3
-  /// primeiras linhas do texto, com reticências na 3ª. Fica salvo no modelo,
-  /// então é lembrado ao fechar e reabrir o projeto/app.
+  /// Alterna o estado minimizado (botão "•••"): minimizada OCULTA a barra de
+  /// ferramentas e mostra só as 3 primeiras linhas do texto, com os botões
+  /// copiar e "•••" no fim da 3ª linha (o "•••" expande de volta). Fica salvo
+  /// no modelo, então é lembrado ao fechar e reabrir o projeto/app.
   void _alternarMinimizada() {
     // Derrama o texto (inclusive composição da IME) antes de esconder o campo.
     _guardarTudo();
@@ -931,6 +932,77 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     _foco.unfocus();
     setState(() => widget.nota.minimizada = !widget.nota.minimizada);
     Storage.instance.salvar();
+  }
+
+  /// Largura reservada para os botões da prévia minimizada (copiar + "•••").
+  static const double _larguraBotoesPrevia = 68;
+
+  /// Prévia da caixinha minimizada: as 3 primeiras linhas do texto e, no fim
+  /// da 3ª linha, os botões copiar e "•••" (expandir) — a barra de ferramentas
+  /// fica OCULTA nesse estado. O texto é medido e cortado numa fronteira de
+  /// palavra para os botões caberem SEM reticências: o próprio "•••" sinaliza
+  /// que há mais conteúdo.
+  Widget _previaMinimizada(BuildContext context, Color corTexto) {
+    final estilo = (_estiloCampo ?? _estiloTexto).copyWith(color: corTexto);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final larguraTexto = constraints.maxWidth - _larguraBotoesPrevia;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  text: _textoPrevia(context, estilo, larguraTexto),
+                  style: estilo,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            _BotaoPrevia(
+              icone: Icons.copy_all_outlined,
+              tooltip: 'Copiar',
+              onTap: widget.onCopiar,
+              cor: corTexto,
+            ),
+            _BotaoPrevia(
+              icone: Icons.more_horiz,
+              tooltip: 'Expandir caixinha',
+              onTap: _alternarMinimizada,
+              cor: corTexto,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Texto visível na prévia minimizada: no máximo 3 linhas, cortado numa
+  /// fronteira de palavra para os botões caberem no fim da 3ª linha.
+  String _textoPrevia(BuildContext context, TextStyle estilo, double largura) {
+    final texto = _ctrl.text;
+    if (texto.isEmpty || largura <= 0) return texto;
+    final painter = TextPainter(
+      text: TextSpan(text: texto, style: estilo),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 3,
+    )..layout(maxWidth: largura);
+    if (!painter.didExceedMaxLines) return texto;
+    final fim = painter.getPositionForOffset(
+      Offset(largura, painter.height - painter.preferredLineHeight / 2),
+    );
+    if (fim.offset >= texto.length) return texto;
+    var visivel = texto.substring(0, fim.offset);
+    // Corte no MEIO de uma palavra (linha quebrada por largura): recua até a
+    // fronteira anterior. Corte numa quebra "dura" (\n) já é limpo.
+    if (texto[fim.offset].trim().isNotEmpty) {
+      final fronteira = visivel.lastIndexOf(RegExp(r'\s'));
+      if (fronteira > 0) visivel = visivel.substring(0, fronteira);
+    }
+    return visivel.trimRight();
   }
 
   void focarNoFim() {
@@ -1346,6 +1418,72 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     }
   }
 
+  /// Barra de ferramentas da caixinha (cor separada ou embutida na superfície
+  /// neumórfica, com linha interna sutil embaixo; no tema bege, gradiente
+  /// marrom próprio). Fica OCULTA quando a caixinha está minimizada.
+  Widget _barraFerramentas(Color corFerramentas, Color onBarra) {
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    return Container(
+      decoration: app.neumorfico
+          ? BoxDecoration(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(14)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: app.barraFerramentas == app.notaInicio &&
+                        app.barraFerramentas == app.notaFim
+                    ? [app.notaInicio, app.notaFim]
+                    : [app.barraFerramentas, app.barraFerramentasFim],
+              ),
+              border: const Border(
+                bottom: BorderSide(color: Color(0x2E000000)),
+              ),
+            )
+          : BoxDecoration(
+              color: corFerramentas,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(14)),
+            ),
+      padding: const EdgeInsets.fromLTRB(10, 4, 6, 2),
+      child: Row(
+        children: [
+          ReorderableDragStartListener(
+            index: widget.indice,
+            child: Icon(
+              Icons.drag_indicator,
+              size: 22,
+              color: onBarra.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              // A ORDEM dos botões vem do barraController (configurável em
+              // Configurações → "Ordem dos botões da barra"); a barra se
+              // reconstrói ao mudar a ordem.
+              child: ListenableBuilder(
+                listenable: barraController,
+                builder: (context, _) {
+                  final botoes = <Widget>[];
+                  for (final f in barraController.ordem) {
+                    final b = _botaoFerramenta(f, onBarra);
+                    if (b != null) botoes.add(b);
+                  }
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: botoes,
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Constrói o botão da barra para a ferramenta [f] (ou null quando ela não
   /// se aplica — ex.: "numerar" só existe na aba Tarefas). A ordem dos botões
   /// é decidida pelo [barraController]; este método só sabe DESENHAR cada um.
@@ -1520,88 +1658,20 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Barra de ferramentas com cor separada (ou embutida na superfície
-          // neumórfica, com linha interna sutil embaixo). No tema bege a
-          // barra tem gradiente marrom próprio.
-          Container(
-            decoration: app.neumorfico
-                ? BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(14)),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: app.barraFerramentas == app.notaInicio &&
-                              app.barraFerramentas == app.notaFim
-                          ? [app.notaInicio, app.notaFim]
-                          : [app.barraFerramentas, app.barraFerramentasFim],
-                    ),
-                    border: const Border(
-                      bottom: BorderSide(color: Color(0x2E000000)),
-                    ),
-                  )
-                : BoxDecoration(
-                    color: corFerramentas,
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(14)),
-                  ),
-            padding: const EdgeInsets.fromLTRB(10, 4, 6, 2),
-            child: Row(
-              children: [
-                ReorderableDragStartListener(
-                  index: widget.indice,
-                  child: Icon(
-                    Icons.drag_indicator,
-                    size: 22,
-                    color: onBarra.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    // A ORDEM dos botões vem do barraController (configurável
-                    // em Configurações → "Ordem dos botões da barra"); a barra
-                    // se reconstrói ao mudar a ordem.
-                    child: ListenableBuilder(
-                      listenable: barraController,
-                      builder: (context, _) {
-                        final botoes = <Widget>[];
-                        for (final f in barraController.ordem) {
-                          final b = _botaoFerramenta(f, onBarra);
-                          if (b != null) botoes.add(b);
-                        }
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: botoes,
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Barra de ferramentas (oculta na minimizada — o fim da 3ª linha
+          // traz os botões copiar e "•••"; ver _previaMinimizada).
+          if (!mostrarMinimizada) _barraFerramentas(corFerramentas, onBarra),
           if (mostrarMinimizada)
-            // Prévia minimizada: só as 3 primeiras linhas do texto, com
-            // reticências na 3ª. Reusa o `BuscaController` (mesmo layout do
-            // campo), então o grifo da busca continua correto. Tocar expande.
+            // Prévia minimizada: as 3 primeiras linhas do texto e, no fim da
+            // 3ª, os botões copiar e "•••" (expandir), com a barra de
+            // ferramentas oculta. Tocar na prévia também expande. Com busca
+            // ativa a caixinha aparece expandida (o grifo fica correto lá).
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _alternarMinimizada,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
-                child: Text.rich(
-                  _ctrl.buildTextSpan(
-                    context: context,
-                    style: (_estiloCampo ?? _estiloTexto).copyWith(
-                      color: corTexto,
-                    ),
-                    withComposing: false,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                padding: const EdgeInsets.fromLTRB(14, 4, 10, 12),
+                child: _previaMinimizada(context, corTexto),
               ),
             )
           else
@@ -1765,6 +1835,48 @@ class _BotaoMini extends StatelessWidget {
       tooltip: tooltip,
       onTap: onTap,
       child: Icon(icone, size: 17, color: corIcone),
+    );
+  }
+}
+
+/// Botão compacto do fim da 3ª linha da prévia minimizada (copiar / "•••").
+/// Menor que o `_BotaoMini` da barra para caber no fim de uma linha de texto.
+class _BotaoPrevia extends StatelessWidget {
+  const _BotaoPrevia({
+    required this.icone,
+    required this.tooltip,
+    required this.onTap,
+    required this.cor,
+  });
+
+  final IconData icone;
+  final String tooltip;
+  final VoidCallback onTap;
+  final Color cor;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    if (app.neumorfico) {
+      return BotaoNeum(
+        raio: 9,
+        padding: const EdgeInsets.all(5),
+        tooltip: tooltip,
+        onTap: onTap,
+        child: Icon(icone, size: 17, color: cor),
+      );
+    }
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: Icon(icone, size: 18, color: cor),
+        ),
+      ),
     );
   }
 }

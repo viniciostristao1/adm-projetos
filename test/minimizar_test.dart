@@ -81,6 +81,79 @@ void main() {
     expect(nota.minimizada, isFalse);
   });
 
+  testWidgets('minimizada oculta a barra e põe copiar + ••• no fim da 3ª linha',
+      (tester) async {
+    await Storage.instance.carregar();
+    final nota = Nota(
+      id: 'n1',
+      texto: List.generate(12, (i) => 'linha ${i + 1}').join('\n'),
+    );
+    final projeto = Projeto(id: 'p1', nome: 'P', tarefas: [nota]);
+    await Storage.instance.substituir([projeto]);
+
+    String? copiado;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copiado = (call.arguments as Map)['text'] as String?;
+      }
+      return null;
+    });
+
+    await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: projeto)));
+    await tester.pumpAndSettle();
+
+    // Expandida: barra de ferramentas visível (pino de arrastar + copiar).
+    expect(find.byIcon(Icons.drag_indicator), findsOneWidget);
+    expect(find.byIcon(Icons.copy_all_outlined), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+
+    // Minimizada: barra OCULTA e botões copiar + "•••" no fim do texto.
+    expect(find.byIcon(Icons.drag_indicator), findsNothing,
+        reason: 'a barra de ferramentas some na minimizada');
+    expect(find.byIcon(Icons.copy_all_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+
+    // Copiar continua copiando o texto INTEIRO (não só as 3 linhas).
+    await tester.tap(find.byIcon(Icons.copy_all_outlined));
+    // Aviso "Copiado!" agenda um Timer de 4s — deixa ele disparar.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(copiado, contains('linha 12'));
+
+    // "•••" expande: o campo de texto e a barra voltam.
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byIcon(Icons.drag_indicator), findsOneWidget);
+    expect(nota.minimizada, isFalse);
+  });
+
+  testWidgets('prévia minimizada mostra as 3 primeiras linhas inteiras (sem …)',
+      (tester) async {
+    await Storage.instance.carregar();
+    final nota = Nota(
+      id: 'n1',
+      texto: List.generate(6, (i) => 'linha ${i + 1}').join('\n'),
+    );
+    final projeto = Projeto(id: 'p1', nome: 'P', tarefas: [nota]);
+    await Storage.instance.substituir([projeto]);
+
+    await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: projeto)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+
+    final previa = tester
+        .widgetList<Text>(find.byType(Text))
+        .firstWhere((t) => t.maxLines == 3 && t.overflow == TextOverflow.ellipsis);
+    final visivel = previa.textSpan!.toPlainText();
+    expect(visivel, 'linha 1\nlinha 2\nlinha 3',
+        reason: 'corta na linha exata, sem "…" e sem comer a 3ª linha');
+  });
+
   testWidgets('minimizada mostra os títulos dos links mas esconde o comentário',
       (tester) async {
     await Storage.instance.carregar();

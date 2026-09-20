@@ -392,8 +392,9 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
     no início calculados pela largura real do texto, pois o TextField não
     suporta alinhamento por linha; a palavra fica centralizada NA MESMA
     linha; desfazer reverte; sem seleção mostra aviso)
-13. `more_horiz` "•••" (minimizar a caixinha — só as 3 primeiras linhas,
-    com reticências na 3ª; V0.1.86)
+13. `more_horiz` "•••" (minimizar a caixinha — ESCONDE a barra e deixa só
+    as 3 primeiras linhas, com os botões copiar e "•••" no fim da 3ª;
+    V0.1.86/V0.1.89)
 14. `cleaning_services` (limpar)
 15. `delete_outline` (excluir, vermelho)
 
@@ -541,16 +542,25 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   tudo isso sem timers nem medições.
 - Sem `ConstrainedBox`, a altura da caixinha é limitada só por `maxLines: 24`.
 
-### Minimizar caixinha (botão "•••" — V0.1.86)
+### Minimizar caixinha (botão "•••" — V0.1.86; revisado na V0.1.89)
 - O botão `more_horiz` ("•••") da barra alterna minimizar/expandir. Minimizada,
-  a caixinha mostra só as **3 primeiras linhas** do texto, com **reticências**
-  (`TextOverflow.ellipsis`) na 3ª linha; o resto do conteúdo continua intacto.
+  a caixinha **esconde a BARRA DE FERRAMENTAS** (V0.1.89 — pedido do usuário) e
+  mostra só as **3 primeiras linhas** do texto; o resto do conteúdo continua
+  intacto.
+- **Fim da 3ª linha (V0.1.89):** em vez de reticências, dois botões — **copiar**
+  (mesmo ícone `copy_all_outlined` da barra) e **"•••"** (expande de volta, com
+  barra e todas as linhas). Implementados por `_BotaoPrevia` (compacto, cabe no
+  fim de uma linha) dentro de `_previaMinimizada`.
+- O texto é MEDIDO (`TextPainter` em `_textoPrevia`) e cortado numa fronteira
+  de palavra para os botões caberem na 3ª linha **sem "…"** (o próprio "•••"
+  sinaliza a continuação). O `Text.rich` mantém `maxLines: 3` + `ellipsis` só
+  como rede de segurança da medição.
 - Estado POR caixinha, salvo no modelo (`Nota.minimizada` — JSON backward-
   compatible: ausente = false; `toJson` omite quando false). É lembrado ao
   fechar o app e viaja em backup/nuvem.
 - Na visão minimizada o `TextField` é substituído por uma prévia `Text.rich`
-  que reusa `_ctrl.buildTextSpan` (mesmo layout/fonte; o grifo da busca
-  continua correto). **Tocar na prévia expande.**
+  (mesmo estilo/fonte do campo). Com busca ativa a caixinha é forçada a
+  expandir, então o grifo nunca fica escondido. **Tocar na prévia expande.**
 - Minimizada esconde o campo de comentário, mas os **títulos dos links**
   continuam visíveis (subcaixinha) — pedido do usuário.
 - Com **busca ativa** a caixinha aparece EXPANDIDA (sem alterar o estado
@@ -896,7 +906,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 # Análise estática
 flutter analyze
 
-# Testes (99 testes)
+# Testes (101 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -955,7 +965,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (99 testes)
+## 10. Testes (101 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -1020,11 +1030,16 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
   à esquerda em dia/mês/hora, os 7 dias por extenso (Segunda a Domingo),
   meia-noite e 23:59
 
-### `test/minimizar_test.dart` (7 testes — V0.1.86)
+### `test/minimizar_test.dart` (9 testes — V0.1.86/89)
 - Serialização de `Nota.minimizada`: round-trip preserva; JSON antigo sem o
   campo vira `false`; `toJson` omite quando false
 - Widget real (`ProjetoScreen`): botão `•••` minimiza (campo some, prévia com
   `maxLines: 3` + `ellipsis`, estado salvo no modelo) e expande de novo
+- **(V0.1.89)** minimizada OCULTA a barra de ferramentas e mostra os botões
+  copiar + `•••` no fim do texto; copiar continua copiando o texto INTEIRO
+  (mock do clipboard) e o `•••` da prévia expande (barra e campo voltam)
+- **(V0.1.89)** a prévia corta as 3 primeiras linhas INTEIRAS sem "…" (o
+  corte numa quebra "dura" de linha não come a 3ª linha)
 - Minimizada mantém os títulos dos links visíveis e esconde o comentário
 - Com busca ativa a caixinha minimizada aparece expandida (estado salvo intacto)
 
@@ -1052,7 +1067,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 99 testes devem passar.
+- **Sempre rodar `flutter test`** — 101 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -1142,6 +1157,7 @@ A cada publicação de APK:
 | **Minimizar caixinha "•••" — 3 linhas (V0.1.86)** | Pedido do usuário: botão `more_horiz` minimiza a caixinha para as 3 primeiras linhas com reticências. Estado POR caixinha salvo no modelo (`Nota.minimizada`, JSON backward-compatible — escolha do usuário "lembrar sempre"); comentário esconde, títulos de links ficam. Busca ativa expande; ferramentas de edição expandem via `_garantirExpandida()`. |
 | **Dia da semana no resumo do tempo montado (V0.1.87)** | Pedido do usuário: no modo "monte o tempo (vai somando)" o resumo agora mostra a data completa com o dia da semana abreviado (ex.: "22/09 • 09:00 • Ter.") via `quandoComDiaSemana` (nome PT fixo, sem dependência nova). A lista AGENDADOS e a notificação seguem com o formato antigo (`_quando`). |
 | **Dia da semana por extenso (V0.1.88)** | O usuário viu no aparelho que as 3 infos não cabem lado a lado e pediu para NÃO abreviar: `quandoComDiaSemana` passou a devolver "Terça-feira" (etc.), quebrando para a 2ª linha quando preciso. Só mudou o rótulo do resumo do tempo montado. |
+| **Minimizada com barra oculta + botões no fim (V0.1.89)** | Pedido do usuário: o "•••" agora ESCONDE a barra de ferramentas e o fim da 3ª linha ganha os botões **copiar** (`copy_all_outlined`) e **"•••"** (expandir), no lugar das reticências. O texto é medido/cortado numa fronteira de palavra (`_textoPrevia`) para os botões caberem sem "…"; busca ativa segue expandindo. Botões compactos `_BotaoPrevia`; barra extraída para `_barraFerramentas` e renderizada só quando expandida. Teste novo em `minimizar_test.dart`. |
 
 ---
 
