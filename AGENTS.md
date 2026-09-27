@@ -1096,6 +1096,7 @@ A cada publicação de APK:
 
 | Decisão | Motivo |
 |---|---|
+| **Fix do logo: sombreado atrás das molas (V0.1.91)** | O usuário notou uma névoa/brilho do neon subindo por trás dos "arames"/molas do topo (acima da borda do quadro), sobre o preto. Limpei essa faixa superior (`assets/icono.png` via PIL: acima de `y≈0.15h`, pixels de fundo com brilho `<56` → preto, com **transição suave** perto da borda do quadro p/ não criar emenda dura; molas e quadro intactos). Regenerei `icono_titulo.png` (trim) e os ícones do launcher. Validado por antes/depois. |
 | **Novo logo Taskix (V0.1.90)** | Usuário enviou uma arte nova (TX neon em bloco de notas). Substituiu `assets/icono.png` (fonte do ícone do app — `flutter_launcher_icons` regenerado, mipmaps commitados pois o CI não roda o gerador) e criou `assets/icono_titulo.png` (badge recortado, sem a margem preta) para o logo ao lado do título "Taskix" (AppBar 24px + empty-state 56px, `projetos_screen.dart`). |
 | **"+" rola até a caixinha nova (V0.1.90)** | Com muitas caixinhas, a nova nascia fora da viewport; como a `ReorderableListView` é LAZY, o item nem era construído → o `focarNoFim()` no post-frame achava `currentState==null` (nem focava nem rolava). Fix: `ScrollController` POR ABA (`_scrollAbas`, o TabBarView tem uma lista por aba → controller único daria conflito) + `_revelarNota` rola até `maxScrollExtent` em passos (a lista lazy cresce o extent a cada rolagem) e só então foca. |
 | JSON local em vez de Firebase | Simplicidade, offline-first, sem custo |
