@@ -1096,6 +1096,8 @@ A cada publicação de APK:
 
 | Decisão | Motivo |
 |---|---|
+| **Novo logo Taskix (V0.1.90)** | Usuário enviou uma arte nova (TX neon em bloco de notas). Substituiu `assets/icono.png` (fonte do ícone do app — `flutter_launcher_icons` regenerado, mipmaps commitados pois o CI não roda o gerador) e criou `assets/icono_titulo.png` (badge recortado, sem a margem preta) para o logo ao lado do título "Taskix" (AppBar 24px + empty-state 56px, `projetos_screen.dart`). |
+| **"+" rola até a caixinha nova (V0.1.90)** | Com muitas caixinhas, a nova nascia fora da viewport; como a `ReorderableListView` é LAZY, o item nem era construído → o `focarNoFim()` no post-frame achava `currentState==null` (nem focava nem rolava). Fix: `ScrollController` POR ABA (`_scrollAbas`, o TabBarView tem uma lista por aba → controller único daria conflito) + `_revelarNota` rola até `maxScrollExtent` em passos (a lista lazy cresce o extent a cada rolagem) e só então foca. |
 | JSON local em vez de Firebase | Simplicidade, offline-first, sem custo |
 | 5 temas (Azul/Escuro/Dark Game/Bege/Claude Code) | Preferência do usuário; Bege é claro, os demais escuros |
 | Tema Claude Code (terminal) com JetBrains Mono | Escolha do usuário: preto-quente + terracota + fonte mono, cartões como linhas de 1px |

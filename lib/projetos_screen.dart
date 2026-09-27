@@ -861,7 +861,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
             ClipRRect(
               borderRadius: const BorderRadius.all(Radius.circular(8)),
               child: Image.asset(
-                'assets/icono.png',
+                'assets/icono_titulo.png',
                 width: 24,
                 height: 24,
                 fit: BoxFit.cover,
@@ -2343,7 +2343,7 @@ class _Vazio extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/icono.png',
+              'assets/icono_titulo.png',
               width: 56,
               height: 56,
               fit: BoxFit.cover,

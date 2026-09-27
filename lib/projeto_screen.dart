@@ -45,6 +45,11 @@ class ProjetoScreen extends StatefulWidget {
 class _ProjetoScreenState extends State<ProjetoScreen>
     with SingleTickerProviderStateMixin {
   final Map<String, GlobalKey<_CaixaNotaState>> _chaves = {};
+  // Um ScrollController por aba (Tarefas/Ideias): a lista é lazy e cada aba do
+  // TabBarView tem a sua — um controller único daria conflito de anexação.
+  final Map<int, ScrollController> _scrollAbas = {};
+  ScrollController _scrollDaAba(int aba) =>
+      _scrollAbas.putIfAbsent(aba, () => ScrollController());
   late TabController _tabCtrl;
   final TextEditingController _ctrlBusca = TextEditingController();
   final FocusNode _focoBusca = FocusNode();
@@ -226,6 +231,9 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     _tabCtrl.dispose();
     _ctrlBusca.dispose();
     _focoBusca.dispose();
+    for (final c in _scrollAbas.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -242,10 +250,40 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       texto: comTexto ?? '',
     );
     setState(() => _lista(aba).add(nota));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _chaveDa(nota.id).currentState?.focarNoFim();
-    });
+    // A caixinha nova entra no FIM. Com muitas caixinhas ela nasce fora da tela
+    // e, como a lista é lazy, nem é construída → antes o foco/rolagem falhavam.
+    // Rola a lista até o fim (construindo os itens no caminho) e então foca.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _revelarNota(aba, nota.id));
     _salvar();
+  }
+
+  /// Rola a aba [aba] até a caixinha nova (última) e foca o campo dela. Repete o
+  /// `animateTo` porque a lista é lazy: cada rolagem constrói mais itens e o
+  /// `maxScrollExtent` cresce até o fim real.
+  void _revelarNota(int aba, String id, {int tentativa = 0}) {
+    final sc = _scrollDaAba(aba);
+    if (!sc.hasClients) {
+      if (tentativa < 8) {
+        Future.delayed(const Duration(milliseconds: 120),
+            () { if (mounted) _revelarNota(aba, id, tentativa: tentativa + 1); });
+      }
+      return;
+    }
+    final pos = sc.position;
+    if (pos.pixels < pos.maxScrollExtent - 4 && tentativa < 8) {
+      sc.animateTo(
+        pos.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      ).then((_) {
+        if (mounted) _revelarNota(aba, id, tentativa: tentativa + 1);
+      });
+      return;
+    }
+    // Chegou ao fim: a caixinha já está construída → foca (abre o teclado).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _chaveDa(id).currentState?.focarNoFim();
+    });
   }
 
   /// Cria uma caixinha nova já com o texto extraído de uma imagem (OCR) —
@@ -495,6 +533,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                   child: Text('Nada encontrado.',
                       style: TextStyle(color: Colors.grey)))
               : ReorderableListView.builder(
+                  scrollController: _scrollDaAba(aba),
                   padding: EdgeInsets.fromLTRB(
                       16, 4, 16, temaController.compacto ? 110 : 150),
                   itemCount: filtradas.length,
