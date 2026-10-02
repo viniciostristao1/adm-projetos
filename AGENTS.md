@@ -64,7 +64,7 @@ lib/
 ├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege/Terracota/Ônix)
 ├── models.dart          # Nota, Projeto — serialização JSON
 ├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir + recentes (últimos abertos) + backup .bak
-├── tema.dart            # TemaController (ChangeNotifier) + enums Modo, ModoFonte e Densidade (Confortável/Compacto)
+├── tema.dart            # TemaController (ChangeNotifier) + enums Modo, ModoFonte e Densidade (Confortável/Compacto) + corEmAberto (cor da seção "EM ABERTO")
 ├── cores.dart           # AppCores (ThemeExtension) — 8 cores/tema
 ├── projetos_screen.dart # Tela principal: lista de projetos + busca + backup (export/import)
 ├── projeto_screen.dart  # Tela de 1 projeto: abas Tarefas/Ideias + _CaixaNota
@@ -291,9 +291,18 @@ ProjetosScreen (lista de projetos)
   │    rótulo, no canto direito: ÍCONE de nuvem com flecha p/ cima + data do
   │    último envio (V0.1.50; terracota no Claude; "nunca" se nunca enviou)
   │    (SyncService.ultimoEnvio, persistida — "nunca enviado" se nunca)
-  ├─ SEÇÕES (V0.1.46): com ≥1 projeto em andamento, a lista vira
-  │    "EM ANDAMENTO · N" (acento) + "OUTROS · N"; arrastar só move DENTRO
-  │    da seção (_reordenarComSecoes)
+  ├─ SEÇÕES (V0.1.46; EM ABERTO em V0.1.92): a lista vira seções quando há
+  │    ≥1 projeto em andamento OU ≥1 "em aberto". Ordem:
+  │    "EM ANDAMENTO · N" (acento) → "EM ABERTO · N" → "OUTROS · N". Arrastar
+  │    só move DENTRO da seção (_reordenarComSecoes). A montagem das seções e a
+  │    classificação de cada projeto no seu grupo são ÚNICAS e compartilhadas
+  │    entre a exibição e o reorder: `_linhasComSecoes(projetos)` (devolve a
+  │    sequência cabeçalho+Projetos, ou null = lista plana) e
+  │    `_grupoDoProjeto(alvo)` — evita as duas lógicas divergirem.
+  │    ⭐ "EM ABERTO" = projetos (NÃO em andamento) cuja cor da pasta é igual à
+  │    "cor em aberto" escolhida nas Configurações (§ Projetos em aberto). Sem
+  │    cor escolhida (padrão) = recurso desligado → só EM ANDAMENTO/OUTROS. O
+  │    cabeçalho EM ABERTO é pintado com a própria cor escolhida.
   │    ⚠️ REORDER via `onReorderItem` (Flutter 3.44.7 deprecou `onReorder`):
   │    o callback JÁ entrega `newIndex` ajustado para o item removido — NÃO
   │    aplicar `if (newIndex > oldIndex) newIndex--`. Fazer isso ajustava
@@ -333,7 +342,8 @@ ProjetosScreen (lista de projetos)
   │    └─ PDF → gera PDF do projeto inteiro e compartilha
   └─ ⚙️ → ConfigSheet (V0.1.51: seções EXPANSÍVEIS — toca na seção e ela
        abre com as opções; cada uma mostra o valor atual no subtítulo: Tema,
-       Tamanho da fonte, Densidade, Barra de ferramentas, Backup, Nuvem;
+       Tamanho da fonte, Densidade, Projetos em aberto (V0.1.92 — escolhe a
+       cor que vira a seção "EM ABERTO"), Barra de ferramentas, Backup, Nuvem;
        V0.1.52: NENHUMA seção abre sozinha — a Tema, que ficava aberta, agora
        também nasce fechada; V0.1.54: a folha abre com `isScrollControlled` e
        até 90% da altura da tela — antes ficava baixa e a seção Nuvem, ao
@@ -570,6 +580,17 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   editar) — senão a mudança aconteceria com o campo escondido.
 - Ao minimizar/maximizar, `_guardarTudo()` derrama o texto da IME antes de
   esconder o campo (mesma proteção do resto do app).
+
+### Arrastar caixinha para a esquerda = excluir (V0.1.92)
+- Cada caixinha da lista (`ReorderableListView` em `projeto_screen.dart`) é
+  envolvida num `Dismissible` (`direction: endToStart`, fundo vermelho com
+  lixeira) cujo `onDismissed` chama o `_excluir(aba, i)` já existente — ou
+  seja, **com "Desfazer"** (SnackBar) e com o espelho de "em andamento".
+- O `Dismissible` é o widget de TOPO do item e carrega a `ValueKey(nota.id)`
+  (que o `ReorderableListView` exige). O reorder continua saindo do pino
+  interno (`ReorderableDragStartListener`), então swipe (horizontal) e
+  reordenar (pino) não brigam — mesmo arranjo já usado nos cartões de projeto
+  da home (`_arrastavel`).
 
 ### Desfazer (undo)
 - **Botão `undo` na barra da caixinha:** desfaz o "movimento" anterior, em
@@ -906,7 +927,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 # Análise estática
 flutter analyze
 
-# Testes (101 testes)
+# Testes (107 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -965,7 +986,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (101 testes)
+## 10. Testes (107 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -1043,6 +1064,15 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Minimizada mantém os títulos dos links visíveis e esconde o comentário
 - Com busca ativa a caixinha minimizada aparece expandida (estado salvo intacto)
 
+### `test/reorder_tres_secoes_test.dart` (6 testes — V0.1.92)
+- Reorder da lista com TRÊS seções (EM ANDAMENTO / EM ABERTO por cor / OUTROS)
+  contra o `ReorderableListView` real, com a "cor em aberto" fixada em verde.
+  Cobre a seção do MEIO (EM ABERTO), limitada por cabeçalho dos dois lados:
+  mover p/ baixo e p/ cima dentro dela; não vazar p/ cima (EM ANDAMENTO) nem
+  p/ baixo (OUTROS); e que EM ANDAMENTO/OUTROS continuam reordenando com a
+  seção do meio no meio. Réplica fiel de `_linhasComSecoes` +
+  `_grupoDoProjeto` + `_reordenarComSecoes`.
+
 ### `test/backup_test.dart` (11 testes — V0.1.43/44/45)
 - `salvar` guarda a versão anterior no `.bak`
 - `carregar` restaura do `.bak` quando o principal está corrompido
@@ -1067,7 +1097,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 101 testes devem passar.
+- **Sempre rodar `flutter test`** — 107 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -1096,6 +1126,7 @@ A cada publicação de APK:
 
 | Decisão | Motivo |
 |---|---|
+| **Seção "EM ABERTO" por cor + arrastar caixinha p/ excluir (V0.1.92)** | Pedido do usuário. (1) **EM ABERTO:** nas Configurações escolhe-se uma cor de pasta; na tela inicial os projetos (não em andamento) nessa cor viram a seção "EM ABERTO · N" (contagem = projetos naquela cor), entre "EM ANDAMENTO" e "OUTROS". Cor guardada em `TemaController.corEmAberto` (SharedPreferences `cor_em_aberto_v1`); null = recurso desligado. Para não duplicar lógica (histórico de bugs de reorder com seções — V0.1.68/69/70), a montagem das seções e a classificação viraram helpers ÚNICOS `_linhasComSecoes` + `_grupoDoProjeto`, usados tanto na exibição quanto no `_reordenarComSecoes` (generalizado p/ 3 grupos; o `ini` recua até a borda e o `dest` faz clamp, então cada seção fica contida mesmo sendo a do MEIO, limitada por cabeçalho dos dois lados). Cabeçalho EM ABERTO pintado com a cor escolhida. Coberto por `test/reorder_tres_secoes_test.dart`. (2) **Arrastar caixinha p/ a esquerda = excluir** (com Desfazer, reusa `_excluir`): mesmo padrão dos cartões de projeto na home — `Dismissible` (`endToStart`) como widget de topo do item (carrega a key do reorderable); o reorder segue vindo do pino interno (`ReorderableDragStartListener`), então os dois gestos coexistem (padrão já provado na home). |
 | **Fix do logo: sombreado atrás das molas (V0.1.91)** | O usuário notou uma névoa/brilho do neon subindo por trás dos "arames"/molas do topo (acima da borda do quadro), sobre o preto. Limpei essa faixa superior (`assets/icono.png` via PIL: acima de `y≈0.15h`, pixels de fundo com brilho `<56` → preto, com **transição suave** perto da borda do quadro p/ não criar emenda dura; molas e quadro intactos). Regenerei `icono_titulo.png` (trim) e os ícones do launcher. Validado por antes/depois. |
 | **Novo logo Taskix (V0.1.90)** | Usuário enviou uma arte nova (TX neon em bloco de notas). Substituiu `assets/icono.png` (fonte do ícone do app — `flutter_launcher_icons` regenerado, mipmaps commitados pois o CI não roda o gerador) e criou `assets/icono_titulo.png` (badge recortado, sem a margem preta) para o logo ao lado do título "Taskix" (AppBar 24px + empty-state 56px, `projetos_screen.dart`). |
 | **"+" rola até a caixinha nova (V0.1.90)** | Com muitas caixinhas, a nova nascia fora da viewport; como a `ReorderableListView` é LAZY, o item nem era construído → o `focarNoFim()` no post-frame achava `currentState==null` (nem focava nem rolava). Fix: `ScrollController` POR ABA (`_scrollAbas`, o TabBarView tem uma lista por aba → controller único daria conflito) + `_revelarNota` rola até `maxScrollExtent` em passos (a lista lazy cresce o extent a cada rolagem) e só então foca. |
@@ -1180,6 +1211,7 @@ A cada publicação de APK:
 - **Fixar (pin) projeto no topo** — além de "em andamento".
 - **Lembrete recorrente** (diário/semanal) — reusa o motor de notificação
   (`matchDateTimeComponents`).
-- **Etiquetas/cores por projeto** + filtro rápido.
+- **Etiquetas/cores por projeto** + filtro rápido. (Parcial desde V0.1.92: a
+  cor da pasta já agrupa na seção "EM ABERTO"; falta filtro/multietiqueta.)
 - **"Limpar concluídas"** — apagar/arquivar de uma vez as caixinhas marcadas.
 - **Compartilhar 1 projeto como texto** (hoje há PDF e "copiar tudo").

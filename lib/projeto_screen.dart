@@ -544,25 +544,49 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                     final novo = lst.indexOf(filtradas[n]);
                     _reordenar(aba, antigo, novo);
                   },
-                  itemBuilder: (_, i) => Padding(
-                    key: ValueKey(filtradas[i].id),
-                    padding: EdgeInsets.only(
-                        bottom: temaController.compacto ? 5 : 10),
-                    child: _CaixaNota(
-                      key: _chaveDa(filtradas[i].id),
-                      projeto: widget.projeto,
-                      nota: filtradas[i],
-                      indice: _lista(aba).indexOf(filtradas[i]),
-                      modoTarefas: ehTarefas,
-                      termoBusca: q,
-                      onCopiar: () =>
-                          copiarTexto(context, filtradas[i].texto),
-                      onExcluir: () =>
+                  itemBuilder: (_, i) {
+                    final bottom = temaController.compacto ? 5.0 : 10.0;
+                    // Arrastar a caixinha para a ESQUERDA exclui (com Desfazer
+                    // via [_excluir]). Mesmo padrão dos cartões de projeto na
+                    // home: Dismissible como widget de topo (carrega a key do
+                    // item reordenável) + o reorder vem do pino interno
+                    // (ReorderableDragStartListener), então os dois gestos
+                    // coexistem.
+                    return Dismissible(
+                      key: ValueKey(filtradas[i].id),
+                      direction: DismissDirection.endToStart,
+                      onDismissed: (_) =>
                           _excluir(aba, _lista(aba).indexOf(filtradas[i])),
-                      onMover: () => _moverOutraAba(
-                          aba, _lista(aba).indexOf(filtradas[i])),
-                    ),
-                  ),
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        margin: EdgeInsets.only(bottom: bottom),
+                        padding: const EdgeInsets.only(right: 22),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.delete_outline,
+                            color: Colors.redAccent),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: bottom),
+                        child: _CaixaNota(
+                          key: _chaveDa(filtradas[i].id),
+                          projeto: widget.projeto,
+                          nota: filtradas[i],
+                          indice: _lista(aba).indexOf(filtradas[i]),
+                          modoTarefas: ehTarefas,
+                          termoBusca: q,
+                          onCopiar: () =>
+                              copiarTexto(context, filtradas[i].texto),
+                          onExcluir: () =>
+                              _excluir(aba, _lista(aba).indexOf(filtradas[i])),
+                          onMover: () => _moverOutraAba(
+                              aba, _lista(aba).indexOf(filtradas[i])),
+                        ),
+                      ),
+                    );
+                  },
                 ),
         ),
       ],

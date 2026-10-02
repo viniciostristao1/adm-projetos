@@ -43,13 +43,21 @@ class TemaController extends ChangeNotifier {
   static const _chaveAntiga = 'tema_escuro_v1';
   static const _chaveFonte = 'fonte_v1';
   static const _chaveDensidade = 'densidade_v1';
+  static const _chaveCorAberto = 'cor_em_aberto_v1';
   Modo _modo = Modo.azul;
   ModoFonte _fonte = ModoFonte.normal;
   Densidade _densidade = Densidade.confortavel;
+  String? _corEmAberto;
 
   Modo get modo => _modo;
   ModoFonte get fonte => _fonte;
   Densidade get densidade => _densidade;
+
+  /// Nome da cor que marca "projetos em aberto" na tela inicial (um dos nomes
+  /// de `mapaCoresPasta`: azul/amarelo/vermelho/verde/roxo/marrom/bege), ou
+  /// null quando o usuário não escolheu nenhuma (recurso desligado — a tela
+  /// mostra só EM ANDAMENTO / OUTROS, como antes).
+  String? get corEmAberto => _corEmAberto;
 
   /// true no modo Compacto (linhas/cartões mais próximos).
   bool get compacto => _densidade == Densidade.compacto;
@@ -81,6 +89,7 @@ class TemaController extends ChangeNotifier {
     _densidade = Densidade.values
         .firstWhere((d) => d.name == densidadeSalva,
             orElse: () => Densidade.confortavel);
+    _corEmAberto = prefs.getString(_chaveCorAberto);
     notifyListeners();
   }
 
@@ -106,6 +115,19 @@ class TemaController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_chaveDensidade, densidade.name);
+  }
+
+  /// Define (ou limpa, com null) a cor dos "projetos em aberto".
+  Future<void> definirCorEmAberto(String? cor) async {
+    if (_corEmAberto == cor) return;
+    _corEmAberto = cor;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    if (cor == null) {
+      await prefs.remove(_chaveCorAberto);
+    } else {
+      await prefs.setString(_chaveCorAberto, cor);
+    }
   }
 }
 

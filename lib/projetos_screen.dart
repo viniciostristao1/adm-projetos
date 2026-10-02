@@ -110,18 +110,69 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     _salvar();
   }
 
-  /// Reordena quando a lista está em SEÇÕES (EM ANDAMENTO / OUTROS): só
-  /// permite mover DENTRO da seção do projeto arrastado — não deixa
-  /// atravessar o cabeçalho.
-  void _reordenarComSecoes(int oldIndex, int newIndex) {
-    final ativos = _projetos.where((p) => p.emAndamento).toList();
-    final outros = _projetos.where((p) => !p.emAndamento).toList();
-    final linhas = <Object>[
-      'EM ANDAMENTO · ${ativos.length}',
-      ...ativos,
-      if (outros.isNotEmpty) 'OUTROS · ${outros.length}',
-      ...outros,
+  /// Nome da cor que marca "projetos em aberto" (escolhida nas Configurações),
+  /// ou null quando o usuário não escolheu nenhuma (recurso desligado).
+  String? get _corEmAberto => temaController.corEmAberto;
+
+  /// Classifica um projeto no seu GRUPO de seção — a MESMA lógica da exibição
+  /// ([_linhasComSecoes]): em andamento → ativos; senão, se a cor casa com a
+  /// "cor em aberto" → aberto; senão → outros. Devolve a lista COMPLETA do
+  /// grupo (na ordem atual de `_projetos`).
+  List<Projeto> _grupoDoProjeto(Projeto alvo) {
+    final corAberto = _corEmAberto;
+    if (alvo.emAndamento) {
+      return _projetos.where((p) => p.emAndamento).toList();
+    }
+    if (corAberto != null && alvo.cor == corAberto) {
+      return _projetos
+          .where((p) => !p.emAndamento && p.cor == corAberto)
+          .toList();
+    }
+    return _projetos
+        .where((p) =>
+            !p.emAndamento && !(corAberto != null && p.cor == corAberto))
+        .toList();
+  }
+
+  /// Monta a sequência (cabeçalhos `String` + `Projeto`s) da lista COM seções,
+  /// na ordem EM ANDAMENTO → EM ABERTO → OUTROS. Cada grupo só entra se tiver
+  /// ≥1 projeto. Retorna null quando NÃO há seções (nenhum em andamento e
+  /// nenhum "em aberto") — a tela então mostra a lista plana (como antes).
+  List<Object>? _linhasComSecoes(List<Projeto> projetos) {
+    final corAberto = _corEmAberto;
+    final ativos = projetos.where((p) => p.emAndamento).toList();
+    final aberto = corAberto == null
+        ? const <Projeto>[]
+        : projetos
+            .where((p) => !p.emAndamento && p.cor == corAberto)
+            .toList();
+    final outros = projetos
+        .where((p) =>
+            !p.emAndamento && !(corAberto != null && p.cor == corAberto))
+        .toList();
+    if (ativos.isEmpty && aberto.isEmpty) return null;
+    return <Object>[
+      if (ativos.isNotEmpty) ...[
+        'EM ANDAMENTO · ${ativos.length}',
+        ...ativos,
+      ],
+      if (aberto.isNotEmpty) ...[
+        'EM ABERTO · ${aberto.length}',
+        ...aberto,
+      ],
+      if (outros.isNotEmpty) ...[
+        'OUTROS · ${outros.length}',
+        ...outros,
+      ],
     ];
+  }
+
+  /// Reordena quando a lista está em SEÇÕES (EM ANDAMENTO / EM ABERTO /
+  /// OUTROS): só permite mover DENTRO da seção do projeto arrastado — não
+  /// deixa atravessar o cabeçalho.
+  void _reordenarComSecoes(int oldIndex, int newIndex) {
+    final linhas = _linhasComSecoes(_projetos);
+    if (linhas == null) return;
     final alvo = linhas[oldIndex];
     if (alvo is! Projeto) return;
     // ⚠️ NÃO ajustar `newIndex` (o antigo `if (newIndex > oldIndex) newIndex--`):
@@ -138,11 +189,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     // o cartão arrastado (60px) é mais ALTO que o cabeçalho da próxima seção
     // (30px), então ao soltar no FIM da seção o SDK devolve o índice DO
     // CABEÇALHO seguinte (fora de [ini, fim]) — e o return fazia a pasta
-    // VOLTAR. Como a seção EM ANDAMENTO é seguida por um cabeçalho, isso
-    // travava todo reorder dentro dela (o OUTROS, última seção, não tinha
-    // cabeçalho depois → funcionava). Deixar o `dest` fazer o clamp mantém a
+    // VOLTAR. Como cada seção (menos a última) é seguida por um cabeçalho, isso
+    // travava todo reorder dentro dela. Deixar o `dest` fazer o clamp mantém a
     // pasta na PRÓPRIA seção (arrastar um pouco além gruda na borda, não volta).
-    final grupo = alvo.emAndamento ? ativos : outros;
+    final grupo = _grupoDoProjeto(alvo);
     final grupoSem = grupo.where((p) => p.id != alvo.id).toList();
     final dest = (newIndex - ini).clamp(0, grupoSem.length);
     final novoGrupo = [...grupoSem]..insert(dest, alvo);
@@ -950,21 +1000,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
               if (_buscando && q.isNotEmpty) return _resultadosBusca(q);
               final visiveis = _projetos;
               final compacto = temaController.compacto;
-              // Seções: projetos em andamento primeiro, depois os demais.
-              final ativos = visiveis.where((p) => p.emAndamento).toList();
-              final outros = visiveis.where((p) => !p.emAndamento).toList();
-              final temSecoes = ativos.isNotEmpty;
-              final linhas = <Object>[];
-              if (temSecoes) {
-                linhas.add('EM ANDAMENTO · ${ativos.length}');
-                linhas.addAll(ativos);
-                if (outros.isNotEmpty) {
-                  linhas.add('OUTROS · ${outros.length}');
-                  linhas.addAll(outros);
-                }
-              } else {
-                linhas.addAll(outros);
-              }
+              // Seções: EM ANDAMENTO → EM ABERTO (cor configurável) → OUTROS.
+              // null = sem seções → lista plana (reorder simples).
+              final linhasSec = _linhasComSecoes(visiveis);
+              final temSecoes = linhasSec != null;
+              final linhas = linhasSec ?? List<Object>.from(visiveis);
               final app =
                   Theme.of(context).extension<AppCores>() ?? AppCores.azul;
               return ReorderableListView.builder(
@@ -977,8 +1017,17 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 itemBuilder: (_, i) {
                   final item = linhas[i];
                   if (item is String) {
-                    // Cabeçalho de seção (não é arrastável).
-                    final ehAndamento = item.startsWith('EM ANDAMENTO');
+                    // Cabeçalho de seção (não é arrastável). EM ABERTO usa a
+                    // própria cor escolhida, p/ amarrar visualmente à seção.
+                    final Color corCabecalho;
+                    if (item.startsWith('EM ANDAMENTO')) {
+                      corCabecalho = app.fab;
+                    } else if (item.startsWith('EM ABERTO')) {
+                      corCabecalho =
+                          corPastaDeNome(temaController.corEmAberto) ?? app.fab;
+                    } else {
+                      corCabecalho = app.textoUI.withValues(alpha: 0.55);
+                    }
                     return Padding(
                       key: ValueKey('sec-$item'),
                       padding: EdgeInsets.fromLTRB(
@@ -989,9 +1038,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.5,
-                          color: ehAndamento
-                              ? app.fab
-                              : app.textoUI.withValues(alpha: 0.55),
+                          color: corCabecalho,
                         ),
                       ),
                     );
@@ -1671,6 +1718,78 @@ class _ConfigSheet extends StatelessWidget {
                 _dica(
                   'Compacto aproxima os cartões e deixa mais conteúdo por '
                   'tela (vale também para as caixinhas do projeto).',
+                  dim,
+                ),
+              ],
+            ),
+
+            // ================= Projetos em aberto =================
+            _sec(
+              icone: Icons.flag_outlined,
+              titulo: 'Projetos em aberto',
+              subtitulo: 'Agrupa por cor na tela inicial',
+              children: [
+                ListenableBuilder(
+                  listenable: temaController,
+                  builder: (context, _) {
+                    final sel = temaController.corEmAberto;
+                    Widget bolha(String? nome) {
+                      final selecionado = sel == nome;
+                      final cor = nome == null ? null : mapaCoresPasta[nome];
+                      return GestureDetector(
+                        onTap: () => temaController.definirCorEmAberto(nome),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: cor ?? Colors.transparent,
+                                border: Border.all(
+                                  color: selecionado
+                                      ? s.primary
+                                      : (cor == null
+                                          ? Colors.grey.shade400
+                                          : Colors.transparent),
+                                  width: selecionado ? 2.2 : 1.2,
+                                ),
+                              ),
+                              child: cor == null
+                                  ? Icon(Icons.block,
+                                      size: 16, color: Colors.grey.shade500)
+                                  : (selecionado
+                                      ? const Icon(Icons.check,
+                                          color: Colors.white, size: 16)
+                                      : null),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(nome ?? 'nenhuma',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: selecionado
+                                        ? FontWeight.w700
+                                        : FontWeight.w500)),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        bolha(null),
+                        for (final nome in mapaCoresPasta.keys) bolha(nome),
+                      ],
+                    );
+                  },
+                ),
+                _dica(
+                  'Escolha uma cor: na tela inicial, os projetos nessa cor '
+                  'viram a seção "EM ABERTO" (ao lado de "Em andamento"). '
+                  'Para marcar, segure a pasta e escolha a cor.',
                   dim,
                 ),
               ],
