@@ -64,7 +64,7 @@ lib/
 ├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege/Terracota/Ônix)
 ├── models.dart          # Nota, Projeto — serialização JSON
 ├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir + recentes (últimos abertos) + backup .bak
-├── tema.dart            # TemaController (ChangeNotifier) + enums Modo, ModoFonte e Densidade (Confortável/Compacto) + corEmAberto (cor da seção "EM ABERTO")
+├── tema.dart            # TemaController (ChangeNotifier) + enums Modo, ModoFonte e Densidade + corFoco/corProximos (cores das seções FOCO/PRÓXIMOS)
 ├── cores.dart           # AppCores (ThemeExtension) — 8 cores/tema
 ├── projetos_screen.dart # Tela principal: lista de projetos + busca + backup (export/import)
 ├── projeto_screen.dart  # Tela de 1 projeto: abas Tarefas/Ideias + _CaixaNota
@@ -105,7 +105,7 @@ lib/
 | `tarefas` | `List<Nota>` | `tarefas` |
 | `futuro` | `List<Nota>` | `futuro` |
 | `emAndamento` | `bool` | `emAndamento` (✓ verde no cartão da lista) |
-| `cor` | `String?` | `cor` (nome em `mapaCoresPasta`; base da seção EM ABERTO) |
+| `cor` | `String?` | `cor` (nome em `mapaCoresPasta`; dirige as seções FOCO/PRÓXIMOS) |
 | `senhaHash` | `String?` | `senhaHash` (V0.1.93 — SHA-256 salgado; omisso se null) |
 | `senhaSalt` | `String?` | `senhaSalt` (V0.1.93 — salt do hash; omisso se null) |
 
@@ -296,18 +296,20 @@ ProjetosScreen (lista de projetos)
   │    rótulo, no canto direito: ÍCONE de nuvem com flecha p/ cima + data do
   │    último envio (V0.1.50; terracota no Claude; "nunca" se nunca enviou)
   │    (SyncService.ultimoEnvio, persistida — "nunca enviado" se nunca)
-  ├─ SEÇÕES (V0.1.46; EM ABERTO em V0.1.92): a lista vira seções quando há
-  │    ≥1 projeto em andamento OU ≥1 "em aberto". Ordem:
-  │    "EM ANDAMENTO · N" (acento) → "EM ABERTO · N" → "OUTROS · N". Arrastar
-  │    só move DENTRO da seção (_reordenarComSecoes). A montagem das seções e a
-  │    classificação de cada projeto no seu grupo são ÚNICAS e compartilhadas
-  │    entre a exibição e o reorder: `_linhasComSecoes(projetos)` (devolve a
-  │    sequência cabeçalho+Projetos, ou null = lista plana) e
-  │    `_grupoDoProjeto(alvo)` — evita as duas lógicas divergirem.
-  │    ⭐ "EM ABERTO" = projetos (NÃO em andamento) cuja cor da pasta é igual à
-  │    "cor em aberto" escolhida nas Configurações (§ Projetos em aberto). Sem
-  │    cor escolhida (padrão) = recurso desligado → só EM ANDAMENTO/OUTROS. O
-  │    cabeçalho EM ABERTO é pintado com a própria cor escolhida.
+  ├─ SEÇÕES (V0.1.46; FOCO/PRÓXIMOS por cor em V0.1.94): a lista vira seções
+  │    quando há ≥1 projeto em FOCO, EM ANDAMENTO ou PRÓXIMOS. Ordem por
+  │    PRIORIDADE: "FOCO · N" → "EM ANDAMENTO · N" → "PRÓXIMOS · N" →
+  │    "OUTROS · N". Arrastar só move DENTRO da seção (_reordenarComSecoes). A
+  │    montagem das seções e a classificação são ÚNICAS e compartilhadas entre
+  │    exibição e reorder: `_linhasComSecoes(projetos)` (sequência
+  │    cabeçalho+Projetos, ou null = lista plana), `_secaoDoProjeto(p)` (índice
+  │    0=FOCO/1=ANDAMENTO/2=PRÓXIMOS/3=OUTROS) e `_grupoDoProjeto(alvo)`.
+  │    ⭐ FOCO e PRÓXIMOS são dirigidos pela COR da pasta (configurável em
+  │    Configurações → "Foco e Próximos"; padrão foco=amarelo, próximos=verde;
+  │    "nenhuma" desliga). **FOCO vence** (checado 1º, mesmo que o projeto
+  │    também esteja "em andamento"). As duas cores NUNCA podem ser iguais (a
+  │    de um grupo fica bloqueada no seletor do outro). Cabeçalhos FOCO/PRÓXIMOS
+  │    pintados com a própria cor; FOCO um tiquinho maior (destaque).
   │    ⚠️ REORDER via `onReorderItem` (Flutter 3.44.7 deprecou `onReorder`):
   │    o callback JÁ entrega `newIndex` ajustado para o item removido — NÃO
   │    aplicar `if (newIndex > oldIndex) newIndex--`. Fazer isso ajustava
@@ -348,7 +350,7 @@ ProjetosScreen (lista de projetos)
   └─ ⚙️ → ConfigSheet (V0.1.51: seções EXPANSÍVEIS — toca na seção e ela
        abre com as opções; cada uma mostra o valor atual no subtítulo: Tema,
        Tamanho da fonte, Densidade, Projetos em aberto (V0.1.92 — escolhe a
-       cor que vira a seção "EM ABERTO"), Barra de ferramentas, Backup, Nuvem;
+       cores das seções FOCO/PRÓXIMOS), Barra de ferramentas, Backup, Nuvem;
        V0.1.52: NENHUMA seção abre sozinha — a Tema, que ficava aberta, agora
        também nasce fechada; V0.1.54: a folha abre com `isScrollControlled` e
        até 90% da altura da tela — antes ficava baixa e a seção Nuvem, ao
@@ -959,7 +961,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 # Análise estática
 flutter analyze
 
-# Testes (115 testes)
+# Testes (117 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -1022,7 +1024,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (115 testes)
+## 10. Testes (117 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -1109,14 +1111,15 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
   senha ainda confere depois); sem senha os campos são omitidos (`temSenha`
   false); JSON antigo sem os campos carrega como sem senha.
 
-### `test/reorder_tres_secoes_test.dart` (6 testes — V0.1.92)
-- Reorder da lista com TRÊS seções (EM ANDAMENTO / EM ABERTO por cor / OUTROS)
-  contra o `ReorderableListView` real, com a "cor em aberto" fixada em verde.
-  Cobre a seção do MEIO (EM ABERTO), limitada por cabeçalho dos dois lados:
-  mover p/ baixo e p/ cima dentro dela; não vazar p/ cima (EM ANDAMENTO) nem
-  p/ baixo (OUTROS); e que EM ANDAMENTO/OUTROS continuam reordenando com a
-  seção do meio no meio. Réplica fiel de `_linhasComSecoes` +
-  `_grupoDoProjeto` + `_reordenarComSecoes`.
+### `test/reorder_secoes_prioridade_test.dart` (8 testes — V0.1.94)
+- Reorder com QUATRO seções por prioridade (FOCO / EM ANDAMENTO / PRÓXIMOS /
+  OUTROS) contra o `ReorderableListView` real, foco=amarelo, próximos=verde.
+  `secaoDe`: FOCO vence (cor foco + andamento = FOCO; andamento > próximos);
+  `montarLinhas` na ordem certa; mover dentro de FOCO/EM ANDAMENTO; FOCO não
+  vaza p/ baixo; PRÓXIMOS (seção do meio, limitada dos dois lados) não vaza p/
+  cima (EM ANDAMENTO) nem p/ baixo (OUTROS); sem FOCO/EM ANDAMENTO, PRÓXIMOS é
+  a 1ª seção. Réplica fiel de `_secaoDoProjeto` + `_linhasComSecoes` +
+  `_reordenarComSecoes`.
 
 ### `test/backup_test.dart` (11 testes — V0.1.43/44/45)
 - `salvar` guarda a versão anterior no `.bak`
@@ -1142,7 +1145,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 115 testes devem passar.
+- **Sempre rodar `flutter test`** — 117 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -1171,6 +1174,7 @@ A cada publicação de APK:
 
 | Decisão | Motivo |
 |---|---|
+| **FOCO + PRÓXIMOS: seções por cor e prioridade (V0.1.94)** | Evolução do "EM ABERTO" (V0.1.92) a pedido do usuário. A home agora tem 4 seções por PRIORIDADE: **FOCO** (topo, projetos principais) → **EM ANDAMENTO** → **PRÓXIMOS** (renomeia "EM ABERTO") → **OUTROS**. FOCO e PRÓXIMOS são dirigidos pela COR da pasta, cada um com sua cor configurável em Configurações → "Foco e Próximos" (padrão foco=amarelo, próximos=verde; "nenhuma" desliga; migra a antiga `cor_em_aberto_v1` → próximos). Classificação única `_secaoDoProjeto` (0=FOCO/1=ANDAMENTO/2=PRÓXIMOS/3=OUTROS): **FOCO vence** (checado 1º, mesmo se o projeto também estiver "em andamento"). As duas cores não podem colidir — a cor de um grupo fica bloqueada no seletor do outro (e `definirCorFoco/Proximos` limpa a outra se coincidir). Reorder segue confinado por seção (reusa `_grupoDoProjeto`+`_reordenarComSecoes`, agora com a seção do meio PRÓXIMOS limitada dos dois lados). Cabeçalhos FOCO/PRÓXIMOS na própria cor; o seletor de cor da pasta (long-press) mostra "amarelo = Foco · verde = Próximos". Coberto por `test/reorder_secoes_prioridade_test.dart`. |
 | **Senha de projeto + lembrete semanal de backup + atalho "Nova nota" (V0.1.93)** | Três pedidos do usuário. (1) **Senha de projeto:** no "Editar pasta" (long-press) há "Proteger com senha" / "Remover senha"; projeto trancado pede a senha ao abrir (`_liberarAbertura`), some do conteúdo da busca global (o nome ainda aparece; abrir pede senha) e mostra 🔒 no cartão. **Decisão-chave:** é TRANCA DE CONVENIÊNCIA — guarda só o SHA-256 salgado (`seguranca.dart`), NÃO criptografa o conteúdo. Motivo: a REGRA DE OURO é *nunca perder conteúdo* — criptografar + esquecer a senha = perda permanente; com hash, esquecer só impede abrir pela tela, o conteúdo segue no backup/export (recuperável). Remover a senha EXIGE a senha atual (senão long-press burlaria). (2) **Lembrete semanal de backup:** toggle + dia/hora nas Configurações → Backup; agenda uma notificação local RECORRENTE (`matchDateTimeComponents: dayOfWeekAndTime`, id fixo `900001`) só para LEMBRAR de salvar — NÃO faz backup sozinho (a nuvem segue 100% manual). (3) **Atalho "Nova nota":** `quick_actions` — segurar o ícone do app abre o projeto "Notas rápidas" (cria se não existir) já com uma caixinha nova focada (`ProjetoScreen.adicionarAoAbrir`). |
 | **Seção "EM ABERTO" por cor + arrastar caixinha p/ excluir (V0.1.92)** | Pedido do usuário. (1) **EM ABERTO:** nas Configurações escolhe-se uma cor de pasta; na tela inicial os projetos (não em andamento) nessa cor viram a seção "EM ABERTO · N" (contagem = projetos naquela cor), entre "EM ANDAMENTO" e "OUTROS". Cor guardada em `TemaController.corEmAberto` (SharedPreferences `cor_em_aberto_v1`); null = recurso desligado. Para não duplicar lógica (histórico de bugs de reorder com seções — V0.1.68/69/70), a montagem das seções e a classificação viraram helpers ÚNICOS `_linhasComSecoes` + `_grupoDoProjeto`, usados tanto na exibição quanto no `_reordenarComSecoes` (generalizado p/ 3 grupos; o `ini` recua até a borda e o `dest` faz clamp, então cada seção fica contida mesmo sendo a do MEIO, limitada por cabeçalho dos dois lados). Cabeçalho EM ABERTO pintado com a cor escolhida. Coberto por `test/reorder_tres_secoes_test.dart`. (2) **Arrastar caixinha p/ a esquerda = excluir** (com Desfazer, reusa `_excluir`): mesmo padrão dos cartões de projeto na home — `Dismissible` (`endToStart`) como widget de topo do item (carrega a key do reorderable); o reorder segue vindo do pino interno (`ReorderableDragStartListener`), então os dois gestos coexistem (padrão já provado na home). |
 | **Fix do logo: sombreado atrás das molas (V0.1.91)** | O usuário notou uma névoa/brilho do neon subindo por trás dos "arames"/molas do topo (acima da borda do quadro), sobre o preto. Limpei essa faixa superior (`assets/icono.png` via PIL: acima de `y≈0.15h`, pixels de fundo com brilho `<56` → preto, com **transição suave** perto da borda do quadro p/ não criar emenda dura; molas e quadro intactos). Regenerei `icono_titulo.png` (trim) e os ícones do launcher. Validado por antes/depois. |
@@ -1258,6 +1262,6 @@ A cada publicação de APK:
 - **Lembrete recorrente** (diário/semanal) — reusa o motor de notificação
   (`matchDateTimeComponents`).
 - **Etiquetas/cores por projeto** + filtro rápido. (Parcial desde V0.1.92: a
-  cor da pasta já agrupa na seção "EM ABERTO"; falta filtro/multietiqueta.)
+  cor da pasta já agrupa nas seções FOCO/PRÓXIMOS; falta filtro/multietiqueta.)
 - **"Limpar concluídas"** — apagar/arquivar de uma vez as caixinhas marcadas.
 - **Compartilhar 1 projeto como texto** (hoje há PDF e "copiar tudo").

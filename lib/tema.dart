@@ -43,21 +43,28 @@ class TemaController extends ChangeNotifier {
   static const _chaveAntiga = 'tema_escuro_v1';
   static const _chaveFonte = 'fonte_v1';
   static const _chaveDensidade = 'densidade_v1';
-  static const _chaveCorAberto = 'cor_em_aberto_v1';
+  // Cores que marcam as seções FOCO (topo) e PRÓXIMOS (abaixo de EM ANDAMENTO)
+  // na tela inicial, pelas cores do cantinho da pasta. Padrão: foco=amarelo,
+  // próximos=verde. `_chaveCorAbertoAntiga` migra o nome anterior ("em aberto",
+  // V0.1.92/93) para PRÓXIMOS.
+  static const _chaveCorFoco = 'cor_foco_v1';
+  static const _chaveCorProximos = 'cor_proximos_v1';
+  static const _chaveCorAbertoAntiga = 'cor_em_aberto_v1';
   Modo _modo = Modo.azul;
   ModoFonte _fonte = ModoFonte.normal;
   Densidade _densidade = Densidade.confortavel;
-  String? _corEmAberto;
+  String? _corFoco;
+  String? _corProximos;
 
   Modo get modo => _modo;
   ModoFonte get fonte => _fonte;
   Densidade get densidade => _densidade;
 
-  /// Nome da cor que marca "projetos em aberto" na tela inicial (um dos nomes
-  /// de `mapaCoresPasta`: azul/amarelo/vermelho/verde/roxo/marrom/bege), ou
-  /// null quando o usuário não escolheu nenhuma (recurso desligado — a tela
-  /// mostra só EM ANDAMENTO / OUTROS, como antes).
-  String? get corEmAberto => _corEmAberto;
+  /// Nome da cor (em `mapaCoresPasta`) que marca a seção FOCO; null = desligado.
+  String? get corFoco => _corFoco;
+
+  /// Nome da cor que marca a seção PRÓXIMOS; null = desligado.
+  String? get corProximos => _corProximos;
 
   /// true no modo Compacto (linhas/cartões mais próximos).
   bool get compacto => _densidade == Densidade.compacto;
@@ -89,8 +96,23 @@ class TemaController extends ChangeNotifier {
     _densidade = Densidade.values
         .firstWhere((d) => d.name == densidadeSalva,
             orElse: () => Densidade.confortavel);
-    _corEmAberto = prefs.getString(_chaveCorAberto);
+    // Defaults LIGADOS: foco=amarelo, próximos=verde (migra o antigo "em
+    // aberto" para próximos se existir). Uma string vazia salva = "nenhuma".
+    _corFoco = _lerCorPref(prefs, _chaveCorFoco, 'amarelo');
+    _corProximos = _lerCorPref(
+        prefs, _chaveCorProximos, 'verde',
+        chaveFallback: _chaveCorAbertoAntiga);
     notifyListeners();
+  }
+
+  /// Lê uma cor de seção: ausente → [padrao]; string vazia → null (desligado);
+  /// senão o valor salvo. [chaveFallback] cobre a migração de nome.
+  String? _lerCorPref(SharedPreferences prefs, String chave, String padrao,
+      {String? chaveFallback}) {
+    var v = prefs.getString(chave);
+    v ??= chaveFallback == null ? null : prefs.getString(chaveFallback);
+    if (v == null) return padrao; // nunca configurado → default ligado
+    return v.isEmpty ? null : v; // "" = nenhuma (desligado explicitamente)
   }
 
   Future<void> definir(Modo modo) async {
@@ -117,17 +139,32 @@ class TemaController extends ChangeNotifier {
     await prefs.setString(_chaveDensidade, densidade.name);
   }
 
-  /// Define (ou limpa, com null) a cor dos "projetos em aberto".
-  Future<void> definirCorEmAberto(String? cor) async {
-    if (_corEmAberto == cor) return;
-    _corEmAberto = cor;
+  /// Define (null = nenhuma) a cor da seção FOCO. Se colidir com a de PRÓXIMOS,
+  /// limpa a de PRÓXIMOS (uma cor nunca pode significar dois grupos).
+  Future<void> definirCorFoco(String? cor) async {
+    if (_corFoco == cor) return;
+    _corFoco = cor;
+    if (cor != null && _corProximos == cor) _corProximos = null;
     notifyListeners();
+    await _salvarCoresSecao();
+  }
+
+  /// Define (null = nenhuma) a cor da seção PRÓXIMOS. Se colidir com FOCO,
+  /// limpa a de FOCO.
+  Future<void> definirCorProximos(String? cor) async {
+    if (_corProximos == cor) return;
+    _corProximos = cor;
+    if (cor != null && _corFoco == cor) _corFoco = null;
+    notifyListeners();
+    await _salvarCoresSecao();
+  }
+
+  // Grava as duas cores. null vira "" (configurado como "nenhuma"), para o
+  // carregar() distinguir "desligado de propósito" de "nunca configurado".
+  Future<void> _salvarCoresSecao() async {
     final prefs = await SharedPreferences.getInstance();
-    if (cor == null) {
-      await prefs.remove(_chaveCorAberto);
-    } else {
-      await prefs.setString(_chaveCorAberto, cor);
-    }
+    await prefs.setString(_chaveCorFoco, _corFoco ?? '');
+    await prefs.setString(_chaveCorProximos, _corProximos ?? '');
   }
 }
 

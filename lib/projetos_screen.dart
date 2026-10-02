@@ -169,64 +169,49 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     _salvar();
   }
 
-  /// Nome da cor que marca "projetos em aberto" (escolhida nas Configurações),
-  /// ou null quando o usuário não escolheu nenhuma (recurso desligado).
-  String? get _corEmAberto => temaController.corEmAberto;
+  String? get _corFoco => temaController.corFoco;
+  String? get _corProximos => temaController.corProximos;
 
-  /// Classifica um projeto no seu GRUPO de seção — a MESMA lógica da exibição
-  /// ([_linhasComSecoes]): em andamento → ativos; senão, se a cor casa com a
-  /// "cor em aberto" → aberto; senão → outros. Devolve a lista COMPLETA do
-  /// grupo (na ordem atual de `_projetos`).
+  /// Índice da seção de um projeto (0=FOCO, 1=EM ANDAMENTO, 2=PRÓXIMOS,
+  /// 3=OUTROS), por PRIORIDADE. FOCO vence: é checado PRIMEIRO, mesmo que o
+  /// projeto também esteja "em andamento". FOCO e PRÓXIMOS são dirigidos pela
+  /// COR da pasta (configuráveis; padrão amarelo/verde).
+  int _secaoDoProjeto(Projeto p) {
+    final foco = _corFoco;
+    final prox = _corProximos;
+    if (foco != null && p.cor == foco) return 0;
+    if (p.emAndamento) return 1;
+    if (prox != null && p.cor == prox) return 2;
+    return 3;
+  }
+
+  /// Lista COMPLETA (ordem atual de `_projetos`) do grupo a que [alvo]
+  /// pertence — a MESMA classificação da exibição ([_linhasComSecoes]), para
+  /// o reorder nunca divergir.
   List<Projeto> _grupoDoProjeto(Projeto alvo) {
-    final corAberto = _corEmAberto;
-    if (alvo.emAndamento) {
-      return _projetos.where((p) => p.emAndamento).toList();
-    }
-    if (corAberto != null && alvo.cor == corAberto) {
-      return _projetos
-          .where((p) => !p.emAndamento && p.cor == corAberto)
-          .toList();
-    }
-    return _projetos
-        .where((p) =>
-            !p.emAndamento && !(corAberto != null && p.cor == corAberto))
-        .toList();
+    final sec = _secaoDoProjeto(alvo);
+    return _projetos.where((p) => _secaoDoProjeto(p) == sec).toList();
   }
 
   /// Monta a sequência (cabeçalhos `String` + `Projeto`s) da lista COM seções,
-  /// na ordem EM ANDAMENTO → EM ABERTO → OUTROS. Cada grupo só entra se tiver
-  /// ≥1 projeto. Retorna null quando NÃO há seções (nenhum em andamento e
-  /// nenhum "em aberto") — a tela então mostra a lista plana (como antes).
+  /// na ordem FOCO → EM ANDAMENTO → PRÓXIMOS → OUTROS. Cada grupo só entra se
+  /// tiver ≥1 projeto. Retorna null quando só há OUTROS (sem foco/andamento/
+  /// próximos) — a tela então mostra a lista plana (como antes).
   List<Object>? _linhasComSecoes(List<Projeto> projetos) {
-    final corAberto = _corEmAberto;
-    final ativos = projetos.where((p) => p.emAndamento).toList();
-    final aberto = corAberto == null
-        ? const <Projeto>[]
-        : projetos
-            .where((p) => !p.emAndamento && p.cor == corAberto)
-            .toList();
-    final outros = projetos
-        .where((p) =>
-            !p.emAndamento && !(corAberto != null && p.cor == corAberto))
-        .toList();
-    if (ativos.isEmpty && aberto.isEmpty) return null;
+    final foco = projetos.where((p) => _secaoDoProjeto(p) == 0).toList();
+    final ativos = projetos.where((p) => _secaoDoProjeto(p) == 1).toList();
+    final prox = projetos.where((p) => _secaoDoProjeto(p) == 2).toList();
+    final outros = projetos.where((p) => _secaoDoProjeto(p) == 3).toList();
+    if (foco.isEmpty && ativos.isEmpty && prox.isEmpty) return null;
     return <Object>[
-      if (ativos.isNotEmpty) ...[
-        'EM ANDAMENTO · ${ativos.length}',
-        ...ativos,
-      ],
-      if (aberto.isNotEmpty) ...[
-        'EM ABERTO · ${aberto.length}',
-        ...aberto,
-      ],
-      if (outros.isNotEmpty) ...[
-        'OUTROS · ${outros.length}',
-        ...outros,
-      ],
+      if (foco.isNotEmpty) ...['FOCO · ${foco.length}', ...foco],
+      if (ativos.isNotEmpty) ...['EM ANDAMENTO · ${ativos.length}', ...ativos],
+      if (prox.isNotEmpty) ...['PRÓXIMOS · ${prox.length}', ...prox],
+      if (outros.isNotEmpty) ...['OUTROS · ${outros.length}', ...outros],
     ];
   }
 
-  /// Reordena quando a lista está em SEÇÕES (EM ANDAMENTO / EM ABERTO /
+  /// Reordena quando a lista está em SEÇÕES (FOCO / EM ANDAMENTO / PRÓXIMOS /
   /// OUTROS): só permite mover DENTRO da seção do projeto arrastado — não
   /// deixa atravessar o cabeçalho.
   void _reordenarComSecoes(int oldIndex, int newIndex) {
@@ -622,6 +607,22 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                         : 'Toque numa cor. Segure a pasta para trocar a qualquer hora.',
                     style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
                   ),
+                  if (temaController.corFoco != null ||
+                      temaController.corProximos != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      [
+                        if (temaController.corFoco != null)
+                          '${temaController.corFoco} = Foco',
+                        if (temaController.corProximos != null)
+                          '${temaController.corProximos} = Próximos',
+                      ].join('   ·   '),
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(ctx).colorScheme.primary),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 10,
@@ -1230,7 +1231,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
               if (_buscando && q.isNotEmpty) return _resultadosBusca(q);
               final visiveis = _projetos;
               final compacto = temaController.compacto;
-              // Seções: EM ANDAMENTO → EM ABERTO (cor configurável) → OUTROS.
+              // Seções: FOCO → EM ANDAMENTO → PRÓXIMOS → OUTROS (cores conf.).
               // null = sem seções → lista plana (reorder simples).
               final linhasSec = _linhasComSecoes(visiveis);
               final temSecoes = linhasSec != null;
@@ -1247,17 +1248,22 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 itemBuilder: (_, i) {
                   final item = linhas[i];
                   if (item is String) {
-                    // Cabeçalho de seção (não é arrastável). EM ABERTO usa a
-                    // própria cor escolhida, p/ amarrar visualmente à seção.
+                    // Cabeçalho de seção (não é arrastável). FOCO e PRÓXIMOS
+                    // usam a própria cor escolhida, p/ amarrar à seção.
                     final Color corCabecalho;
-                    if (item.startsWith('EM ANDAMENTO')) {
-                      corCabecalho = app.fab;
-                    } else if (item.startsWith('EM ABERTO')) {
+                    if (item.startsWith('FOCO')) {
                       corCabecalho =
-                          corPastaDeNome(temaController.corEmAberto) ?? app.fab;
+                          corPastaDeNome(temaController.corFoco) ?? app.fab;
+                    } else if (item.startsWith('EM ANDAMENTO')) {
+                      corCabecalho = app.fab;
+                    } else if (item.startsWith('PRÓXIMOS')) {
+                      corCabecalho =
+                          corPastaDeNome(temaController.corProximos) ?? app.fab;
                     } else {
                       corCabecalho = app.textoUI.withValues(alpha: 0.55);
                     }
+                    // FOCO em peso/altura um tiquinho maior (destaque pedido).
+                    final ehFoco = item.startsWith('FOCO');
                     return Padding(
                       key: ValueKey('sec-$item'),
                       padding: EdgeInsets.fromLTRB(
@@ -1265,7 +1271,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                       child: Text(
                         item,
                         style: TextStyle(
-                          fontSize: 10.5,
+                          fontSize: ehFoco ? 11.5 : 10.5,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.5,
                           color: corCabecalho,
@@ -1979,73 +1985,119 @@ class _ConfigSheet extends StatelessWidget {
               ],
             ),
 
-            // ================= Projetos em aberto =================
+            // ================= Foco e Próximos =================
             _sec(
               icone: Icons.flag_outlined,
-              titulo: 'Projetos em aberto',
+              titulo: 'Foco e Próximos',
               subtitulo: 'Agrupa por cor na tela inicial',
               children: [
                 ListenableBuilder(
                   listenable: temaController,
                   builder: (context, _) {
-                    final sel = temaController.corEmAberto;
-                    Widget bolha(String? nome) {
+                    final foco = temaController.corFoco;
+                    final prox = temaController.corProximos;
+
+                    // Uma bolha de cor. [bloqueadaPor] = cor já usada pelo OUTRO
+                    // grupo (foco e próximos não podem ter a mesma cor).
+                    Widget bolha({
+                      required String? nome,
+                      required String? sel,
+                      required String? bloqueadaPor,
+                      required ValueChanged<String?> onPick,
+                    }) {
                       final selecionado = sel == nome;
+                      final bloqueada = nome != null && nome == bloqueadaPor;
                       final cor = nome == null ? null : mapaCoresPasta[nome];
-                      return GestureDetector(
-                        onTap: () => temaController.definirCorEmAberto(nome),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: cor ?? Colors.transparent,
-                                border: Border.all(
-                                  color: selecionado
-                                      ? s.primary
-                                      : (cor == null
-                                          ? Colors.grey.shade400
-                                          : Colors.transparent),
-                                  width: selecionado ? 2.2 : 1.2,
+                      return Opacity(
+                        opacity: bloqueada ? 0.3 : 1,
+                        child: GestureDetector(
+                          onTap: bloqueada ? null : () => onPick(nome),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: cor ?? Colors.transparent,
+                                  border: Border.all(
+                                    color: selecionado
+                                        ? s.primary
+                                        : (cor == null
+                                            ? Colors.grey.shade400
+                                            : Colors.transparent),
+                                    width: selecionado ? 2.2 : 1.2,
+                                  ),
                                 ),
+                                child: cor == null
+                                    ? Icon(Icons.block,
+                                        size: 15, color: Colors.grey.shade500)
+                                    : (selecionado
+                                        ? const Icon(Icons.check,
+                                            color: Colors.white, size: 15)
+                                        : null),
                               ),
-                              child: cor == null
-                                  ? Icon(Icons.block,
-                                      size: 16, color: Colors.grey.shade500)
-                                  : (selecionado
-                                      ? const Icon(Icons.check,
-                                          color: Colors.white, size: 16)
-                                      : null),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(nome ?? 'nenhuma',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: selecionado
-                                        ? FontWeight.w700
-                                        : FontWeight.w500)),
-                          ],
+                              const SizedBox(height: 3),
+                              Text(nome ?? 'nenhuma',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: selecionado
+                                          ? FontWeight.w700
+                                          : FontWeight.w500)),
+                            ],
+                          ),
                         ),
                       );
                     }
 
-                    return Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
+                    Widget linha(String titulo, String? sel, String? outra,
+                        ValueChanged<String?> onPick) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(titulo,
+                              style: const TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              bolha(
+                                  nome: null,
+                                  sel: sel,
+                                  bloqueadaPor: outra,
+                                  onPick: onPick),
+                              for (final nome in mapaCoresPasta.keys)
+                                bolha(
+                                    nome: nome,
+                                    sel: sel,
+                                    bloqueadaPor: outra,
+                                    onPick: onPick),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        bolha(null),
-                        for (final nome in mapaCoresPasta.keys) bolha(nome),
+                        linha('Foco (topo)', foco, prox,
+                            temaController.definirCorFoco),
+                        const SizedBox(height: 14),
+                        linha('Próximos (abaixo de Em andamento)', prox, foco,
+                            temaController.definirCorProximos),
                       ],
                     );
                   },
                 ),
                 _dica(
-                  'Escolha uma cor: na tela inicial, os projetos nessa cor '
-                  'viram a seção "EM ABERTO" (ao lado de "Em andamento"). '
-                  'Para marcar, segure a pasta e escolha a cor.',
+                  'FOCO fica no topo (projetos principais) e PRÓXIMOS logo '
+                  'abaixo de "Em andamento". Para marcar um projeto, segure a '
+                  'pasta e escolha a cor. Padrão: amarelo = foco, verde = '
+                  'próximos.',
                   dim,
                 ),
               ],
