@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:quick_actions/quick_actions.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'barra_config.dart';
@@ -14,6 +15,7 @@ import 'editor.dart';
 import 'lembretes.dart';
 import 'models.dart';
 import 'projeto_screen.dart';
+import 'seguranca.dart';
 import 'storage.dart';
 import 'sync_service.dart';
 import 'tema.dart';
@@ -50,6 +52,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   final TextEditingController _ctrlBusca = TextEditingController();
   final FocusNode _focoBusca = FocusNode();
   bool _buscando = false;
+  static const String _projetoNotasRapidas = 'Notas rápidas';
 
   @override
   void initState() {
@@ -67,6 +70,62 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     });
     // Quando a nuvem baixa dados, recarrega a lista.
     Storage.instance.addListener(_aoMudarStorage);
+    _configurarAtalhos();
+  }
+
+  /// Atalho ao segurar o ícone do app (App Shortcut): "Nova nota" cria uma
+  /// anotação direto, sem passar pela tela inicial.
+  void _configurarAtalhos() {
+    try {
+      const quickActions = QuickActions();
+      quickActions.initialize((tipo) {
+        if (tipo == 'nova_nota' && mounted) _novaNotaRapida();
+      });
+      quickActions.setShortcutItems(const [
+        ShortcutItem(type: 'nova_nota', localizedTitle: 'Nova nota'),
+      ]);
+    } catch (_) {
+      // Sem atalhos (plataforma sem suporte) o app segue normal.
+    }
+  }
+
+  /// Abre o projeto "Notas rápidas" (cria se não existir) já com uma caixinha
+  /// nova focada. Chamado pelo App Shortcut "Nova nota".
+  Future<void> _novaNotaRapida() async {
+    // carregar() devolve a MESMA lista interna do Storage — garante os dados
+    // prontos mesmo se o atalho disparar no cold start (antes do .then acima).
+    final projetos = await Storage.instance.carregar();
+    if (!mounted) return;
+    setState(() => _projetos = projetos);
+    Projeto? achado;
+    for (final x in _projetos) {
+      if (x.nome == _projetoNotasRapidas) {
+        achado = x;
+        break;
+      }
+    }
+    if (achado == null) {
+      achado = Projeto(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          nome: _projetoNotasRapidas);
+      _projetos.add(achado);
+      await _salvar();
+    }
+    final proj = achado;
+    // Respeita a senha caso o usuário tenha trancado "Notas rápidas".
+    if (!await _liberarAbertura(proj)) return;
+    await Storage.instance.registrarAbertura(proj.id);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProjetoScreen(projeto: proj, adicionarAoAbrir: true),
+      ),
+    );
+    if (!mounted) return;
+    await _salvar();
+    if (mounted) setState(() {});
+    _recarregarRecentes();
   }
 
   @override
@@ -372,6 +431,119 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     _salvar();
   }
 
+  /// Diálogo de senha (campo oculto com olho para revelar). Retorna o texto
+  /// digitado, ou null se cancelou. NÃO valida — quem chama compara/exige.
+  Future<String?> _promptSenha({
+    required String titulo,
+    String? subtitulo,
+    String rotuloCampo = 'Senha',
+    String okLabel = 'OK',
+  }) async {
+    final ctrl = TextEditingController();
+    var oculto = true;
+    final res = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(titulo),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (subtitulo != null) ...[
+                Text(subtitulo, style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                obscureText: oculto,
+                decoration: InputDecoration(
+                  labelText: rotuloCampo,
+                  suffixIcon: IconButton(
+                    icon: Icon(oculto
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined),
+                    onPressed: () => setLocal(() => oculto = !oculto),
+                  ),
+                ),
+                onSubmitted: (v) => Navigator.pop(ctx, v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, ctrl.text),
+                child: Text(okLabel)),
+          ],
+        ),
+      ),
+    );
+    ctrl.dispose();
+    return res;
+  }
+
+  /// Define uma senha nova (pede + confirma). Guarda só salt + hash.
+  Future<void> _protegerComSenha(Projeto p) async {
+    final s1 = await _promptSenha(
+      titulo: 'Proteger com senha',
+      subtitulo:
+          'Escolha uma senha para "${p.nome}" — será pedida ao abrir.\n\n'
+          'Atenção: é uma tranca para olhares casuais, NÃO criptografia. Se '
+          'esquecer, o conteúdo ainda está no backup/arquivo exportado.',
+      rotuloCampo: 'Nova senha',
+      okLabel: 'Avançar',
+    );
+    if (s1 == null) return;
+    if (s1.isEmpty) {
+      if (mounted) mostrarAviso(context, 'Senha vazia — nada foi feito.');
+      return;
+    }
+    if (!mounted) return;
+    final s2 = await _promptSenha(
+      titulo: 'Confirmar senha',
+      subtitulo: 'Digite a senha de novo.',
+      rotuloCampo: 'Repita a senha',
+      okLabel: 'Proteger',
+    );
+    if (s2 == null) return;
+    if (s1 != s2) {
+      if (mounted) mostrarAviso(context, 'As senhas não conferem.');
+      return;
+    }
+    final salt = gerarSalt();
+    setState(() {
+      p.senhaSalt = salt;
+      p.senhaHash = hashSenha(s1, salt);
+    });
+    await _salvar();
+    if (mounted) mostrarAviso(context, 'Projeto protegido com senha.');
+  }
+
+  /// Remove a senha — exige a senha atual (senão long-press burlaria a tranca).
+  Future<void> _removerSenha(Projeto p) async {
+    final senha = await _promptSenha(
+      titulo: 'Remover senha',
+      subtitulo: 'Digite a senha atual de "${p.nome}" para tirar a proteção.',
+      rotuloCampo: 'Senha atual',
+      okLabel: 'Remover',
+    );
+    if (senha == null) return;
+    if (hashSenha(senha, p.senhaSalt ?? '') != p.senhaHash) {
+      if (mounted) mostrarAviso(context, 'Senha incorreta.');
+      return;
+    }
+    setState(() {
+      p.senhaHash = null;
+      p.senhaSalt = null;
+    });
+    await _salvar();
+    if (mounted) mostrarAviso(context, 'Senha removida.');
+  }
+
   Future<void> _mostrarSeletorCor(Projeto p) async {
     final ctrl = TextEditingController(text: p.nome);
     String? sel = p.cor;
@@ -466,6 +638,43 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                         }),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  const Text('Senha',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(
+                    p.temSenha
+                        ? 'Protegido: a senha é pedida ao abrir. Tranca de '
+                            'conveniência — o conteúdo segue no backup.'
+                        : 'Proteja este projeto: a senha será pedida ao abrir.',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: p.temSenha
+                        ? OutlinedButton.icon(
+                            icon: const Icon(Icons.lock_open_outlined, size: 18),
+                            label: const Text('Remover senha'),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _removerSenha(p);
+                            },
+                          )
+                        : OutlinedButton.icon(
+                            icon: const Icon(Icons.lock_outline, size: 18),
+                            label: const Text('Proteger com senha'),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _protegerComSenha(p);
+                            },
+                          ),
+                  ),
                 ],
               ),
             ),
@@ -540,7 +749,24 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   }
 
   /// Abre o projeto (também registra na prateleira "Últimos abertos").
+  /// Pede a senha de um projeto trancado antes de abrir. Retorna true se pode
+  /// abrir (sem senha, ou senha conferida); false se cancelou/errou.
+  Future<bool> _liberarAbertura(Projeto p) async {
+    if (!p.temSenha) return true;
+    final senha = await _promptSenha(
+      titulo: 'Projeto protegido',
+      subtitulo: 'Digite a senha de "${p.nome}".',
+    );
+    if (senha == null) return false; // cancelou
+    if (hashSenha(senha, p.senhaSalt ?? '') != p.senhaHash) {
+      if (mounted) mostrarAviso(context, 'Senha incorreta.');
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _abrirProjeto(Projeto p) async {
+    if (!await _liberarAbertura(p)) return;
     await Storage.instance.registrarAbertura(p.id);
     if (!mounted) return;
     final r = await Navigator.push(
@@ -573,6 +799,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   /// Abre o projeto direto na caixinha encontrada pela busca global (aba
   /// certa + termo destacado + rolagem até a caixinha).
   Future<void> _abrirNota(_ResultadoBusca r) async {
+    if (!await _liberarAbertura(r.projeto)) return;
     await Storage.instance.registrarAbertura(r.projeto.id);
     if (!mounted) return;
     final res = await Navigator.push(
@@ -604,6 +831,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         _projetos.where((p) => p.nome.toLowerCase().contains(q)).toList();
     final conteudo = <_ResultadoBusca>[];
     for (final p in _projetos) {
+      // Projeto trancado não expõe o conteúdo na busca (o nome pode aparecer na
+      // seção PROJETOS; abrir por lá pede a senha via _liberarAbertura).
+      if (p.temSenha) continue;
       void varrer(List<Nota> lista, int aba) {
         for (final n in lista) {
           final alvo = '${n.texto}\n${n.comentario ?? ''}'.toLowerCase();
@@ -1076,13 +1306,26 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                                       ),
                                 const SizedBox(width: 6),
                                 Expanded(
-                                  child: Text(
-                                    p.nome,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 15,
-                                      color: app.projetoTxt,
-                                    ),
+                                  child: Row(
+                                    children: [
+                                      if (p.temSenha) ...[
+                                        Icon(Icons.lock,
+                                            size: 13,
+                                            color: app.projetoTxt
+                                                .withValues(alpha: 0.6)),
+                                        const SizedBox(width: 5),
+                                      ],
+                                      Expanded(
+                                        child: Text(
+                                          p.nome,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 15,
+                                            color: app.projetoTxt,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 BotaoNeum(
@@ -1204,13 +1447,26 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: Text(
-                                  p.nome,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15,
-                                    color: txtCor,
-                                  ),
+                                child: Row(
+                                  children: [
+                                    if (p.temSenha) ...[
+                                      Icon(Icons.lock,
+                                          size: 13,
+                                          color:
+                                              txtCor.withValues(alpha: 0.6)),
+                                      const SizedBox(width: 5),
+                                    ],
+                                    Expanded(
+                                      child: Text(
+                                        p.nome,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: txtCor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -1868,6 +2124,98 @@ class _ConfigSheet extends StatelessWidget {
                   icon: const Icon(Icons.health_and_safety_outlined, size: 18),
                   label: const Text('Diagnóstico de dados'),
                   onPressed: () => _mostrarDiagnostico(context),
+                ),
+                const SizedBox(height: 4),
+                const Divider(height: 1),
+                ListenableBuilder(
+                  listenable: LembretesService.instance,
+                  builder: (context, _) {
+                    final lem = LembretesService.instance;
+                    const diasNomes = [
+                      'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'
+                    ];
+                    String hhmm(int h, int m) =>
+                        '${h.toString().padLeft(2, '0')}:'
+                        '${m.toString().padLeft(2, '0')}';
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: const Text('Lembrete semanal de backup',
+                              style: TextStyle(fontSize: 14)),
+                          subtitle: Text(
+                            lem.backupSemanalAtivo
+                                ? '${diasNomes[lem.backupSemanalWeekday - 1]} • '
+                                    '${hhmm(lem.backupSemanalHora, lem.backupSemanalMin)}'
+                                : 'Desligado',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          value: lem.backupSemanalAtivo,
+                          onChanged: (v) async {
+                            final ok = await LembretesService.instance
+                                .configurarBackupSemanal(ativo: v);
+                            if (!ok && context.mounted) {
+                              mostrarAviso(context,
+                                  'Permissão de notificação negada.');
+                            }
+                          },
+                        ),
+                        if (lem.backupSemanalAtivo)
+                          Row(
+                            children: [
+                              const Text('Dia: ',
+                                  style: TextStyle(fontSize: 13)),
+                              DropdownButton<int>(
+                                value: lem.backupSemanalWeekday,
+                                isDense: true,
+                                items: [
+                                  for (var d = 1; d <= 7; d++)
+                                    DropdownMenuItem(
+                                        value: d,
+                                        child: Text(diasNomes[d - 1])),
+                                ],
+                                onChanged: (d) {
+                                  if (d != null) {
+                                    LembretesService.instance
+                                        .configurarBackupSemanal(
+                                            ativo: true, weekday: d);
+                                  }
+                                },
+                              ),
+                              const Spacer(),
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.schedule, size: 18),
+                                label: Text(hhmm(lem.backupSemanalHora,
+                                    lem.backupSemanalMin)),
+                                onPressed: () async {
+                                  final t = await showTimePicker(
+                                    context: context,
+                                    initialTime: TimeOfDay(
+                                        hour: lem.backupSemanalHora,
+                                        minute: lem.backupSemanalMin),
+                                  );
+                                  if (t != null) {
+                                    await LembretesService.instance
+                                        .configurarBackupSemanal(
+                                            ativo: true,
+                                            hora: t.hour,
+                                            minuto: t.minute);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        _dica(
+                          'Uma notificação semanal para você NÃO esquecer de '
+                          'salvar/enviar o backup. Não faz backup sozinho — a '
+                          'nuvem continua 100% manual.',
+                          dim,
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),

@@ -23,9 +23,14 @@ class ProjetoScreen extends StatefulWidget {
     this.abaInicial = 0,
     this.termoInicial,
     this.notaAlvo,
+    this.adicionarAoAbrir = false,
   });
 
   final Projeto projeto;
+
+  /// Ao abrir, já cria uma caixinha nova em Tarefas e foca nela. Usado pelo
+  /// App Shortcut "Nova nota" (anotar sem passar pela tela inicial).
+  final bool adicionarAoAbrir;
 
   /// Aba em que a tela abre (0 = Tarefas, 1 = Ideias). Usado pela busca
   /// global da tela inicial para cair direto na aba certa.
@@ -202,6 +207,11 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     if (widget.notaAlvo != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _irParaNota(widget.notaAlvo!);
+      });
+    }
+    if (widget.adicionarAoAbrir) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _adicionar(0); // nova caixinha em Tarefas, já focada
       });
     }
   }

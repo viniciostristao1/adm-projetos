@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.1.92+92
+version: 0.1.93+93
 
 environment:
   sdk: ^3.12.2
@@ -52,6 +52,11 @@ dependencies:
   # próprio Android; não precisa de servidor.
   flutter_local_notifications: ^19.0.0
   timezone: ^0.10.0
+  # Hash da senha de projeto (tranca de conveniência — NÃO criptografa o
+  # conteúdo; guarda só o SHA-256 salgado da senha).
+  crypto: ^3.0.6
+  # Atalho ao segurar o ícone do app (App Shortcut do Android): "Nova nota".
+  quick_actions: ^1.1.0
 
 dev_dependencies:
   flutter_test:

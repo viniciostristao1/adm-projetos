@@ -145,6 +145,14 @@ class Projeto {
   String? nomeFuturo;
   List<AbaExtra> abasExtras;
 
+  /// Tranca de conveniência: SHA-256 salgado da senha (ver `seguranca.dart`).
+  /// null = projeto sem senha. NÃO criptografa o conteúdo — só exige a senha
+  /// para ABRIR o projeto pela tela (o conteúdo segue íntegro no backup).
+  String? senhaHash;
+  String? senhaSalt;
+
+  bool get temSenha => senhaHash != null;
+
   String get nomeTarefasEff {
     final v = nomeTarefas?.trim();
     return v != null && v.isNotEmpty ? v : 'Tarefas';
@@ -181,6 +189,8 @@ class Projeto {
     this.nomeTarefas,
     this.nomeFuturo,
     List<AbaExtra>? abasExtras,
+    this.senhaHash,
+    this.senhaSalt,
   })  : tarefas = tarefas ?? [],
         futuro = futuro ?? [],
         abasExtras = abasExtras ?? [];
@@ -198,6 +208,8 @@ class Projeto {
           'nomeFuturo': nomeFuturo!.trim(),
         if (abasExtras.isNotEmpty)
           'abasExtras': abasExtras.map((a) => a.toJson()).toList(),
+        if (senhaHash != null) 'senhaHash': senhaHash,
+        if (senhaSalt != null) 'senhaSalt': senhaSalt,
       };
 
   factory Projeto.fromJson(Map<String, dynamic> j) {
@@ -219,6 +231,8 @@ class Projeto {
       abasExtras: ((j['abasExtras'] ?? []) as List)
           .map((e) => AbaExtra.fromJson(e as Map<String, dynamic>))
           .toList(),
+      senhaHash: j['senhaHash'] as String?,
+      senhaSalt: j['senhaSalt'] as String?,
     );
   }
 }

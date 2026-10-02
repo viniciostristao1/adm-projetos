@@ -98,6 +98,25 @@ class LembretesService extends ChangeNotifier {
   static const String _chavePendentes = 'lembretes_pendentes_v1';
   static const String _chaveProxId = 'lembretes_prox_id_v1';
 
+  // ===== Lembrete SEMANAL de backup (V0.1.93) =====
+  // id FIXO e bem alto (o contador de lembretes rápidos começa em 1 e sobe de
+  // 1 em 1 — nunca chega aqui), para agendar/cancelar sem colidir.
+  static const int _idBackupSemanal = 900001;
+  static const String _chaveBkpAtivo = 'bkp_semanal_ativo_v1';
+  static const String _chaveBkpWeekday = 'bkp_semanal_weekday_v1'; // 1=Seg..7=Dom
+  static const String _chaveBkpHora = 'bkp_semanal_hora_v1';
+  static const String _chaveBkpMin = 'bkp_semanal_min_v1';
+
+  bool _bkpAtivo = false;
+  int _bkpWeekday = DateTime.sunday; // domingo por padrão
+  int _bkpHora = 19;
+  int _bkpMin = 0;
+
+  bool get backupSemanalAtivo => _bkpAtivo;
+  int get backupSemanalWeekday => _bkpWeekday;
+  int get backupSemanalHora => _bkpHora;
+  int get backupSemanalMin => _bkpMin;
+
   /// Botões de reprogramar que aparecem na notificação (id, rótulo, duração).
   /// O Android mostra até ~3 botões — por isso três.
   static const List<(String, String, Duration)> _snoozes = [
@@ -195,7 +214,86 @@ class LembretesService extends ChangeNotifier {
     // ficar duplicado nas configurações do Android.
     await _android?.deleteNotificationChannel(_canalIdAntigo);
     await _carregarPendentes();
+    await _carregarConfigBackup();
     _pronto = true;
+    // Reagenda o lembrete semanal (sobrevive a atualização do app / troca de
+    // fuso). Silencioso se estiver desligado ou se a permissão faltar.
+    if (_bkpAtivo) {
+      try {
+        await _agendarBackupSemanal();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _carregarConfigBackup() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _bkpAtivo = prefs.getBool(_chaveBkpAtivo) ?? false;
+      _bkpWeekday = prefs.getInt(_chaveBkpWeekday) ?? DateTime.sunday;
+      _bkpHora = prefs.getInt(_chaveBkpHora) ?? 19;
+      _bkpMin = prefs.getInt(_chaveBkpMin) ?? 0;
+    } catch (_) {}
+  }
+
+  /// Liga/desliga ou ajusta o horário do lembrete SEMANAL de backup. Com
+  /// [ativo] true agenda (pedindo permissão); false cancela. Retorna false se
+  /// a permissão de notificação foi negada (o chamador avisa e não liga).
+  Future<bool> configurarBackupSemanal({
+    required bool ativo,
+    int? weekday,
+    int? hora,
+    int? minuto,
+  }) async {
+    if (!_pronto) await init();
+    if (weekday != null) _bkpWeekday = weekday;
+    if (hora != null) _bkpHora = hora;
+    if (minuto != null) _bkpMin = minuto;
+
+    if (ativo && !await pedirPermissao()) return false;
+
+    _bkpAtivo = ativo;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_chaveBkpAtivo, _bkpAtivo);
+    await prefs.setInt(_chaveBkpWeekday, _bkpWeekday);
+    await prefs.setInt(_chaveBkpHora, _bkpHora);
+    await prefs.setInt(_chaveBkpMin, _bkpMin);
+
+    if (_bkpAtivo) {
+      await _agendarBackupSemanal();
+    } else {
+      await _plugin.cancel(_idBackupSemanal);
+    }
+    notifyListeners();
+    return true;
+  }
+
+  /// Próxima ocorrência do weekday/hora escolhidos, a partir de agora.
+  tz.TZDateTime _proximaOcorrenciaSemanal() {
+    final agora = DateTime.now();
+    var alvo = DateTime(agora.year, agora.month, agora.day, _bkpHora, _bkpMin);
+    // Avança até cair no dia da semana certo E no futuro.
+    while (alvo.weekday != _bkpWeekday || !alvo.isAfter(agora)) {
+      alvo = alvo.add(const Duration(days: 1));
+    }
+    return tz.TZDateTime.fromMillisecondsSinceEpoch(
+        tz.UTC, alvo.millisecondsSinceEpoch);
+  }
+
+  static const String _msgBackup =
+      'Backup do Taskix: abra Configurações → Backup e salve suas anotações';
+
+  Future<void> _agendarBackupSemanal() async {
+    await _plugin.zonedSchedule(
+      _idBackupSemanal,
+      _msgBackup,
+      '',
+      _proximaOcorrenciaSemanal(),
+      _detalhes(_msgBackup),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      // Repete toda semana no mesmo dia/horário.
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      payload: _msgBackup,
+    );
   }
 
   /// Pede a permissão de notificação (Android 13+). Retorna true se concedida

@@ -76,6 +76,7 @@ lib/
 ├── barra_config.dart    # enum Ferramenta + BarraController (ORDEM dos botões da barra da
 │                        #   caixinha, persistida) + OrdemBarraScreen (tela de reordenar)
 ├── caixa3d.dart         # Widget simples: Container com cor sólida + borderRadius
+├── seguranca.dart       # hashSenha/gerarSalt (SHA-256 salgado) — tranca de projeto (V0.1.93)
 ├── sync_service.dart    # SyncService (Firebase Firestore) — nuvem 100% MANUAL (por botão)
 ├── lembretes.dart       # LembretesService (flutter_local_notifications) — lembretes rápidos
 │                        #   com notificação local do Android (item 5, V0.1.54)
@@ -104,8 +105,12 @@ lib/
 | `tarefas` | `List<Nota>` | `tarefas` |
 | `futuro` | `List<Nota>` | `futuro` |
 | `emAndamento` | `bool` | `emAndamento` (✓ verde no cartão da lista) |
+| `cor` | `String?` | `cor` (nome em `mapaCoresPasta`; base da seção EM ABERTO) |
+| `senhaHash` | `String?` | `senhaHash` (V0.1.93 — SHA-256 salgado; omisso se null) |
+| `senhaSalt` | `String?` | `senhaSalt` (V0.1.93 — salt do hash; omisso se null) |
 
 > **Backward compat:** `fromJson` migra chave antiga `notas` → `tarefas`.
+> `senhaHash`/`senhaSalt` ausentes = projeto sem senha (`temSenha` false).
 
 ---
 
@@ -581,6 +586,33 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 - Ao minimizar/maximizar, `_guardarTudo()` derrama o texto da IME antes de
   esconder o campo (mesma proteção do resto do app).
 
+### Senha de projeto — tranca de conveniência (V0.1.93)
+- Long-press no projeto → "Editar pasta" → "Proteger com senha" (pede +
+  confirma) ou "Remover senha" (exige a senha atual). Guarda só salt + hash
+  SHA-256 (`seguranca.dart`); **NÃO** criptografa o conteúdo.
+- Abrir projeto trancado (`_abrirProjeto`/`_abrirNota`) passa por
+  `_liberarAbertura`: pede a senha e compara o hash; errou/cancelou = não abre.
+- Projeto trancado é EXCLUÍDO da busca de conteúdo (`_resultadosBusca` faz
+  `if (p.temSenha) continue`); o NOME ainda pode aparecer (abrir por lá pede a
+  senha). Cartão mostra 🔒 ao lado do nome.
+- ⚠️ Por design, o backup/export e o "Copiar tudo" incluem TUDO (inclusive
+  projetos trancados) — é o caminho de recuperação se a senha for esquecida
+  (coerente com a REGRA DE OURO de nunca perder conteúdo).
+
+### Lembrete semanal de backup (V0.1.93)
+- Configurações → Backup → "Lembrete semanal de backup" (toggle + dia + hora).
+  `LembretesService.configurarBackupSemanal` agenda uma notificação RECORRENTE
+  (`matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime`, id fixo
+  `_idBackupSemanal = 900001`). Só NOTIFICA para você lembrar — NÃO faz backup
+  sozinho (a nuvem segue 100% manual). Reagenda no `init()` se estiver ativo.
+
+### Atalho "Nova nota" ao segurar o ícone (V0.1.93)
+- `quick_actions` registra o App Shortcut `nova_nota` em `_configurarAtalhos`
+  (initState da home). Ao disparar, `_novaNotaRapida` abre o projeto "Notas
+  rápidas" (cria se não existir) com `ProjetoScreen(adicionarAoAbrir: true)`,
+  que no initState cria uma caixinha nova em Tarefas e foca nela. Funciona no
+  cold start: recarrega `Storage` antes de criar/abrir.
+
 ### Arrastar caixinha para a esquerda = excluir (V0.1.92)
 - Cada caixinha da lista (`ReorderableListView` em `projeto_screen.dart`) é
   envolvida num `Dismissible` (`direction: endToStart`, fundo vermelho com
@@ -927,7 +959,7 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 # Análise estática
 flutter analyze
 
-# Testes (107 testes)
+# Testes (115 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -981,12 +1013,16 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **flutter_local_notifications:** `^19.0.0` + **timezone:** `^0.10.0` —
   lembretes com notificação local (item 5, V0.1.54). Exigem core library
   desugaring no `app/build.gradle.kts` (`desugar_jdk_libs:2.1.4`).
+- **crypto:** `^3.0.6` — SHA-256 salgado da senha de projeto (V0.1.93; só hash,
+  NÃO criptografa conteúdo). Ver `seguranca.dart`.
+- **quick_actions:** `^1.1.0` — App Shortcut "Nova nota" (segurar o ícone do
+  app). Configurado no `_ProjetosScreenState` (V0.1.93).
 - **flutter_launcher_icons:** `^0.14.4` — gerar ícones do app (dev only)
 - Não há pacote `http` — requisições HTTP usam `dart:io` `HttpClient` diretamente.
 
 ---
 
-## 10. Testes (107 testes)
+## 10. Testes (115 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -1064,6 +1100,15 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Minimizada mantém os títulos dos links visíveis e esconde o comentário
 - Com busca ativa a caixinha minimizada aparece expandida (estado salvo intacto)
 
+### `test/senha_test.dart` (8 testes — V0.1.93)
+- `hashSenha`/`gerarSalt`: determinístico (mesmo salt+senha → mesmo hash),
+  senha errada não confere, salts diferentes → hashes diferentes, nunca guarda
+  a senha em texto puro (SHA-256 hex de 64 chars), salt aleatório.
+- Serialização do `Projeto` com senha: round-trip preserva `senhaHash`/
+  `senhaSalt` E o conteúdo (REGRA DE OURO — backup/restore não perde nada; a
+  senha ainda confere depois); sem senha os campos são omitidos (`temSenha`
+  false); JSON antigo sem os campos carrega como sem senha.
+
 ### `test/reorder_tres_secoes_test.dart` (6 testes — V0.1.92)
 - Reorder da lista com TRÊS seções (EM ANDAMENTO / EM ABERTO por cor / OUTROS)
   contra o `ReorderableListView` real, com a "cor em aberto" fixada em verde.
@@ -1097,7 +1142,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 107 testes devem passar.
+- **Sempre rodar `flutter test`** — 115 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 
@@ -1126,6 +1171,7 @@ A cada publicação de APK:
 
 | Decisão | Motivo |
 |---|---|
+| **Senha de projeto + lembrete semanal de backup + atalho "Nova nota" (V0.1.93)** | Três pedidos do usuário. (1) **Senha de projeto:** no "Editar pasta" (long-press) há "Proteger com senha" / "Remover senha"; projeto trancado pede a senha ao abrir (`_liberarAbertura`), some do conteúdo da busca global (o nome ainda aparece; abrir pede senha) e mostra 🔒 no cartão. **Decisão-chave:** é TRANCA DE CONVENIÊNCIA — guarda só o SHA-256 salgado (`seguranca.dart`), NÃO criptografa o conteúdo. Motivo: a REGRA DE OURO é *nunca perder conteúdo* — criptografar + esquecer a senha = perda permanente; com hash, esquecer só impede abrir pela tela, o conteúdo segue no backup/export (recuperável). Remover a senha EXIGE a senha atual (senão long-press burlaria). (2) **Lembrete semanal de backup:** toggle + dia/hora nas Configurações → Backup; agenda uma notificação local RECORRENTE (`matchDateTimeComponents: dayOfWeekAndTime`, id fixo `900001`) só para LEMBRAR de salvar — NÃO faz backup sozinho (a nuvem segue 100% manual). (3) **Atalho "Nova nota":** `quick_actions` — segurar o ícone do app abre o projeto "Notas rápidas" (cria se não existir) já com uma caixinha nova focada (`ProjetoScreen.adicionarAoAbrir`). |
 | **Seção "EM ABERTO" por cor + arrastar caixinha p/ excluir (V0.1.92)** | Pedido do usuário. (1) **EM ABERTO:** nas Configurações escolhe-se uma cor de pasta; na tela inicial os projetos (não em andamento) nessa cor viram a seção "EM ABERTO · N" (contagem = projetos naquela cor), entre "EM ANDAMENTO" e "OUTROS". Cor guardada em `TemaController.corEmAberto` (SharedPreferences `cor_em_aberto_v1`); null = recurso desligado. Para não duplicar lógica (histórico de bugs de reorder com seções — V0.1.68/69/70), a montagem das seções e a classificação viraram helpers ÚNICOS `_linhasComSecoes` + `_grupoDoProjeto`, usados tanto na exibição quanto no `_reordenarComSecoes` (generalizado p/ 3 grupos; o `ini` recua até a borda e o `dest` faz clamp, então cada seção fica contida mesmo sendo a do MEIO, limitada por cabeçalho dos dois lados). Cabeçalho EM ABERTO pintado com a cor escolhida. Coberto por `test/reorder_tres_secoes_test.dart`. (2) **Arrastar caixinha p/ a esquerda = excluir** (com Desfazer, reusa `_excluir`): mesmo padrão dos cartões de projeto na home — `Dismissible` (`endToStart`) como widget de topo do item (carrega a key do reorderable); o reorder segue vindo do pino interno (`ReorderableDragStartListener`), então os dois gestos coexistem (padrão já provado na home). |
 | **Fix do logo: sombreado atrás das molas (V0.1.91)** | O usuário notou uma névoa/brilho do neon subindo por trás dos "arames"/molas do topo (acima da borda do quadro), sobre o preto. Limpei essa faixa superior (`assets/icono.png` via PIL: acima de `y≈0.15h`, pixels de fundo com brilho `<56` → preto, com **transição suave** perto da borda do quadro p/ não criar emenda dura; molas e quadro intactos). Regenerei `icono_titulo.png` (trim) e os ícones do launcher. Validado por antes/depois. |
 | **Novo logo Taskix (V0.1.90)** | Usuário enviou uma arte nova (TX neon em bloco de notas). Substituiu `assets/icono.png` (fonte do ícone do app — `flutter_launcher_icons` regenerado, mipmaps commitados pois o CI não roda o gerador) e criou `assets/icono_titulo.png` (badge recortado, sem a margem preta) para o logo ao lado do título "Taskix" (AppBar 24px + empty-state 56px, `projetos_screen.dart`). |
