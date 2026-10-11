@@ -1,5 +1,18 @@
 // Modelos do chat (isolados do resto do app).
 
+/// Força MAIÚSCULA no início de cada frase (começo do texto e após . ! ? : ou
+/// quebra de linha + espaços). Não mexe em números/decimais (exige espaço após a
+/// pontuação) nem em letras já maiúsculas. Aplicado no que o usuário envia.
+String capitalizarFrases(String t) {
+  if (t.isEmpty) return t;
+  t = t.replaceFirstMapped(
+      RegExp(r'^(\s*)(\p{Ll})', unicode: true),
+      (m) => m[1]! + m[2]!.toUpperCase());
+  return t.replaceAllMapped(
+      RegExp(r'([.!?:]\s+|\n\s*)(\p{Ll})', unicode: true),
+      (m) => m[1]! + m[2]!.toUpperCase());
+}
+
 /// Modo da conversa — define o "papel" da IA no servidor (system-prompt).
 enum ChatPreset {
   livre('livre', 'Conversa', 'Discutir projetos e ideias'),

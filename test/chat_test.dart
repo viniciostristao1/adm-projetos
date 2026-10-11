@@ -14,6 +14,23 @@ void main() {
     });
   });
 
+  group('capitalizarFrases (o que o usuário envia)', () {
+    test('capitaliza início do texto e após pontuação', () {
+      expect(capitalizarFrases('oi treinador. como vou? etc. isso'),
+          'Oi treinador. Como vou? Etc. Isso');
+    });
+    test('não mexe em decimais/carga (sem espaço após o ponto)', () {
+      expect(capitalizarFrases('valor 1.500 e 3.5kg. foi bom'),
+          'Valor 1.500 e 3.5kg. Foi bom');
+    });
+    test('respeita acentos e letras já maiúsculas', () {
+      expect(capitalizarFrases('ótimo. É isso'), 'Ótimo. É isso');
+    });
+    test('texto vazio não quebra', () {
+      expect(capitalizarFrases(''), '');
+    });
+  });
+
   group('ChatMessage', () {
     test('round-trip JSON preserva role, texto e hora', () {
       final m = ChatMessage.usuario('oi, treinador');

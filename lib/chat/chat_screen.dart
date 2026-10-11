@@ -57,7 +57,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _enviar() async {
-    final texto = _ctrl.text.trim();
+    final texto = capitalizarFrases(_ctrl.text.trim());
     if (texto.isEmpty || _enviando) return;
     _ctrl.clear();
     setState(() {

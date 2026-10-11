@@ -954,6 +954,13 @@ mesma cor do tema) — só aparece com o recurso ligado.
   check-ins por dia, conclusões e troféus, com um cabeçalho "como ler" (`calis_resumo.py`).
   Depende de 1 passo manual (colocar `calis-timer-sa.json` na VPS); sem ele, o coach pede ao
   usuário que descreva o treino (degradação graciosa). Detalhes no proxy: `calis_resumo.py`.
+- **Conversa / projetos (V0.1.97):** no preset Conversa, o proxy injeta
+  `/opt/taskix-chat/projetos.md` — um resumo CURADO e compartilhável dos projetos do usuário —
+  para a IA responder perguntas básicas sobre eles. ⚠️ **FLUXO:** ao shipar uma funcionalidade
+  importante em QUALQUER projeto, atualizar esse arquivo (curado, **sem** segredos/chaves/infra/
+  estratégias de trading — vai para o gateway externo). Ver memória `feedback_muse_chat_projetos_md`.
+- **Capitalização (V0.1.97):** o que o usuário envia é forçado a começar cada frase com maiúscula
+  (`capitalizarFrases` em `chat_models.dart`); a resposta da IA também (no proxy, `_cap_frases`).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
