@@ -62,7 +62,7 @@ void main() {
     });
 
     test('talvezTitular usa a 1ª mensagem do usuário (cortada)', () {
-      final c = Conversa.nova(ChatPreset.livre)
+      final c = Conversa.nova(ChatPreset.projetos)
         ..mensagens = [ChatMessage.usuario('a' * 60)]
         ..talvezTitular();
       expect(c.titulo.length, 43); // 42 chars + reticências
@@ -85,7 +85,7 @@ void main() {
     });
 
     test('salvar duas vezes a MESMA conversa não duplica (upsert)', () async {
-      final c = Conversa.nova(ChatPreset.livre)..mensagens = [ChatMessage.ia('x')];
+      final c = Conversa.nova(ChatPreset.projetos)..mensagens = [ChatMessage.ia('x')];
       await ChatStore.salvar(c);
       c.mensagens = [...c.mensagens, ChatMessage.usuario('y')];
       await ChatStore.salvar(c);
@@ -95,7 +95,7 @@ void main() {
     });
 
     test('remover apaga a conversa', () async {
-      final c = Conversa.nova(ChatPreset.livre)..mensagens = [ChatMessage.ia('x')];
+      final c = Conversa.nova(ChatPreset.projetos)..mensagens = [ChatMessage.ia('x')];
       await ChatStore.salvar(c);
       await ChatStore.remover(c.id);
       expect(await ChatStore.listar(), isEmpty);
@@ -114,7 +114,7 @@ void main() {
     });
 
     test('não escreve na chave de projetos (isolado do Storage)', () async {
-      final c = Conversa.nova(ChatPreset.livre)..mensagens = [ChatMessage.usuario('oi')];
+      final c = Conversa.nova(ChatPreset.projetos)..mensagens = [ChatMessage.usuario('oi')];
       await ChatStore.salvar(c);
       final p = await SharedPreferences.getInstance();
       expect(p.getKeys(), {'taskix_muse_convs_v1'});

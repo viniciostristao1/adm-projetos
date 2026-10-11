@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../sync_service.dart';
 import 'chat_models.dart';
@@ -23,6 +26,15 @@ class _ChatScreenState extends State<ChatScreen> {
   Conversa _conv = Conversa.nova(ChatPreset.coach);
   bool _enviando = false;
   bool _carregando = true;
+  Timer? _tick; // atualiza o contador do "pensando"
+  DateTime? _inicioEnvio;
+
+  /// Ícone de cada modo.
+  static IconData _icone(ChatPreset p) => switch (p) {
+        ChatPreset.coach => Icons.fitness_center,
+        ChatPreset.projetos => Icons.folder_outlined,
+        ChatPreset.geral => Icons.forum_outlined,
+      };
 
   @override
   void initState() {
@@ -41,6 +53,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     SyncService.instance.removeListener(_aoMudarAuth);
+    _tick?.cancel();
     _ctrl.dispose();
     _scroll.dispose();
     _foco.dispose();
@@ -68,11 +81,18 @@ class _ChatScreenState extends State<ChatScreen> {
       _conv.mensagens = [..._conv.mensagens, ChatMessage.usuario(texto)];
       _conv.talvezTitular();
       _enviando = true;
+      _inicioEnvio = DateTime.now();
+    });
+    // Conta o tempo de espera (segundos.décimos), atualizando a cada 100ms.
+    _tick?.cancel();
+    _tick = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (mounted) setState(() {});
     });
     ChatStore.salvar(_conv);
     _rolarFim();
 
     final res = await ChatService.enviar(_conv.mensagens, _conv.preset);
+    _tick?.cancel();
     if (!mounted) return;
     setState(() {
       _conv.mensagens = [
@@ -132,9 +152,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     final conv = convs[i];
                     final atual = conv.id == _conv.id;
                     return ListTile(
-                      leading: Icon(conv.preset == ChatPreset.coach
-                          ? Icons.fitness_center
-                          : Icons.forum_outlined),
+                      leading: Icon(_icone(conv.preset)),
                       title: Text(conv.titulo,
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text(
@@ -203,18 +221,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(p == ChatPreset.coach
-                        ? Icons.fitness_center
-                        : Icons.forum_outlined),
+                    leading: Icon(_icone(p)),
                     title: Text(p.rotulo),
                     subtitle: Text(p.descricao),
                   ),
                 ),
             ],
             icon: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(_conv.preset == ChatPreset.coach
-                  ? Icons.fitness_center
-                  : Icons.forum_outlined),
+              Icon(_icone(_conv.preset)),
               const Icon(Icons.arrow_drop_down),
             ]),
           ),
@@ -300,27 +314,42 @@ class _ChatScreenState extends State<ChatScreen> {
     final ehEu = m.ehUsuario;
     return Align(
       alignment: ehEu ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.82),
-        decoration: BoxDecoration(
-          color: ehEu ? cs.primary : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(ehEu ? 16 : 4),
-            bottomRight: Radius.circular(ehEu ? 4 : 16),
+      // Segurar = copia a mensagem INTEIRA (sem precisar selecionar tudo).
+      child: GestureDetector(
+        onLongPress: () => _copiar(m.texto),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.82),
+          decoration: BoxDecoration(
+            color: ehEu ? cs.primary : cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(ehEu ? 16 : 4),
+              bottomRight: Radius.circular(ehEu ? 4 : 16),
+            ),
           ),
-        ),
-        child: SelectableText(
-          m.texto,
-          style: TextStyle(
-              color: ehEu ? cs.onPrimary : cs.onSurface, height: 1.3),
+          child: Text(
+            m.texto,
+            style: TextStyle(
+                color: ehEu ? cs.onPrimary : cs.onSurface, height: 1.3),
+          ),
         ),
       ),
     );
+  }
+
+  void _copiar(String texto) {
+    Clipboard.setData(ClipboardData(text: texto));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+        content: Text('Mensagem copiada'),
+        duration: Duration(seconds: 1),
+      ));
   }
 
   Widget _pensando(BuildContext context) => Align(
@@ -338,10 +367,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2)),
             const SizedBox(width: 10),
-            Text('pensando…', style: TextStyle(color: Theme.of(context).hintColor)),
+            Text('pensando… ${_tempoEspera()}s',
+                style: TextStyle(color: Theme.of(context).hintColor)),
           ]),
         ),
       );
+
+  /// Segundos.décimos desde o envio (ex.: "2.3").
+  String _tempoEspera() {
+    final ms = _inicioEnvio == null
+        ? 0
+        : DateTime.now().difference(_inicioEnvio!).inMilliseconds;
+    return (ms / 1000).toStringAsFixed(1);
+  }
 
   Widget _barraEntrada(BuildContext context) {
     return SafeArea(

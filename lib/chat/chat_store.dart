@@ -35,7 +35,7 @@ class ChatStore {
           final c = Conversa(
             id: DateTime.now().microsecondsSinceEpoch.toString(),
             titulo: 'Conversa anterior',
-            preset: ChatPreset.livre,
+            preset: ChatPreset.projetos,
             mensagens: msgs,
             atualizadaEm: msgs.last.hora,
           )..talvezTitular();

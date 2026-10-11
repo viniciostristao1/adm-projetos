@@ -967,6 +967,12 @@ mesma cor do tema) — só aparece com o recurso ligado.
   ícone de histórico (abrir/apagar conversas), nova conversa, e o seletor de modo. Abre no modo
   **Coach** por padrão. No proxy, o Coach é **proativo** (elogia ganhos, aponta estagnação com
   "há N dias", sugere próximo foco, comenta empurrar×puxar) e o resumo traz "último recorde há Nd".
+- **3 modos + UX (V0.1.99):** presets **Coach Calis** · **Projetos** (injeta `projetos.md`) ·
+  **Geral** (neutro, sem contexto — pessoal/psicólogo; prompt com CVV 188 p/ crise). `ChatPreset`
+  renomeou `livre`→`projetos` (migração em `deId`). **Segurar a bolha copia a mensagem inteira**
+  (`Clipboard` + snackbar; `Text`, não `SelectableText`). O "pensando…" tem **contador
+  segundos.décimos** (`Timer` 100ms). Memória da conversa: o proxy envia as mensagens recentes
+  que cabem em `HISTORY_CHARS` (~24k chars).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
