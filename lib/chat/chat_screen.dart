@@ -107,7 +107,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final logado = SyncService.instance.conectado;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat com IA'),
+        // Mostra o MODO ativo no título (evita confundir Conversa × Coach).
+        title: Text('Chat · ${_preset.rotulo}'),
         actions: [
           PopupMenuButton<ChatPreset>(
             tooltip: 'Modo',
@@ -274,6 +275,8 @@ class _ChatScreenState extends State<ChatScreen> {
               focusNode: _foco,
               minLines: 1,
               maxLines: 5,
+              // Teclado capitaliza o início de cada frase enquanto você digita.
+              textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.newline,
               decoration: InputDecoration(
                 hintText: 'Escreva sua mensagem…',

@@ -945,8 +945,13 @@ mesma cor do tema) — só aparece com o recurso ligado.
   **ID token do Firebase** do usuário logado (reusa `SyncService.entrarComGoogle`); o proxy
   valida o token (projeto `adm-projetos-f78e9`) e só aceita a conta do DONO (`OWNER_EMAILS`).
   Repo pode ser público — o APK não tem segredo utilizável. `TASKIX_CHAT_URL` vai por secret do CI.
+- **Modo no título + capitalização (V0.1.96):** a AppBar mostra o modo ativo ("Chat · Conversa"
+  / "Chat · Coach Calis"); o campo de texto usa `TextCapitalization.sentences`; o proxy capitaliza
+  o início das frases da resposta da IA (`_cap_frases`).
 - **Coach / Calis Timer:** no preset Coach, o proxy lê o desempenho do usuário no Firestore do
-  projeto `calis-timer` (`users/{uid}`) via service account e injeta um resumo no prompt.
+  projeto `calis-timer` (`users/{uid}`, SOMENTE leitura/GET) via service account e injeta um
+  resumo RICO no prompt: planos (séries×reps×carga), evolução da progressão por exercício,
+  check-ins por dia, conclusões e troféus, com um cabeçalho "como ler" (`calis_resumo.py`).
   Depende de 1 passo manual (colocar `calis-timer-sa.json` na VPS); sem ele, o coach pede ao
   usuário que descreva o treino (degradação graciosa). Detalhes no proxy: `calis_resumo.py`.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
