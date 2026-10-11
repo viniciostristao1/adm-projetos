@@ -5,9 +5,10 @@ import 'chat_models.dart';
 import 'chat_service.dart';
 import 'chat_store.dart';
 
-/// Janela de chat com a IA (módulo isolado — só é aberta pelo botão de mensagem,
-/// que por sua vez só existe com a flag de compilação `CHAT`). A auth é o login
-/// Google que o app já usa (`SyncService`); o servidor só aceita a conta do dono.
+/// Janela do Muse (assistente de chat do Taskix) — módulo isolado, só aberto pelo
+/// botão de mensagem (que só existe com a flag `CHAT`). Auth = login Google que o
+/// app já usa (`SyncService`); o servidor só aceita a conta do dono. Tem histórico
+/// de conversas (local).
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -19,17 +20,20 @@ class _ChatScreenState extends State<ChatScreen> {
   final _ctrl = TextEditingController();
   final _scroll = ScrollController();
   final _foco = FocusNode();
-  List<ChatMessage> _msgs = [];
-  ChatPreset _preset = ChatPreset.livre;
+  Conversa _conv = Conversa.nova(ChatPreset.coach);
   bool _enviando = false;
+  bool _carregando = true;
 
   @override
   void initState() {
     super.initState();
     SyncService.instance.addListener(_aoMudarAuth);
-    ChatStore.carregar().then((m) {
+    ChatStore.listar().then((convs) {
       if (!mounted) return;
-      setState(() => _msgs = m);
+      setState(() {
+        if (convs.isNotEmpty) _conv = convs.first;
+        _carregando = false;
+      });
       _rolarFim();
     });
   }
@@ -61,45 +65,114 @@ class _ChatScreenState extends State<ChatScreen> {
     if (texto.isEmpty || _enviando) return;
     _ctrl.clear();
     setState(() {
-      _msgs = [..._msgs, ChatMessage.usuario(texto)];
+      _conv.mensagens = [..._conv.mensagens, ChatMessage.usuario(texto)];
+      _conv.talvezTitular();
       _enviando = true;
     });
-    ChatStore.salvar(_msgs);
+    ChatStore.salvar(_conv);
     _rolarFim();
 
-    final res = await ChatService.enviar(_msgs, _preset);
+    final res = await ChatService.enviar(_conv.mensagens, _conv.preset);
     if (!mounted) return;
     setState(() {
-      _msgs = [
-        ..._msgs,
+      _conv.mensagens = [
+        ..._conv.mensagens,
         ChatMessage.ia(res.sucesso ? res.reply! : '⚠️ ${res.erro}'),
       ];
       _enviando = false;
     });
-    ChatStore.salvar(_msgs);
+    ChatStore.salvar(_conv);
     _rolarFim();
     _foco.requestFocus();
   }
 
-  Future<void> _limpar() async {
-    final ok = await showDialog<bool>(
+  Future<void> _novaConversa() async {
+    if (!_conv.vazia) await ChatStore.salvar(_conv);
+    setState(() => _conv = Conversa.nova(_conv.preset));
+  }
+
+  Future<void> _abrirHistorico() async {
+    if (!_conv.vazia) await ChatStore.salvar(_conv);
+    var convs = await ChatStore.listar();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Limpar conversa?'),
-        content: const Text('Apaga as mensagens deste chat (só neste aparelho).'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('Cancelar')),
-          FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('Limpar')),
-        ],
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+              child: Row(children: [
+                const Expanded(
+                  child: Text('Conversas',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nova'),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _novaConversa();
+                  },
+                ),
+              ]),
+            ),
+            if (convs.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Nenhuma conversa ainda.'),
+              )
+            else
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: convs.length,
+                  itemBuilder: (c, i) {
+                    final conv = convs[i];
+                    final atual = conv.id == _conv.id;
+                    return ListTile(
+                      leading: Icon(conv.preset == ChatPreset.coach
+                          ? Icons.fitness_center
+                          : Icons.forum_outlined),
+                      title: Text(conv.titulo,
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(
+                          '${conv.preset.rotulo} · ${_data(conv.atualizadaEm)}'),
+                      selected: atual,
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Apagar',
+                        onPressed: () async {
+                          await ChatStore.remover(conv.id);
+                          convs = await ChatStore.listar();
+                          setSheet(() {});
+                          if (atual && mounted) {
+                            setState(() => _conv = convs.isNotEmpty
+                                ? convs.first
+                                : Conversa.nova(_conv.preset));
+                          }
+                        },
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        setState(() => _conv = conv);
+                        _rolarFim();
+                      },
+                    );
+                  },
+                ),
+              ),
+          ]),
+        ),
       ),
     );
-    if (ok != true) return;
-    await ChatStore.limpar();
-    if (mounted) setState(() => _msgs = []);
+  }
+
+  String _data(DateTime d) {
+    final dia = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+    final hora = '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return '$dia $hora';
   }
 
   @override
@@ -107,13 +180,22 @@ class _ChatScreenState extends State<ChatScreen> {
     final logado = SyncService.instance.conectado;
     return Scaffold(
       appBar: AppBar(
-        // Mostra o MODO ativo no título (evita confundir Conversa × Coach).
-        title: Text('Chat · ${_preset.rotulo}'),
+        title: Text('Muse · ${_conv.preset.rotulo}'),
         actions: [
+          IconButton(
+            tooltip: 'Conversas',
+            icon: const Icon(Icons.history),
+            onPressed: _abrirHistorico,
+          ),
+          IconButton(
+            tooltip: 'Nova conversa',
+            icon: const Icon(Icons.add_comment_outlined),
+            onPressed: _novaConversa,
+          ),
           PopupMenuButton<ChatPreset>(
             tooltip: 'Modo',
-            initialValue: _preset,
-            onSelected: (p) => setState(() => _preset = p),
+            initialValue: _conv.preset,
+            onSelected: (p) => setState(() => _conv.preset = p),
             itemBuilder: (_) => [
               for (final p in ChatPreset.values)
                 PopupMenuItem(
@@ -130,21 +212,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
             ],
             icon: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(_preset == ChatPreset.coach
+              Icon(_conv.preset == ChatPreset.coach
                   ? Icons.fitness_center
                   : Icons.forum_outlined),
               const Icon(Icons.arrow_drop_down),
             ]),
           ),
-          if (_msgs.isNotEmpty)
-            IconButton(
-              tooltip: 'Limpar conversa',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _limpar,
-            ),
         ],
       ),
-      body: logado ? _conversa(context) : _conviteLogin(context),
+      body: _carregando
+          ? const Center(child: CircularProgressIndicator())
+          : logado
+              ? _conversa(context)
+              : _conviteLogin(context),
     );
   }
 
@@ -157,7 +237,7 @@ class _ChatScreenState extends State<ChatScreen> {
               size: 54, color: Theme.of(context).colorScheme.primary),
           const SizedBox(height: 16),
           const Text(
-            'Entre com sua conta Google para usar o chat.\n'
+            'Entre com sua conta Google para usar o Muse.\n'
             'Só a sua conta tem acesso — ninguém mais usa seus créditos.',
             textAlign: TextAlign.center,
           ),
@@ -174,27 +254,27 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _conversa(BuildContext context) {
     return Column(children: [
-      if (_preset == ChatPreset.coach)
+      if (_conv.preset == ChatPreset.coach)
         Container(
           width: double.infinity,
           color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Text(
-            'Modo Coach: a IA considera seu desempenho no Calis Timer.',
+            'Modo Coach: o Muse considera seu desempenho no Calis Timer.',
             style: TextStyle(
                 fontSize: 12, color: Theme.of(context).colorScheme.primary),
           ),
         ),
       Expanded(
-        child: _msgs.isEmpty
+        child: _conv.vazia
             ? _vazio(context)
             : ListView.builder(
                 controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                itemCount: _msgs.length + (_enviando ? 1 : 0),
+                itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
                 itemBuilder: (c, i) {
-                  if (i == _msgs.length) return _pensando(context);
-                  return _bolha(context, _msgs[i]);
+                  if (i == _conv.mensagens.length) return _pensando(context);
+                  return _bolha(context, _conv.mensagens[i]);
                 },
               ),
       ),
@@ -206,8 +286,8 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Text(
-            _preset == ChatPreset.coach
-                ? 'Peça uma análise do seu treino, ou conte como foi o dia.'
+            _conv.preset == ChatPreset.coach
+                ? 'Peça uma análise do seu treino, ou diga "oi" que o Muse te dá o panorama.'
                 : 'Mande uma mensagem para começar a discutir seus projetos.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Theme.of(context).hintColor),
@@ -275,7 +355,6 @@ class _ChatScreenState extends State<ChatScreen> {
               focusNode: _foco,
               minLines: 1,
               maxLines: 5,
-              // Teclado capitaliza o início de cada frase enquanto você digita.
               textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.newline,
               decoration: InputDecoration(

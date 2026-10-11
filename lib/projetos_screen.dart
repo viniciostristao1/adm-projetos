@@ -1205,7 +1205,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
               heroTag: 'fab_chat',
               onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ChatScreen())),
-              tooltip: 'Chat com IA',
+              tooltip: 'Muse (assistente)',
               child: const Icon(Icons.chat_bubble_outline),
             ),
             const SizedBox(width: 12),

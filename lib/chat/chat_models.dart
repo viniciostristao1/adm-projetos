@@ -22,6 +22,9 @@ enum ChatPreset {
   final String id;
   final String rotulo;
   final String descricao;
+
+  static ChatPreset deId(String? id) =>
+      ChatPreset.values.firstWhere((p) => p.id == id, orElse: () => livre);
 }
 
 /// Uma mensagem da conversa.
@@ -48,5 +51,61 @@ class ChatMessage {
         j['role'] as String? ?? 'assistant',
         j['texto'] as String? ?? '',
         DateTime.fromMillisecondsSinceEpoch((j['hora'] as num?)?.toInt() ?? 0),
+      );
+}
+
+/// Uma conversa do Muse (histórico): tem título, modo (preset) e mensagens.
+class Conversa {
+  final String id;
+  String titulo;
+  ChatPreset preset;
+  List<ChatMessage> mensagens;
+  DateTime atualizadaEm;
+
+  Conversa({
+    required this.id,
+    required this.titulo,
+    required this.preset,
+    required this.mensagens,
+    required this.atualizadaEm,
+  });
+
+  factory Conversa.nova(ChatPreset preset) => Conversa(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        titulo: 'Nova conversa',
+        preset: preset,
+        mensagens: [],
+        atualizadaEm: DateTime.now(),
+      );
+
+  bool get vazia => mensagens.isEmpty;
+
+  /// Define o título a partir da 1ª mensagem do usuário (se ainda for o padrão).
+  void talvezTitular() {
+    if (titulo != 'Nova conversa') return;
+    final primeira = mensagens.where((m) => m.ehUsuario).map((m) => m.texto);
+    if (primeira.isEmpty) return;
+    var t = primeira.first.replaceAll('\n', ' ').trim();
+    if (t.length > 42) t = '${t.substring(0, 42)}…';
+    if (t.isNotEmpty) titulo = t;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'titulo': titulo,
+        'preset': preset.id,
+        'atualizadaEm': atualizadaEm.millisecondsSinceEpoch,
+        'mensagens': mensagens.map((m) => m.toJson()).toList(),
+      };
+
+  factory Conversa.fromJson(Map<String, dynamic> j) => Conversa(
+        id: j['id'] as String? ?? DateTime.now().microsecondsSinceEpoch.toString(),
+        titulo: j['titulo'] as String? ?? 'Conversa',
+        preset: ChatPreset.deId(j['preset'] as String?),
+        atualizadaEm: DateTime.fromMillisecondsSinceEpoch(
+            (j['atualizadaEm'] as num?)?.toInt() ?? 0),
+        mensagens: ((j['mensagens'] as List?) ?? const [])
+            .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 }

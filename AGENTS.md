@@ -961,6 +961,12 @@ mesma cor do tema) — só aparece com o recurso ligado.
   estratégias de trading — vai para o gateway externo). Ver memória `feedback_muse_chat_projetos_md`.
 - **Capitalização (V0.1.97):** o que o usuário envia é forçado a começar cada frase com maiúscula
   (`capitalizarFrases` em `chat_models.dart`); a resposta da IA também (no proxy, `_cap_frases`).
+- **Muse + histórico (V0.1.98):** o assistente se chama **Muse** (título "Muse · <modo>", botão
+  "Muse"). Histórico de conversas LOCAL (`Conversa` em `chat_models.dart`; `ChatStore` guarda
+  várias conversas na chave `taskix_muse_convs_v1`, migra a antiga `taskix_chat_v1`). Na AppBar:
+  ícone de histórico (abrir/apagar conversas), nova conversa, e o seletor de modo. Abre no modo
+  **Coach** por padrão. No proxy, o Coach é **proativo** (elogia ganhos, aponta estagnação com
+  "há N dias", sugere próximo foco, comenta empurrar×puxar) e o resumo traz "último recorde há Nd".
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

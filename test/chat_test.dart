@@ -49,39 +49,75 @@ void main() {
     });
   });
 
-  group('ChatStore (local, chave própria)', () {
+  group('Conversa', () {
+    test('round-trip JSON preserva título, preset e mensagens', () {
+      final c = Conversa.nova(ChatPreset.coach)
+        ..mensagens = [ChatMessage.usuario('oi'), ChatMessage.ia('olá')]
+        ..talvezTitular();
+      final v = Conversa.fromJson(c.toJson());
+      expect(v.preset, ChatPreset.coach);
+      expect(v.titulo, 'oi');
+      expect(v.mensagens.length, 2);
+      expect(v.mensagens.first.texto, 'oi');
+    });
+
+    test('talvezTitular usa a 1ª mensagem do usuário (cortada)', () {
+      final c = Conversa.nova(ChatPreset.livre)
+        ..mensagens = [ChatMessage.usuario('a' * 60)]
+        ..talvezTitular();
+      expect(c.titulo.length, 43); // 42 chars + reticências
+      expect(c.titulo.endsWith('…'), isTrue);
+    });
+  });
+
+  group('ChatStore — histórico (chave própria)', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
-    test('salvar + carregar devolve as mesmas mensagens', () async {
-      final msgs = [ChatMessage.usuario('a'), ChatMessage.ia('b')];
-      await ChatStore.salvar(msgs);
-      final lido = await ChatStore.carregar();
-      expect(lido.length, 2);
-      expect(lido[0].texto, 'a');
-      expect(lido[1].ehUsuario, isFalse);
+    test('salvar + listar devolve a conversa', () async {
+      final c = Conversa.nova(ChatPreset.coach)
+        ..mensagens = [ChatMessage.usuario('a')]
+        ..talvezTitular();
+      await ChatStore.salvar(c);
+      final lista = await ChatStore.listar();
+      expect(lista.length, 1);
+      expect(lista.first.titulo, 'a');
+      expect(lista.first.preset, ChatPreset.coach);
     });
 
-    test('mantém só as últimas 60', () async {
-      final muitas =
-          List.generate(80, (i) => ChatMessage.usuario('m$i'));
-      await ChatStore.salvar(muitas);
-      final lido = await ChatStore.carregar();
-      expect(lido.length, 60);
-      expect(lido.first.texto, 'm20'); // cortou as 20 primeiras
-      expect(lido.last.texto, 'm79');
+    test('salvar duas vezes a MESMA conversa não duplica (upsert)', () async {
+      final c = Conversa.nova(ChatPreset.livre)..mensagens = [ChatMessage.ia('x')];
+      await ChatStore.salvar(c);
+      c.mensagens = [...c.mensagens, ChatMessage.usuario('y')];
+      await ChatStore.salvar(c);
+      final lista = await ChatStore.listar();
+      expect(lista.length, 1);
+      expect(lista.first.mensagens.length, 2);
     });
 
-    test('limpar esvazia', () async {
-      await ChatStore.salvar([ChatMessage.ia('x')]);
-      await ChatStore.limpar();
-      expect(await ChatStore.carregar(), isEmpty);
+    test('remover apaga a conversa', () async {
+      final c = Conversa.nova(ChatPreset.livre)..mensagens = [ChatMessage.ia('x')];
+      await ChatStore.salvar(c);
+      await ChatStore.remover(c.id);
+      expect(await ChatStore.listar(), isEmpty);
+    });
+
+    test('migra a conversa antiga (taskix_chat_v1) para uma Conversa', () async {
+      SharedPreferences.setMockInitialValues({
+        'taskix_chat_v1':
+            '[{"role":"user","texto":"oi antigo","hora":1}]',
+      });
+      final lista = await ChatStore.listar();
+      expect(lista.length, 1);
+      expect(lista.first.mensagens.first.texto, 'oi antigo');
+      final p = await SharedPreferences.getInstance();
+      expect(p.getKeys().contains('taskix_chat_v1'), isFalse); // removida
     });
 
     test('não escreve na chave de projetos (isolado do Storage)', () async {
-      await ChatStore.salvar([ChatMessage.usuario('oi')]);
+      final c = Conversa.nova(ChatPreset.livre)..mensagens = [ChatMessage.usuario('oi')];
+      await ChatStore.salvar(c);
       final p = await SharedPreferences.getInstance();
-      // a única chave tocada é a do chat
-      expect(p.getKeys(), {'taskix_chat_v1'});
+      expect(p.getKeys(), {'taskix_muse_convs_v1'});
     });
   });
 }
