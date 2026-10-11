@@ -929,6 +929,29 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   copiar desliga as edições do salvamento e os dados "somem". `_aoMudarStorage`
   e `_abrirConfig` re-atribuem a referência, sem cópia.
 
+### Chat com IA (V0.1.95) — módulo ISOLADO `lib/chat/`
+Janela de chat com uma IA (gateway **OpenCode Go**, modelo `muse-spark-1.3-contributor`
+com fallback) para discutir projetos; preset **Coach** = treinador do Calis Timer (vê o
+desempenho do usuário). Botão de mensagem à ESQUERDA do "+" (`FloatingActionButton.small`,
+mesma cor do tema) — só aparece com o recurso ligado.
+
+- **Separação (para um dia publicar na Play SEM o chat):** todo o chat vive em `lib/chat/`
+  (`chat_config`, `chat_models`, `chat_service`, `chat_store`, `chat_screen`). O resto do app
+  só o referencia em `projetos_screen.dart` (o botão), **atrás da flag** `ChatConfig.habilitado`.
+  A flag é de COMPILAÇÃO: `--dart-define=CHAT=true` + `--dart-define=TASKIX_CHAT_URL=...`.
+  Build sem esses defines = **sem chat** (botão nem existe; teste cobre isso em `chat_test.dart`).
+- **Segurança (a chave do OpenCode NUNCA vai no APK/repo):** o app fala com um **proxy na VPS**
+  (`/opt/taskix-chat/`, FastAPI, systemd, Caddy em `/taskix/*`) que guarda a chave. Auth = o
+  **ID token do Firebase** do usuário logado (reusa `SyncService.entrarComGoogle`); o proxy
+  valida o token (projeto `adm-projetos-f78e9`) e só aceita a conta do DONO (`OWNER_EMAILS`).
+  Repo pode ser público — o APK não tem segredo utilizável. `TASKIX_CHAT_URL` vai por secret do CI.
+- **Coach / Calis Timer:** no preset Coach, o proxy lê o desempenho do usuário no Firestore do
+  projeto `calis-timer` (`users/{uid}`) via service account e injeta um resumo no prompt.
+  Depende de 1 passo manual (colocar `calis-timer-sa.json` na VPS); sem ele, o coach pede ao
+  usuário que descreva o treino (degradação graciosa). Detalhes no proxy: `calis_resumo.py`.
+- **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
+  **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
+
 ---
 
 ## 7. CI/CD — Build do APK

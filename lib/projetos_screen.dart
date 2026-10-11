@@ -10,6 +10,8 @@ import 'package:share_plus/share_plus.dart';
 
 import 'barra_config.dart';
 import 'caixa3d.dart';
+import 'chat/chat_config.dart';
+import 'chat/chat_screen.dart';
 import 'cores.dart';
 import 'editor.dart';
 import 'lembretes.dart';
@@ -1192,10 +1194,29 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _criarProjeto,
-        tooltip: 'Novo projeto',
-        child: const Icon(Icons.add),
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Botão de CHAT (ícone de mensagem), à ESQUERDA do "+", um pouco menor
+          // e na mesma cor do tema. Só existe quando o app foi compilado com o
+          // recurso de chat (flag CHAT) — módulo `lib/chat/`, separável.
+          if (ChatConfig.habilitado) ...[
+            FloatingActionButton.small(
+              heroTag: 'fab_chat',
+              onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChatScreen())),
+              tooltip: 'Chat com IA',
+              child: const Icon(Icons.chat_bubble_outline),
+            ),
+            const SizedBox(width: 12),
+          ],
+          FloatingActionButton(
+            heroTag: 'fab_novo',
+            onPressed: _criarProjeto,
+            tooltip: 'Novo projeto',
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
       body: Column(
         children: [

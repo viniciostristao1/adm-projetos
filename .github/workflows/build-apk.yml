@@ -47,7 +47,13 @@ jobs:
           EOF
 
       - name: Build APK (release)
-        run: flutter build apk --release
+        # Recurso de chat ligado no build de teste (CHAT=true) + URL do proxy via
+        # secret (sem segredo de IA no APK — a auth é o login Firebase do usuário).
+        # Um build "Play sem chat" é só rodar SEM estes --dart-define.
+        run: >
+          flutter build apk --release
+          --dart-define=CHAT=true
+          --dart-define=TASKIX_CHAT_URL=${{ secrets.TASKIX_CHAT_URL }}
 
       - name: Publica o APK como Release (v0.1.0, sobrescreve a cada build)
         env:
