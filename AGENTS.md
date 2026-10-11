@@ -978,6 +978,12 @@ mesma cor do tema) — só aparece com o recurso ligado.
   (fonte 14, até 2 linhas). **Segurar uma conversa no histórico = renomear.** Atalho do **Muse
   dentro do projeto**: botão à esquerda do "ver como pastas" em `projeto_screen.dart` (gated por
   `ChatConfig.habilitado`).
+- **V0.1.101:** conhecimento do Muse reorganizado na VPS em `/opt/taskix-chat/conhecimento/`
+  (`projetos.md` → modo Projetos; `pessoal.md` → modo Geral; `INSTRUCOES.md` = guia p/ outra IA/
+  usuário editar via Termius, com DATAS `[AAAA-MM-DD]`). O proxy injeta a **data de hoje** (pt-BR).
+  App: **anexo (clip)** no campo de texto (colar texto ou arquivo via `file_picker`; vai junto da
+  mensagem); lista **invertida** (`reverse:true`) — sempre abre na mensagem mais recente; **renomear
+  reflete no título na hora**.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
