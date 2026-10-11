@@ -40,20 +40,32 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     SyncService.instance.addListener(_aoMudarAuth);
-    ChatStore.listar().then((convs) {
-      if (!mounted) return;
-      setState(() {
-        if (convs.isNotEmpty) _conv = convs.first;
-        _carregando = false;
-      });
-      _rolarFim();
+    _carregar();
+  }
+
+  Future<void> _carregar() async {
+    final convs = await ChatStore.listar();
+    final ult = await ChatStore.ultimaId();
+    if (!mounted) return;
+    setState(() {
+      if (convs.isNotEmpty) {
+        // Reabre a ÚLTIMA conversa usada (não sempre a mesma).
+        _conv = convs.firstWhere((c) => c.id == ult, orElse: () => convs.first);
+      }
+      _carregando = false;
     });
+    _rolarFim();
   }
 
   @override
   void dispose() {
     SyncService.instance.removeListener(_aoMudarAuth);
     _tick?.cancel();
+    // Ao sair, salva a conversa atual e marca como a última (reabre nela depois).
+    if (!_conv.vazia) {
+      ChatStore.salvar(_conv);
+      ChatStore.marcarUltima(_conv.id);
+    }
     _ctrl.dispose();
     _scroll.dispose();
     _foco.dispose();
@@ -89,6 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) setState(() {});
     });
     ChatStore.salvar(_conv);
+    ChatStore.marcarUltima(_conv.id);
     _rolarFim();
 
     final res = await ChatService.enviar(_conv.mensagens, _conv.preset);
@@ -109,6 +122,37 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _novaConversa() async {
     if (!_conv.vazia) await ChatStore.salvar(_conv);
     setState(() => _conv = Conversa.nova(_conv.preset));
+    ChatStore.marcarUltima(_conv.id);
+  }
+
+  /// Renomeia uma conversa (usado ao segurar no histórico). O nome aparece no topo.
+  Future<void> _renomear(Conversa conv) async {
+    final ctrl = TextEditingController(text: conv.titulo);
+    final novo = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Renomear conversa'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 60,
+          decoration: const InputDecoration(hintText: 'Nome da conversa'),
+          onSubmitted: (v) => Navigator.pop(c, v.trim()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),
+          FilledButton(
+              onPressed: () => Navigator.pop(c, ctrl.text.trim()),
+              child: const Text('Salvar')),
+        ],
+      ),
+    );
+    if (novo != null && novo.isNotEmpty) {
+      conv.titulo = novo;
+      await ChatStore.salvar(conv);
+      if (mounted) setState(() {});
+    }
   }
 
   Future<void> _abrirHistorico() async {
@@ -175,7 +219,14 @@ class _ChatScreenState extends State<ChatScreen> {
                       onTap: () {
                         Navigator.pop(ctx);
                         setState(() => _conv = conv);
+                        ChatStore.marcarUltima(conv.id);
                         _rolarFim();
+                      },
+                      // Segurar = renomear (o nome aparece no topo).
+                      onLongPress: () async {
+                        await _renomear(conv);
+                        convs = await ChatStore.listar();
+                        setSheet(() {});
                       },
                     );
                   },
@@ -198,7 +249,16 @@ class _ChatScreenState extends State<ChatScreen> {
     final logado = SyncService.instance.conectado;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Muse · ${_conv.preset.rotulo}'),
+        titleSpacing: 8,
+        // Mostra o NOME da conversa (fonte menor, até 2 linhas — os botões ocupam
+        // espaço). Segure uma conversa no histórico para renomear.
+        title: Text(
+          _conv.titulo,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+              fontSize: 14, fontWeight: FontWeight.w600, height: 1.1),
+        ),
         actions: [
           IconButton(
             tooltip: 'Conversas',

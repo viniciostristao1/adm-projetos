@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 
 import 'barra_config.dart';
 import 'caixa3d.dart';
+import 'chat/chat_config.dart';
+import 'chat/chat_screen.dart';
 import 'cores.dart';
 import 'editor.dart';
 import 'models.dart';
@@ -681,6 +683,15 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
               ),
             ),
+            // Atalho para o Muse de dentro do projeto (só com o recurso ligado).
+            if (ChatConfig.habilitado)
+              IconButton(
+                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                tooltip: 'Muse (assistente)',
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ChatScreen())),
+                visualDensity: VisualDensity.compact,
+              ),
             IconButton(
               icon: Icon(_modoPastas ? Icons.view_list_rounded : Icons.folder_outlined, size: 19),
               tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',

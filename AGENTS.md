@@ -973,6 +973,11 @@ mesma cor do tema) — só aparece com o recurso ligado.
   (`Clipboard` + snackbar; `Text`, não `SelectableText`). O "pensando…" tem **contador
   segundos.décimos** (`Timer` 100ms). Memória da conversa: o proxy envia as mensagens recentes
   que cabem em `HISTORY_CHARS` (~24k chars).
+- **V0.1.100:** o Muse **reabre a ÚLTIMA conversa** usada (`ChatStore.marcarUltima/ultimaId`,
+  chave `taskix_muse_ultima_v1`; salva no `dispose`). O **título do topo = nome da conversa**
+  (fonte 14, até 2 linhas). **Segurar uma conversa no histórico = renomear.** Atalho do **Muse
+  dentro do projeto**: botão à esquerda do "ver como pastas" em `projeto_screen.dart` (gated por
+  `ChatConfig.habilitado`).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

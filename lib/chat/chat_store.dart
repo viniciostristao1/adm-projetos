@@ -9,8 +9,24 @@ import 'chat_models.dart';
 class ChatStore {
   static const _chave = 'taskix_muse_convs_v1';
   static const _chaveAntiga = 'taskix_chat_v1'; // conversa única (pré-histórico)
+  static const _chaveUltima = 'taskix_muse_ultima_v1'; // id da última conversa ativa
   static const _maxConversas = 60;
   static const _maxMsgs = 120; // por conversa
+
+  /// Marca/ lê qual foi a última conversa aberta (para reabrir a MESMA ao voltar).
+  static Future<void> marcarUltima(String id) async {
+    try {
+      (await SharedPreferences.getInstance()).setString(_chaveUltima, id);
+    } catch (_) {}
+  }
+
+  static Future<String?> ultimaId() async {
+    try {
+      return (await SharedPreferences.getInstance()).getString(_chaveUltima);
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Todas as conversas, mais recentes primeiro. Migra a conversa antiga (única)
   /// para uma Conversa na 1ª vez, para não perder o chat atual.

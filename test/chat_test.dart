@@ -119,5 +119,19 @@ void main() {
       final p = await SharedPreferences.getInstance();
       expect(p.getKeys(), {'taskix_muse_convs_v1'});
     });
+
+    test('marcarUltima + ultimaId guardam a última conversa ativa', () async {
+      await ChatStore.marcarUltima('abc123');
+      expect(await ChatStore.ultimaId(), 'abc123');
+    });
+
+    test('renomear persiste o novo título', () async {
+      final c = Conversa.nova(ChatPreset.geral)..mensagens = [ChatMessage.ia('x')];
+      await ChatStore.salvar(c);
+      c.titulo = 'Meu papo';
+      await ChatStore.salvar(c);
+      final lista = await ChatStore.listar();
+      expect(lista.single.titulo, 'Meu papo');
+    });
   });
 }
