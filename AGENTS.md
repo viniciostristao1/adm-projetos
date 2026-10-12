@@ -1046,6 +1046,11 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   "pensando… Ns" ficava escondido embaixo (parecia travado). Causa: o "pensando" é um item EXTRA
   (`itemCount = n+1`) sem `AutoScrollTag`, e o `_rolarFim` mirava `n-1`. Fix: tag `pensando` no
   índice n + `_rolarFim` mira `n` enquanto `_enviando` (volta a `n-1` ao abrir e ao chegar a resposta).
+- **V0.1.112 — abre direto + resposta começa do início:** abrir o chat animava o scroll pela
+  conversa toda (250ms do topo ao fim). `_rolarFim` ganhou flags: `instantaneo` (1ms — o pacote
+  proíbe duração zero) e `inicioResposta` (`begin` em vez de `end`). Abrir = instantâneo na 1ª
+  linha da última resposta (com msg sua por último, mostra o fim); resposta nova = animado até a
+  1ª linha dela. Envio (pensando) e busca (meio) inalterados.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

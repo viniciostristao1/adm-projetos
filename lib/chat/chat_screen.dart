@@ -134,7 +134,8 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       _carregando = false;
     });
-    _rolarFim();
+    // Abre direto na 1ª linha da última resposta (sem animação de scroll).
+    _rolarFim(instantaneo: true, inicioResposta: true);
   }
 
   @override
@@ -162,13 +163,22 @@ class _ChatScreenState extends State<ChatScreen> {
   // Rola até a ÚLTIMA mensagem (via scrollToIndex — confiável mesmo fora da tela,
   // inclusive ao abrir, resolvendo o "abriu na penúltima"). Enquanto envia, mira no
   // item EXTRA do "pensando" (índice n) p/ o contador ficar visível sem rolagem manual.
-  void _rolarFim() {
+  // `instantaneo` (1ms — o pacote proíbe duração zero) = abrir direto, sem ver a
+  // conversa "correndo". `inicioResposta` = mostra a PRIMEIRA linha da última resposta
+  // da IA (p/ começar lendo de cima); com msg sua por último, mostra o fim como antes.
+  void _rolarFim({bool instantaneo = false, bool inicioResposta = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final n = _conv.mensagens.length;
       if (n > 0 && _scroll.hasClients) {
-        _scroll.scrollToIndex(n - 1 + (_enviando ? 1 : 0),
-            preferPosition: AutoScrollPosition.end,
-            duration: const Duration(milliseconds: 250));
+        final alvo = n - 1 + (_enviando ? 1 : 0);
+        final pos = (inicioResposta &&
+                !_enviando &&
+                !_conv.mensagens.last.ehUsuario)
+            ? AutoScrollPosition.begin
+            : AutoScrollPosition.end;
+        _scroll.scrollToIndex(alvo,
+            preferPosition: pos,
+            duration: Duration(milliseconds: instantaneo ? 1 : 250));
       }
     });
   }
@@ -217,7 +227,8 @@ class _ChatScreenState extends State<ChatScreen> {
       _enviando = false;
     });
     ChatStore.salvar(_conv);
-    _rolarFim();
+    // Resposta chegou: mostra a 1ª linha dela (p/ começar lendo de cima).
+    _rolarFim(inicioResposta: true);
     _foco.requestFocus();
   }
 
