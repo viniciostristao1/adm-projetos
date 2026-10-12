@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../sync_service.dart';
 import 'chat_models.dart';
@@ -25,8 +26,13 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _ctrl = TextEditingController();
-  final _scroll = ScrollController();
+  final _scroll = AutoScrollController();
   final _foco = FocusNode();
+  final _buscaCtrl = TextEditingController();
+  bool _buscando = false; // modo busca na conversa
+  String _busca = '';
+  List<int> _hits = []; // índices das mensagens que contêm o termo
+  int _hitAtual = -1;
   Conversa _conv = Conversa.nova(ChatPreset.coach);
   bool _enviando = false;
   bool _carregando = true;
@@ -109,6 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
     SyncService.instance.removeListener(_aoMudarAuth);
     _tick?.cancel();
     _tts.stop();
+    _buscaCtrl.dispose();
     // Ao sair, salva a conversa atual e marca como a última (reabre nela depois).
     if (!_conv.vazia) {
       ChatStore.salvar(_conv);
@@ -330,6 +337,93 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // ───────────────────────── Busca na conversa ─────────────────────────
+  void _fecharBusca() {
+    setState(() {
+      _buscando = false;
+      _busca = '';
+      _hits = [];
+      _hitAtual = -1;
+      _buscaCtrl.clear();
+    });
+  }
+
+  void _atualizarBusca(String termo) {
+    final q = termo.trim().toLowerCase();
+    final hits = <int>[];
+    if (q.isNotEmpty) {
+      for (var i = 0; i < _conv.mensagens.length; i++) {
+        if (_conv.mensagens[i].texto.toLowerCase().contains(q)) hits.add(i);
+      }
+    }
+    setState(() {
+      _busca = termo.trim();
+      _hits = hits;
+      _hitAtual = hits.isEmpty ? -1 : hits.length - 1; // começa no mais recente
+    });
+    if (_hitAtual >= 0) _irPara(_hits[_hitAtual]);
+  }
+
+  void _irHit(int delta) {
+    if (_hits.isEmpty) return;
+    setState(() => _hitAtual = (_hitAtual + delta) % _hits.length);
+    _irPara(_hits[_hitAtual]);
+  }
+
+  void _irPara(int msgIdx) {
+    _scroll.scrollToIndex(msgIdx,
+        preferPosition: AutoScrollPosition.middle,
+        duration: const Duration(milliseconds: 300));
+  }
+
+  List<Widget> _acoesBusca() => [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Text(
+              _busca.isEmpty
+                  ? ''
+                  : (_hits.isEmpty ? '0' : '${_hitAtual + 1}/${_hits.length}'),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ),
+        IconButton(
+            icon: const Icon(Icons.keyboard_arrow_up),
+            tooltip: 'Anterior',
+            onPressed: _hits.isEmpty ? null : () => _irHit(-1)),
+        IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down),
+            tooltip: 'Próximo',
+            onPressed: _hits.isEmpty ? null : () => _irHit(1)),
+      ];
+
+  /// Quebra o texto em trechos, grifando as ocorrências do termo buscado.
+  List<TextSpan> _grifar(String texto, TextStyle base) {
+    if (_busca.isEmpty) return [TextSpan(text: texto, style: base)];
+    final spans = <TextSpan>[];
+    final low = texto.toLowerCase();
+    final q = _busca.toLowerCase();
+    var start = 0;
+    while (true) {
+      final i = low.indexOf(q, start);
+      if (i < 0) {
+        spans.add(TextSpan(text: texto.substring(start), style: base));
+        break;
+      }
+      if (i > start) {
+        spans.add(TextSpan(text: texto.substring(start, i), style: base));
+      }
+      spans.add(TextSpan(
+        text: texto.substring(i, i + q.length),
+        style: base.copyWith(
+            backgroundColor: Colors.amber, color: Colors.black),
+      ));
+      start = i + q.length;
+    }
+    return spans;
+  }
+
   /// Pede ao Muse um resumo da conversa (tamanho bom p/ colar em outra IA).
   Future<void> _resumir() async {
     if (_conv.mensagens.isEmpty) {
@@ -391,17 +485,40 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 8,
-        // Mostra o NOME da conversa (fonte menor, até 2 linhas — os botões ocupam
-        // espaço). Segure uma conversa no histórico para renomear.
-        title: Text(
-          _conv.titulo,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600, height: 1.1),
-        ),
-        actions: [
-          // Seletor de MODO (mostra o modo atual).
+        leading: _buscando
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Fechar busca',
+                onPressed: _fecharBusca)
+            : null,
+        // Nome da conversa (ou campo de busca no modo busca).
+        title: _buscando
+            ? TextField(
+                controller: _buscaCtrl,
+                autofocus: true,
+                onChanged: _atualizarBusca,
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                    hintText: 'Buscar na conversa…', border: InputBorder.none),
+              )
+            : Text(
+                _conv.titulo,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600, height: 1.1),
+              ),
+        actions: _buscando
+            ? _acoesBusca()
+            : [
+                IconButton(
+                  tooltip: 'Buscar na conversa',
+                  icon: const Icon(Icons.search),
+                  onPressed: _conv.mensagens.isEmpty
+                      ? null
+                      : () => setState(() => _buscando = true),
+                ),
+                // Seletor de MODO (mostra o modo atual).
           PopupMenuButton<ChatPreset>(
             tooltip: 'Modo',
             initialValue: _conv.preset,
@@ -514,7 +631,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   if (_enviando && i == 0) return _pensando(context);
                   final idx =
                       _conv.mensagens.length - 1 - (i - (_enviando ? 1 : 0));
-                  return _bolha(context, _conv.mensagens[idx], idx);
+                  // AutoScrollTag permite pular até a mensagem na busca.
+                  return AutoScrollTag(
+                    key: ValueKey('msg_$idx'),
+                    controller: _scroll,
+                    index: idx,
+                    child: _bolha(context, _conv.mensagens[idx], idx),
+                  );
                 },
               ),
       ),
@@ -538,10 +661,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _bolha(BuildContext context, ChatMessage m, int idx) {
     final cs = Theme.of(context).colorScheme;
     final ehEu = m.ehUsuario;
-    final texto = Text(
-      m.texto,
-      style: TextStyle(color: ehEu ? cs.onPrimary : cs.onSurface, height: 1.3),
-    );
+    final estilo =
+        TextStyle(color: ehEu ? cs.onPrimary : cs.onSurface, height: 1.3);
+    // Na busca, grifa as ocorrências do termo; senão texto simples.
+    final texto = _busca.isEmpty
+        ? Text(m.texto, style: estilo)
+        : Text.rich(TextSpan(children: _grifar(m.texto, estilo)));
     return Align(
       alignment: ehEu ? Alignment.centerRight : Alignment.centerLeft,
       // Segurar = copia a mensagem INTEIRA (sem precisar selecionar tudo).

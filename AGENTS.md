@@ -1010,6 +1010,11 @@ mesma cor do tema) — só aparece com o recurso ligado.
   sistemas agênticos, curado/datado). ⚠️ **YouTube**: o YouTube bloqueia o IP da VPS ("not a bot");
   `youtube.py` usa yt-dlp+deno+impersonate e cai p/ erro claro — só fica confiável com cookies em
   `/opt/taskix-chat/yt_cookies.txt`.
+- **V0.1.106:** **Busca dentro da conversa** (lupa na AppBar): grifa as ocorrências e pula até
+  elas (`scroll_to_index` + `AutoScrollTag`; ▲/▼ e contador i/N). (Servidor) `MAX_TOKENS=8000`
+  (respostas longas, ex.: resumir 10 livros, não cortam mais). Contexto de entrada é grande:
+  testado o modelo lendo ~100k chars e achando uma palavra no fim — arquivos de conhecimento
+  (KB) são triviais.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
