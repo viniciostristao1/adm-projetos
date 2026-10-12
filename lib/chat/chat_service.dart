@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
@@ -31,6 +32,36 @@ class YoutubeResult {
 }
 
 class ChatService {
+  /// Voz neural da VPS (MP3 pt-BR, voz feminina). Devolve os bytes do áudio ou
+  /// null em qualquer falha (o chamador cai para o TTS local do aparelho).
+  static Future<Uint8List?> audioNeural(String texto) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    String token;
+    try {
+      token = (await user.getIdToken()) ?? '';
+    } catch (_) {
+      return null;
+    }
+    if (token.isEmpty) return null;
+    try {
+      final r = await http
+          .post(
+            Uri.parse('${ChatConfig.url}/tts'),
+            headers: {
+              'content-type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'texto': texto}),
+          )
+          .timeout(const Duration(seconds: 60));
+      if (r.statusCode == 200 && r.bodyBytes.isNotEmpty) return r.bodyBytes;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Transcreve ou resume um vídeo do YouTube (pelo link), via proxy na VPS.
   static Future<YoutubeResult> youtube(
       String url, String modo, String modeloId) async {

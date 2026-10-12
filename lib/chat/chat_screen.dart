@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
@@ -42,6 +43,8 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _imagemB64; // imagem anexada (visão) p/ a próxima mensagem
   final FlutterTts _tts = FlutterTts();
   int? _lendoIdx; // índice da mensagem que está sendo lida (TTS)
+  final AudioPlayer _vozNeural = AudioPlayer(); // MP3 da voz neural (/tts)
+  bool _gerandoVoz = false; // buscando o áudio (mostra ampulheta)
 
   /// Ícone de cada modo.
   static IconData _icone(ChatPreset p) => switch (p) {
@@ -56,6 +59,9 @@ class _ChatScreenState extends State<ChatScreen> {
     SyncService.instance.addListener(_aoMudarAuth);
     _configTts();
     _tts.setCompletionHandler(() {
+      if (mounted) setState(() => _lendoIdx = null);
+    });
+    _vozNeural.onPlayerComplete.listen((_) {
       if (mounted) setState(() => _lendoIdx = null);
     });
     _carregar();
@@ -85,14 +91,34 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (_) {}
   }
 
-  /// Lê (ou para) a resposta do Muse em voz alta (TTS do aparelho).
+  /// Lê (ou para) a resposta do Muse em voz alta: tenta primeiro a voz neural
+  /// pt-BR da VPS (/tts, feminina) e, se falhar, cai para o TTS do aparelho.
   Future<void> _falar(int idx, String texto) async {
     await _tts.stop();
+    await _vozNeural.stop();
     if (_lendoIdx == idx) {
-      setState(() => _lendoIdx = null);
+      setState(() {
+        _lendoIdx = null;
+        _gerandoVoz = false;
+      });
       return;
     }
-    setState(() => _lendoIdx = idx);
+    setState(() {
+      _lendoIdx = idx;
+      _gerandoVoz = true; // buscando o áudio (alguns segundos, sem custo)
+    });
+    final bytes = await ChatService.audioNeural(texto);
+    if (!mounted) return;
+    if (bytes != null) {
+      setState(() => _gerandoVoz = false);
+      try {
+        await _vozNeural.play(BytesSource(bytes));
+        return;
+      } catch (_) {
+        // cai para o TTS local abaixo
+      }
+    }
+    setState(() => _gerandoVoz = false);
     await _tts.speak(texto);
   }
 
@@ -115,6 +141,7 @@ class _ChatScreenState extends State<ChatScreen> {
     SyncService.instance.removeListener(_aoMudarAuth);
     _tick?.cancel();
     _tts.stop();
+    _vozNeural.dispose();
     _buscaCtrl.dispose();
     // Ao sair, salva a conversa atual e marca como a última (reabre nela depois).
     if (!_conv.vazia) {
@@ -721,7 +748,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           padding: const EdgeInsets.all(4),
                           child: Icon(
                             _lendoIdx == idx
-                                ? Icons.stop_circle_outlined
+                                ? (_gerandoVoz
+                                    ? Icons.hourglass_bottom_outlined
+                                    : Icons.stop_circle_outlined)
                                 : Icons.volume_up_outlined,
                             size: 18,
                             color: cs.onSurfaceVariant,

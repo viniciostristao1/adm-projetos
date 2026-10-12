@@ -1015,6 +1015,12 @@ mesma cor do tema) — só aparece com o recurso ligado.
   (respostas longas, ex.: resumir 10 livros, não cortam mais). Contexto de entrada é grande:
   testado o modelo lendo ~100k chars e achando uma palavra no fim — arquivos de conhecimento
   (KB) são triviais.
+- **V0.1.108 — voz neural pt-BR:** o botão de áudio tenta primeiro a **voz neural feminina
+  pt-BR** (`pt-BR-FranciscaNeural`, Microsoft Edge, sem chave e sem custo) via novo endpoint
+  do proxy **`POST /taskix/tts`** (`app.py`, `edge-tts`, teto 3000 chars/pedido; `requirements.txt`
+  ganhou `edge-tts`). App: `ChatService.audioNeural` busca o MP3 e toca com `audioplayers`
+  (ampulheta ⌛ enquanto gera, ~2–5 s); qualquer falha cai em silêncio para o TTS local
+  (`flutter_tts`, que continua como fallback). Caddy não mudou (`/taskix/*` já cobre a rota).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
@@ -1237,6 +1243,12 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Sempre rodar `flutter test`** — 117 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
+- **VPS com pouca RAM — trabalho leve (incidente 2026-10-12: swap 100%, PSI alto após
+  `flutter test` + venv de teste):** ~4 GB de RAM, sem build local de APK (o CI faz).
+  1 comando pesado por vez; `pip install` de teste só em venv descartável em `/tmp`;
+  após comandos pesados, conferir resíduos (`ps`); em alerta de pressão, ver `free -m` +
+  maiores consumidores e só matar sessão ociosa **confirmada** (identificar a própria
+  sessão pela cadeia de PPID antes; nunca matar às cegas).
 
 ---
 
