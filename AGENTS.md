@@ -998,18 +998,17 @@ mesma cor do tema) — só aparece com o recurso ligado.
   pt-BR já instalada** (não baixa; pitch 1.08). Novo arquivo de conhecimento
   `conhecimento/contexto_ia.md` (mundo da IA 2024→hoje, curado/editado — a IA NÃO navega na web)
   injetado no modo **Geral** (junto do `pessoal.md`).
-- **V0.1.104 — YouTube + contexto IA no Projetos:** `contexto_ia.md` também injetado no modo
-  **Projetos**. **Transcrever/Resumir vídeo do YouTube**: clip → "Vídeo do YouTube (link)" →
-  Transcrição (vira anexo) ou Resumo (diálogo c/ Copiar/Inserir). Proxy: endpoint `/taskix/youtube`
-  (`youtube.py`, legendas via `youtube-transcript-api` — leve, sem baixar áudio; resume com o
-  modelo). Endpoint do gateway = **OpenCode Zen Go** (`opencode.ai/zen/go/...`); DeepSeek flash =
-  faixa barata/grátis (por isso o usage mostra ~0).
+- **V0.1.104 — contexto IA no Projetos:** `contexto_ia.md` também injetado no modo **Projetos**.
+  Endpoint do gateway = **OpenCode Zen Go** (`opencode.ai/zen/go/...`); DeepSeek flash = faixa
+  barata/grátis (por isso o usage mostra ~0).
+  ⚠️ **YouTube REMOVIDO na V0.1.108** (app + proxy `/youtube` + `youtube.py` + cookies + yt-dlp/
+  deno): o YouTube bloqueia o IP da VPS ("Sign in to confirm you're not a bot") mesmo com cookies
+  válidos — só funcionaria com proxy residencial. **Não reintroduzir** sem um proxy. Fluxo do
+  usuário agora: ele cola no Muse o resumo que o Gemini faz do vídeo e debate.
 - **V0.1.105:** App Shortcut (segurar o ícone) ganhou **"Muse (última conversa)"** além de "Nova
   nota" (`QuickActions` em `projetos_screen.dart`, gated por `ChatConfig.habilitado`). Conhecimento
   do Muse ampliado em `conhecimento/contexto_ia.md` (famílias de modelos Claude/GPT/Gemini +
-  sistemas agênticos, curado/datado). ⚠️ **YouTube**: o YouTube bloqueia o IP da VPS ("not a bot");
-  `youtube.py` usa yt-dlp+deno+impersonate e cai p/ erro claro — só fica confiável com cookies em
-  `/opt/taskix-chat/yt_cookies.txt`.
+  sistemas agênticos, curado/datado).
 - **V0.1.106:** **Busca dentro da conversa** (lupa na AppBar): grifa as ocorrências e pula até
   elas (`scroll_to_index` + `AutoScrollTag`; ▲/▼ e contador i/N). (Servidor) `MAX_TOKENS=8000`
   (respostas longas, ex.: resumir 10 livros, não cortam mais). Contexto de entrada é grande:
