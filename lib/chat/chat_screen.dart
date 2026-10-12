@@ -31,7 +31,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _buscaCtrl = TextEditingController();
   bool _buscando = false; // modo busca na conversa
   String _busca = '';
-  List<int> _hits = []; // índices das mensagens que contêm o termo
+  List<(int, int)> _hits = []; // ocorrências: (índice da mensagem, posição no texto)
   int _hitAtual = -1;
   Conversa _conv = Conversa.nova(ChatPreset.coach);
   bool _enviando = false;
@@ -131,13 +131,15 @@ class _ChatScreenState extends State<ChatScreen> {
     if (mounted) setState(() {});
   }
 
-  // Lista é invertida (reverse:true) → o fim (mensagem mais recente) é o offset 0,
-  // sempre visível ao abrir, sem precisar rolar.
+  // Rola até a ÚLTIMA mensagem (via scrollToIndex — confiável mesmo fora da tela,
+  // inclusive ao abrir, resolvendo o "abriu na penúltima").
   void _rolarFim() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(0,
-            duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+      final n = _conv.mensagens.length;
+      if (n > 0 && _scroll.hasClients) {
+        _scroll.scrollToIndex(n - 1,
+            preferPosition: AutoScrollPosition.end,
+            duration: const Duration(milliseconds: 250));
       }
     });
   }
@@ -350,30 +352,39 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _atualizarBusca(String termo) {
     final q = termo.trim().toLowerCase();
-    final hits = <int>[];
+    final hits = <(int, int)>[];
     if (q.isNotEmpty) {
       for (var i = 0; i < _conv.mensagens.length; i++) {
-        if (_conv.mensagens[i].texto.toLowerCase().contains(q)) hits.add(i);
+        final low = _conv.mensagens[i].texto.toLowerCase();
+        var start = low.indexOf(q);
+        while (start >= 0) {
+          hits.add((i, start)); // cada OCORRÊNCIA (não cada mensagem)
+          start = low.indexOf(q, start + q.length);
+        }
       }
     }
     setState(() {
       _busca = termo.trim();
       _hits = hits;
-      _hitAtual = hits.isEmpty ? -1 : hits.length - 1; // começa no mais recente
+      _hitAtual = hits.isEmpty ? -1 : hits.length - 1; // começa na mais recente
     });
-    if (_hitAtual >= 0) _irPara(_hits[_hitAtual]);
+    if (_hitAtual >= 0) _irPara(_hits[_hitAtual].$1);
   }
 
   void _irHit(int delta) {
     if (_hits.isEmpty) return;
     setState(() => _hitAtual = (_hitAtual + delta) % _hits.length);
-    _irPara(_hits[_hitAtual]);
+    _irPara(_hits[_hitAtual].$1);
   }
 
   void _irPara(int msgIdx) {
-    _scroll.scrollToIndex(msgIdx,
-        preferPosition: AutoScrollPosition.middle,
-        duration: const Duration(milliseconds: 300));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.scrollToIndex(msgIdx,
+            preferPosition: AutoScrollPosition.middle,
+            duration: const Duration(milliseconds: 300));
+      }
+    });
   }
 
   List<Widget> _acoesBusca() => [
@@ -398,12 +409,16 @@ class _ChatScreenState extends State<ChatScreen> {
             onPressed: _hits.isEmpty ? null : () => _irHit(1)),
       ];
 
-  /// Quebra o texto em trechos, grifando as ocorrências do termo buscado.
-  List<TextSpan> _grifar(String texto, TextStyle base) {
+  /// Quebra o texto em trechos, grifando as ocorrências; a ocorrência ATUAL
+  /// (a que a navegação ▲/▼ aponta) fica em laranja/negrito.
+  List<TextSpan> _grifar(String texto, TextStyle base, int msgIdx) {
     if (_busca.isEmpty) return [TextSpan(text: texto, style: base)];
     final spans = <TextSpan>[];
     final low = texto.toLowerCase();
     final q = _busca.toLowerCase();
+    final atual = (_hitAtual >= 0 && _hits[_hitAtual].$1 == msgIdx)
+        ? _hits[_hitAtual].$2
+        : -1;
     var start = 0;
     while (true) {
       final i = low.indexOf(q, start);
@@ -414,10 +429,13 @@ class _ChatScreenState extends State<ChatScreen> {
       if (i > start) {
         spans.add(TextSpan(text: texto.substring(start, i), style: base));
       }
+      final ehAtual = i == atual;
       spans.add(TextSpan(
         text: texto.substring(i, i + q.length),
         style: base.copyWith(
-            backgroundColor: Colors.amber, color: Colors.black),
+            backgroundColor: ehAtual ? Colors.orange : Colors.amber,
+            color: Colors.black,
+            fontWeight: ehAtual ? FontWeight.bold : null),
       ));
       start = i + q.length;
     }
@@ -497,6 +515,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 controller: _buscaCtrl,
                 autofocus: true,
                 onChanged: _atualizarBusca,
+                onSubmitted: (_) => _irHit(1), // Enter = próxima ocorrência
                 textInputAction: TextInputAction.search,
                 decoration: const InputDecoration(
                     hintText: 'Buscar na conversa…', border: InputBorder.none),
@@ -624,19 +643,16 @@ class _ChatScreenState extends State<ChatScreen> {
             ? _vazio(context)
             : ListView.builder(
                 controller: _scroll,
-                reverse: true, // i=0 = mensagem mais recente (embaixo)
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                 itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
                 itemBuilder: (c, i) {
-                  if (_enviando && i == 0) return _pensando(context);
-                  final idx =
-                      _conv.mensagens.length - 1 - (i - (_enviando ? 1 : 0));
+                  if (i == _conv.mensagens.length) return _pensando(context);
                   // AutoScrollTag permite pular até a mensagem na busca.
                   return AutoScrollTag(
-                    key: ValueKey('msg_$idx'),
+                    key: ValueKey('msg_$i'),
                     controller: _scroll,
-                    index: idx,
-                    child: _bolha(context, _conv.mensagens[idx], idx),
+                    index: i,
+                    child: _bolha(context, _conv.mensagens[i], i),
                   );
                 },
               ),
@@ -666,7 +682,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Na busca, grifa as ocorrências do termo; senão texto simples.
     final texto = _busca.isEmpty
         ? Text(m.texto, style: estilo)
-        : Text.rich(TextSpan(children: _grifar(m.texto, estilo)));
+        : Text.rich(TextSpan(children: _grifar(m.texto, estilo, idx)));
     return Align(
       alignment: ehEu ? Alignment.centerRight : Alignment.centerLeft,
       // Segurar = copia a mensagem INTEIRA (sem precisar selecionar tudo).
