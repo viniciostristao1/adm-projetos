@@ -26,7 +26,11 @@ class ProjetoScreen extends StatefulWidget {
     this.termoInicial,
     this.notaAlvo,
     this.adicionarAoAbrir = false,
+    this.modoPastasInicial = false,
   });
+
+  /// Abre já no modo PASTAS (ex.: projeto "Estudos").
+  final bool modoPastasInicial;
 
   final Projeto projeto;
 
@@ -61,7 +65,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   final TextEditingController _ctrlBusca = TextEditingController();
   final FocusNode _focoBusca = FocusNode();
   bool _buscando = false;
-  bool _modoPastas = false;
+  late bool _modoPastas = widget.modoPastasInicial;
 
   int get _qtdAbas => widget.projeto.qtdAbas;
   String _nomeAba(int i) => widget.projeto.nomeAba(i);

@@ -9,6 +9,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
+import '../storage.dart';
 import '../sync_service.dart';
 import 'chat_models.dart';
 import 'chat_service.dart';
@@ -712,9 +713,10 @@ class _ChatScreenState extends State<ChatScreen> {
         : Text.rich(TextSpan(children: _grifar(m.texto, estilo, idx)));
     return Align(
       alignment: ehEu ? Alignment.centerRight : Alignment.centerLeft,
-      // Segurar = copia a mensagem INTEIRA (sem precisar selecionar tudo).
+      // Segurar = menu com Copiar / Salvar no Estudos (mensagem INTEIRA, sem
+      // precisar selecionar tudo).
       child: GestureDetector(
-        onLongPress: () => _copiar(m.texto),
+        onLongPress: () => _acoesMensagem(m.texto),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
           padding: EdgeInsets.fromLTRB(14, 10, ehEu ? 14 : 6, ehEu ? 10 : 2),
@@ -772,6 +774,48 @@ class _ChatScreenState extends State<ChatScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(const SnackBar(
         content: Text('Mensagem copiada'),
+        duration: Duration(seconds: 1),
+      ));
+  }
+
+  /// Menu ao segurar uma mensagem: copiar ou mandar para o projeto "Estudos".
+  Future<void> _acoesMensagem(String texto) async {
+    final escolha = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: const Text('Copiar'),
+              onTap: () => Navigator.pop(ctx, 'copiar'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.menu_book_outlined),
+              title: const Text('Salvar no Estudos'),
+              onTap: () => Navigator.pop(ctx, 'estudos'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (escolha == 'copiar') {
+      _copiar(texto);
+    } else if (escolha == 'estudos') {
+      await _salvarNoEstudos(texto);
+    }
+  }
+
+  /// Guarda a mensagem como uma caixinha no projeto reservado "Estudos" (cria se
+  /// não existir) — é lá que o usuário acumula trechos da Muse / resumos.
+  Future<void> _salvarNoEstudos(String texto) async {
+    await Storage.instance.adicionarNotaEmProjeto('Estudos', texto);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+        content: Text('Salvo no Estudos'),
         duration: Duration(seconds: 1),
       ));
   }

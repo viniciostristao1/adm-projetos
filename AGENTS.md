@@ -290,12 +290,16 @@ ProjetosScreen (lista de projetos)
   │       V0.1.54). Detalhe em §6 "Lembretes".
   ├─ 🔍 → busca GLOBAL (projetos por nome + conteúdo das caixinhas em
   │       Tarefas/Ideias); tocar num resultado abre a caixinha
-  ├─ "RECENTES" → prateleira rolante horizontal com os 5 projetos
-  │    mais recentemente abertos (nome + contagem de caixinhas + barra de
-  │    progresso feitas/total); tocar abre o projeto. Na MESMA LINHA do
-  │    rótulo, no canto direito: ÍCONE de nuvem com flecha p/ cima + data do
-  │    último envio (V0.1.50; terracota no Claude; "nunca" se nunca enviou)
-  │    (SyncService.ultimoEnvio, persistida — "nunca enviado" se nunca)
+  ├─ ACESSOS RÁPIDOS (V0.1.110, `_AcessosRapidos`): 3 caixinhas lado a lado,
+  │    cada uma com TÍTULO centralizado acima de uma caixinha tocável:
+  │      • RECENTES  → abre DIRETO o último projeto aberto (rótulo = nome dele;
+  │                    "nenhum ainda"/desabilitada se não há recentes);
+  │      • ASSISTENTE→ abre o chat da Muse (só com a flag `CHAT`; substitui o
+  │                    antigo FAB de mensagem que ficava ao lado do "+");
+  │      • ESTUDOS   → abre o projeto reservado "Estudos" (cria se não existir)
+  │                    em MODO PASTAS — onde o usuário cola mensagens da Muse /
+  │                    resumos de vídeos; entra na busca global como qualquer
+  │                    projeto. (Substitui a antiga prateleira rolante RECENTES.)
   ├─ SEÇÕES (V0.1.46; FOCO/PRÓXIMOS por cor em V0.1.94): a lista vira seções
   │    quando há ≥1 projeto em FOCO, EM ANDAMENTO ou PRÓXIMOS. Ordem por
   │    PRIORIDADE: "FOCO · N" → "EM ANDAMENTO · N" → "PRÓXIMOS · N" →
@@ -359,7 +363,7 @@ ProjetosScreen (lista de projetos)
 
 > **Densidade (V0.1.46):** `Densidade` (Confortável/Compacto) no `TemaController`
 > (SharedPreferences `densidade_v1`). Compacto aproxima: cartões da lista
-> (bottom 5 vs 10), cabeçalhos, prateleira RECENTES (altura 58 vs 72) e as
+> (bottom 5 vs 10), cabeçalhos, os acessos rápidos (altura 58 vs 68) e as
 > caixinhas do projeto (bottom 5 vs 10, padding inferior da lista menor).
 > Seletor nas Configurações (SegmentedButton).
 
@@ -369,18 +373,24 @@ ProjetosScreen (lista de projetos)
 > engolia o gesto e só dava para sair pelo botão "voltar" do Android. A alça
 > decorativa manual foi removida (agora vem do próprio showDragHandle).
 
-### Prateleira "Últimos abertos" (página principal)
-- Mostra os `Storage.maxRecentes` (5) projetos mais recentemente abertos, em
-  cartões compactos roláveis na horizontal, com contagem de caixinhas e barra
-  de progresso (`feitas/total`, preenchimento na cor `fab`).
-- Rastreio em `Storage` via SharedPreferences (chave `recentes_v1`):
-  `registrarAbertura(id)` (move pro topo, máx. 3), `recentesIds()`,
-  `removerRecente(id)` (ao excluir a pasta; "Desfazer" re-registra).
-- `_recarregarRecentes()` remonta a lista a partir dos IDs (só projetos que
-  ainda existem) — chamado ao abrir a tela, ao voltar de um projeto, após
-  "Baixar da nuvem" e após excluir/desfazer.
-- Some durante a busca (campo `🔍` aberto). No tema Claude, os cartões usam
-  borda de 1px `#2A2A2B`; em temas neumórficos usa `Caixa3D`.
+### Acessos rápidos (página principal) — `_AcessosRapidos` (V0.1.110)
+Três caixinhas lado a lado (Row de `Expanded`), cada uma com TÍTULO centralizado
+acima de uma caixinha tocável. Substituiu a antiga prateleira rolante "RECENTES".
+- **RECENTES** → abre DIRETO o último projeto aberto (`_recentes.first`); rótulo
+  = nome dele, ou "nenhum ainda" (caixinha esmaecida/desabilitada) sem recentes.
+- **ASSISTENTE** → abre o chat da Muse (`ChatScreen`); só aparece quando
+  `ChatConfig.habilitado` (flag `CHAT`). Substitui o antigo FAB de mensagem.
+- **ESTUDOS** → `_abrirEstudos()`: abre o projeto reservado "Estudos" (cria se
+  não existir, `_projetoEstudos`) em MODO PASTAS (`ProjetoScreen(..., modoPastasInicial: true)`).
+  É onde o usuário cola trechos da Muse / resumos; entra na busca global normal.
+  A Muse tem um "Salvar no Estudos" (segurar a bolha → menu) que acrescenta a
+  mensagem via `Storage.adicionarNotaEmProjeto('Estudos', texto)`.
+- Rastreio de recentes em `Storage` (SharedPreferences `recentes_v1`):
+  `registrarAbertura(id)` (move pro topo), `recentesIds()`, `removerRecente(id)`.
+  `_recarregarRecentes()` remonta a lista (só projetos existentes) — ao abrir a
+  tela, ao voltar de um projeto, após "Baixar da nuvem" e após excluir/desfazer.
+- Some durante a busca (campo `🔍` aberto). No tema Claude as caixinhas usam
+  borda de 1px `#2A2A2B`; em temas neumórficos usam `Caixa3D`.
 
 ### Barra de ferramentas da caixinha (`_CaixaNota`)
 
@@ -932,8 +942,9 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
 ### Chat com IA (V0.1.95) — módulo ISOLADO `lib/chat/`
 Janela de chat com uma IA (gateway **OpenCode Go**, modelo `muse-spark-1.3-contributor`
 com fallback) para discutir projetos; preset **Coach** = treinador do Calis Timer (vê o
-desempenho do usuário). Botão de mensagem à ESQUERDA do "+" (`FloatingActionButton.small`,
-mesma cor do tema) — só aparece com o recurso ligado.
+desempenho do usuário). Aberto pela caixinha **ASSISTENTE** dos acessos rápidos da home
+(ver `_AcessosRapidos`) — só aparece com o recurso ligado (flag `CHAT`). Até V0.1.109 era
+um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V0.1.110.
 
 - **Separação (para um dia publicar na Play SEM o chat):** todo o chat vive em `lib/chat/`
   (`chat_config`, `chat_models`, `chat_service`, `chat_store`, `chat_screen`). O resto do app
@@ -1285,6 +1296,7 @@ A cada publicação de APK:
 
 | Decisão | Motivo |
 |---|---|
+| **Acessos rápidos: 3 caixinhas RECENTES / ASSISTENTE / ESTUDOS (V0.1.110)** | Pedido do usuário. Substituiu a prateleira rolante RECENTES por 3 caixinhas lado a lado, com título centralizado em cima (`_AcessosRapidos`). **RECENTES** abre DIRETO o último projeto (não mais uma prateleira de 5). **ASSISTENTE** abre a Muse — o antigo FAB de mensagem ao lado do "+" foi REMOVIDO. **ESTUDOS** abre o projeto reservado "Estudos" (cria se não existir) em MODO PASTAS (`modoPastasInicial`), onde o usuário cola trechos da Muse / resumos de vídeos (entra na busca global normal); a Muse ganhou "Salvar no Estudos" (segurar a bolha → menu) via `Storage.adicionarNotaEmProjeto`. A data do último envio à nuvem (antes na linha RECENTES) saiu da home. |
 | **FOCO + PRÓXIMOS: seções por cor e prioridade (V0.1.94)** | Evolução do "EM ABERTO" (V0.1.92) a pedido do usuário. A home agora tem 4 seções por PRIORIDADE: **FOCO** (topo, projetos principais) → **EM ANDAMENTO** → **PRÓXIMOS** (renomeia "EM ABERTO") → **OUTROS**. FOCO e PRÓXIMOS são dirigidos pela COR da pasta, cada um com sua cor configurável em Configurações → "Foco e Próximos" (padrão foco=amarelo, próximos=verde; "nenhuma" desliga; migra a antiga `cor_em_aberto_v1` → próximos). Classificação única `_secaoDoProjeto` (0=FOCO/1=ANDAMENTO/2=PRÓXIMOS/3=OUTROS): **FOCO vence** (checado 1º, mesmo se o projeto também estiver "em andamento"). As duas cores não podem colidir — a cor de um grupo fica bloqueada no seletor do outro (e `definirCorFoco/Proximos` limpa a outra se coincidir). Reorder segue confinado por seção (reusa `_grupoDoProjeto`+`_reordenarComSecoes`, agora com a seção do meio PRÓXIMOS limitada dos dois lados). Cabeçalhos FOCO/PRÓXIMOS na própria cor; o seletor de cor da pasta (long-press) mostra "amarelo = Foco · verde = Próximos". Coberto por `test/reorder_secoes_prioridade_test.dart`. |
 | **Senha de projeto + lembrete semanal de backup + atalho "Nova nota" (V0.1.93)** | Três pedidos do usuário. (1) **Senha de projeto:** no "Editar pasta" (long-press) há "Proteger com senha" / "Remover senha"; projeto trancado pede a senha ao abrir (`_liberarAbertura`), some do conteúdo da busca global (o nome ainda aparece; abrir pede senha) e mostra 🔒 no cartão. **Decisão-chave:** é TRANCA DE CONVENIÊNCIA — guarda só o SHA-256 salgado (`seguranca.dart`), NÃO criptografa o conteúdo. Motivo: a REGRA DE OURO é *nunca perder conteúdo* — criptografar + esquecer a senha = perda permanente; com hash, esquecer só impede abrir pela tela, o conteúdo segue no backup/export (recuperável). Remover a senha EXIGE a senha atual (senão long-press burlaria). (2) **Lembrete semanal de backup:** toggle + dia/hora nas Configurações → Backup; agenda uma notificação local RECORRENTE (`matchDateTimeComponents: dayOfWeekAndTime`, id fixo `900001`) só para LEMBRAR de salvar — NÃO faz backup sozinho (a nuvem segue 100% manual). (3) **Atalho "Nova nota":** `quick_actions` — segurar o ícone do app abre o projeto "Notas rápidas" (cria se não existir) já com uma caixinha nova focada (`ProjetoScreen.adicionarAoAbrir`). |
 | **Seção "EM ABERTO" por cor + arrastar caixinha p/ excluir (V0.1.92)** | Pedido do usuário. (1) **EM ABERTO:** nas Configurações escolhe-se uma cor de pasta; na tela inicial os projetos (não em andamento) nessa cor viram a seção "EM ABERTO · N" (contagem = projetos naquela cor), entre "EM ANDAMENTO" e "OUTROS". Cor guardada em `TemaController.corEmAberto` (SharedPreferences `cor_em_aberto_v1`); null = recurso desligado. Para não duplicar lógica (histórico de bugs de reorder com seções — V0.1.68/69/70), a montagem das seções e a classificação viraram helpers ÚNICOS `_linhasComSecoes` + `_grupoDoProjeto`, usados tanto na exibição quanto no `_reordenarComSecoes` (generalizado p/ 3 grupos; o `ini` recua até a borda e o `dest` faz clamp, então cada seção fica contida mesmo sendo a do MEIO, limitada por cabeçalho dos dois lados). Cabeçalho EM ABERTO pintado com a cor escolhida. Coberto por `test/reorder_tres_secoes_test.dart`. (2) **Arrastar caixinha p/ a esquerda = excluir** (com Desfazer, reusa `_excluir`): mesmo padrão dos cartões de projeto na home — `Dismissible` (`endToStart`) como widget de topo do item (carrega a key do reorderable); o reorder segue vindo do pino interno (`ReorderableDragStartListener`), então os dois gestos coexistem (padrão já provado na home). |

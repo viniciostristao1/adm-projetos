@@ -55,6 +55,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   final FocusNode _focoBusca = FocusNode();
   bool _buscando = false;
   static const String _projetoNotasRapidas = 'Notas rápidas';
+  static const String _projetoEstudos = 'Estudos';
 
   @override
   void initState() {
@@ -140,6 +141,43 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => ProjetoScreen(projeto: proj, adicionarAoAbrir: true),
+      ),
+    );
+    if (!mounted) return;
+    await _salvar();
+    if (mounted) setState(() {});
+    _recarregarRecentes();
+  }
+
+  /// Abre o projeto reservado "Estudos" (cria se não existir) já em MODO PASTAS.
+  /// É onde o usuário cola resumos/mensagens da Muse; entra na busca global como
+  /// qualquer projeto.
+  Future<void> _abrirEstudos() async {
+    final projetos = await Storage.instance.carregar();
+    if (!mounted) return;
+    setState(() => _projetos = projetos);
+    Projeto? achado;
+    for (final x in _projetos) {
+      if (x.nome == _projetoEstudos) {
+        achado = x;
+        break;
+      }
+    }
+    if (achado == null) {
+      achado = Projeto(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          nome: _projetoEstudos);
+      _projetos.add(achado);
+      await _salvar();
+    }
+    final proj = achado;
+    if (!await _liberarAbertura(proj)) return;
+    await Storage.instance.registrarAbertura(proj.id);
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProjetoScreen(projeto: proj, modoPastasInicial: true),
       ),
     );
     if (!mounted) return;
@@ -1212,29 +1250,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
           ),
         ],
       ),
-      floatingActionButton: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Botão de CHAT (ícone de mensagem), à ESQUERDA do "+", um pouco menor
-          // e na mesma cor do tema. Só existe quando o app foi compilado com o
-          // recurso de chat (flag CHAT) — módulo `lib/chat/`, separável.
-          if (ChatConfig.habilitado) ...[
-            FloatingActionButton.small(
-              heroTag: 'fab_chat',
-              onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ChatScreen())),
-              tooltip: 'Muse Spark (assistente)',
-              child: const Icon(Icons.chat_bubble_outline),
-            ),
-            const SizedBox(width: 12),
-          ],
-          FloatingActionButton(
-            heroTag: 'fab_novo',
-            onPressed: _criarProjeto,
-            tooltip: 'Novo projeto',
-            child: const Icon(Icons.add),
-          ),
-        ],
+      // O chat da Muse agora é aberto pela caixinha "ASSISTENTE" nos acessos
+      // rápidos da home (módulo `lib/chat/`, separável pela flag CHAT).
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_novo',
+        onPressed: _criarProjeto,
+        tooltip: 'Novo projeto',
+        child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
@@ -1256,10 +1278,16 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 onChanged: (_) => setState(() {}),
               ),
             ),
-          if (!_buscando && _recentes.isNotEmpty) _PrateleiraRecentes(
-            projetos: _recentes,
-            onAbrir: _abrirProjeto,
-          ),
+          if (!_buscando)
+            _AcessosRapidos(
+              ultimo: _recentes.isNotEmpty ? _recentes.first : null,
+              mostrarMuse: ChatConfig.habilitado,
+              onRecentes: () {
+                if (_recentes.isNotEmpty) _abrirProjeto(_recentes.first);
+              },
+              onMuse: _abrirMuse,
+              onEstudos: _abrirEstudos,
+            ),
           Expanded(
             child: Builder(builder: (ctx) {
               if (_projetos.isEmpty) return const _Vazio();
@@ -2922,181 +2950,182 @@ class _Vazio extends StatelessWidget {
   }
 }
 
-/// Prateleira rolante "Últimos abertos": os [Storage.maxRecentes] projetos
-/// mais recentemente abertos, em cartões compactos com contagem de caixinhas
-/// e barra de progresso (feitas/total). Visual acompanha o tema (no Claude,
-/// borda 1px estilo terminal).
-class _PrateleiraRecentes extends StatelessWidget {
-  const _PrateleiraRecentes({
-    required this.projetos,
-    required this.onAbrir,
+/// Três acessos rápidos no lugar da antiga prateleira de recentes. Cada um tem
+/// um título centralizado acima de uma caixinha tocável:
+///  • RECENTES  → abre direto o último projeto aberto.
+///  • ASSISTENTE→ abre o chat da Muse (só quando o chat está habilitado).
+///  • ESTUDOS   → abre (criando se preciso) o projeto "Estudos" em modo pastas,
+///                onde o usuário cola mensagens da Muse / resumos de vídeos.
+/// Visual acompanha o tema (neumórfico via [Caixa3D] ou plano com borda).
+class _AcessosRapidos extends StatelessWidget {
+  const _AcessosRapidos({
+    required this.ultimo,
+    required this.mostrarMuse,
+    required this.onRecentes,
+    required this.onMuse,
+    required this.onEstudos,
   });
 
-  final List<Projeto> projetos;
-  final ValueChanged<Projeto> onAbrir;
+  final Projeto? ultimo;
+  final bool mostrarMuse;
+  final VoidCallback onRecentes;
+  final VoidCallback onMuse;
+  final VoidCallback onEstudos;
 
   @override
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final ehClaude = app == AppCores.claude;
     // Bege/Ônix: a home é "sem caixa" e seu fundo é a própria cor do cartão;
-    // então os cartões de recentes usam [notaFim] para não sumirem no fundo.
+    // então as caixinhas usam [notaFim] para não sumirem no fundo.
     final semCaixa = app == AppCores.bege || app == AppCores.onix;
     final compacto = temaController.compacto;
-    final rotuloCor = app.textoUI.withValues(alpha: 0.55);
+
+    final caixas = <Widget>[
+      _caixa(
+        context,
+        app,
+        ehClaude: ehClaude,
+        semCaixa: semCaixa,
+        compacto: compacto,
+        titulo: 'RECENTES',
+        icone: Icons.history,
+        rotulo: ultimo?.nome ?? 'nenhum ainda',
+        habilitado: ultimo != null,
+        onTap: onRecentes,
+      ),
+      if (mostrarMuse)
+        _caixa(
+          context,
+          app,
+          ehClaude: ehClaude,
+          semCaixa: semCaixa,
+          compacto: compacto,
+          titulo: 'ASSISTENTE',
+          icone: Icons.chat_bubble_outline,
+          rotulo: 'Muse',
+          habilitado: true,
+          onTap: onMuse,
+        ),
+      _caixa(
+        context,
+        app,
+        ehClaude: ehClaude,
+        semCaixa: semCaixa,
+        compacto: compacto,
+        titulo: 'ESTUDOS',
+        icone: Icons.menu_book_outlined,
+        rotulo: 'notas',
+        habilitado: true,
+        onTap: onEstudos,
+      ),
+    ];
+
     return Padding(
       padding: EdgeInsets.fromLTRB(16, compacto ? 6 : 10, 16, 4),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                'RECENTES',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                  color: rotuloCor,
-                ),
-              ),
-              const Spacer(),
-              // Último envio à nuvem: ícone de nuvem com flecha para cima +
-              // data (terracota no tema Claude Code).
-              ListenableBuilder(
-                listenable: SyncService.instance,
-                builder: (context, _) {
-                  final envio = SyncService.instance.ultimoEnvio;
-                  final cor = ehClaude
-                      ? app.fab
-                      : rotuloCor;
-                  final data = envio == null
-                      ? 'nunca'
-                      : '${envio.day.toString().padLeft(2, '0')}/'
-                          '${envio.month.toString().padLeft(2, '0')}/'
-                          '${(envio.year % 100).toString().padLeft(2, '0')}';
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.cloud_upload_outlined,
-                        size: 13,
-                        color: cor,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        data,
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w700,
-                          color: cor,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: compacto ? 58 : 72,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: projetos.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final p = projetos[i];
-                final total = p.tarefas.length + p.futuro.length;
-                final feitas = (p.tarefas + p.futuro)
-                    .where((n) => n.concluida)
-                    .length;
-                final fracao = total == 0 ? 0.0 : feitas / total;
+          for (var i = 0; i < caixas.length; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
+            Expanded(child: caixas[i]),
+          ],
+        ],
+      ),
+    );
+  }
 
-                Widget cartao = Padding(
-                  padding: EdgeInsets.all(compacto ? 6 : 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        p.nome,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: compacto ? 11.5 : 12.5,
-                          color: app.projetoTxt,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '$total caixinhas',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                          color: app.projetoTxt.withValues(alpha: 0.55),
-                        ),
-                      ),
-                      const Spacer(),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: Container(
-                          height: 3,
-                          color: ehClaude
-                              ? const Color(0xFF2A2A2B)
-                              : app.projetoTxt.withValues(alpha: 0.15),
-                          alignment: Alignment.centerLeft,
-                          child: FractionallySizedBox(
-                            widthFactor: fracao,
-                            child: Container(color: app.fab),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
+  Widget _caixa(
+    BuildContext context,
+    AppCores app, {
+    required bool ehClaude,
+    required bool semCaixa,
+    required bool compacto,
+    required String titulo,
+    required IconData icone,
+    required String rotulo,
+    required bool habilitado,
+    required VoidCallback onTap,
+  }) {
+    final rotuloCor = app.textoUI.withValues(alpha: 0.55);
+    final altura = compacto ? 58.0 : 68.0;
+    final raio = ehClaude ? 10.0 : 14.0;
 
-                if (app.neumorfico) {
-                  cartao = Caixa3D(
-                    cor: app.projetoCard,
-                    corInicio: app.projetoCard,
-                    corFim: app.projetoCardFim,
-                    raio: 12,
-                    child: cartao,
-                  );
-                } else {
-                  cartao = Container(
-                    width: 130,
-                    decoration: BoxDecoration(
-                      color: semCaixa ? app.notaFim : app.projetoCard,
-                      borderRadius: BorderRadius.circular(ehClaude ? 10 : 14),
-                      border: ehClaude
-                          ? const Border(
-                              top: BorderSide(color: Color(0xFF2A2A2B)),
-                              left: BorderSide(color: Color(0xFF2A2A2B)),
-                              right: BorderSide(color: Color(0xFF2A2A2B)),
-                              bottom: BorderSide(color: Color(0xFF2A2A2B)),
-                            )
-                          : Border.all(
-                              color: app.projetoTxt.withValues(alpha: 0.08),
-                            ),
-                    ),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(ehClaude ? 10 : 14),
-                        onTap: () => onAbrir(p),
-                        child: cartao,
-                      ),
-                    ),
-                  );
-                }
-                return cartao;
-              },
+    final conteudo = Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: compacto ? 8 : 10),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icone, size: compacto ? 20 : 22, color: app.fab),
+          SizedBox(height: compacto ? 4 : 5),
+          Text(
+            rotulo,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: compacto ? 11 : 12,
+              color: app.projetoTxt,
             ),
           ),
         ],
       ),
+    );
+
+    Widget visual;
+    if (app.neumorfico) {
+      visual = Caixa3D(
+        cor: app.projetoCard,
+        corInicio: app.projetoCard,
+        corFim: app.projetoCardFim,
+        raio: 12,
+        child: SizedBox(height: altura, width: double.infinity, child: conteudo),
+      );
+    } else {
+      visual = Container(
+        height: altura,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: semCaixa ? app.notaFim : app.projetoCard,
+          borderRadius: BorderRadius.circular(raio),
+          border: ehClaude
+              ? const Border.fromBorderSide(
+                  BorderSide(color: Color(0xFF2A2A2B)),
+                )
+              : Border.all(color: app.projetoTxt.withValues(alpha: 0.08)),
+        ),
+        child: conteudo,
+      );
+    }
+
+    visual = Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(raio),
+        onTap: habilitado ? onTap : null,
+        child: visual,
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 5),
+          child: Text(
+            titulo,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+              color: rotuloCor,
+            ),
+          ),
+        ),
+        Opacity(opacity: habilitado ? 1.0 : 0.45, child: visual),
+      ],
     );
   }
 }

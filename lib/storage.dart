@@ -452,6 +452,32 @@ class Storage extends ChangeNotifier {
     }
   }
 
+  /// Adiciona uma caixinha (Nota) com [texto] no TOPO da aba Tarefas do projeto
+  /// [nome] (cria o projeto se não existir). Usado pelo botão "Salvar no Estudos"
+  /// da Muse. Operação só-acrescenta — respeita a cadeia de proteção (REGRA DE OURO).
+  Future<void> adicionarNotaEmProjeto(String nome, String texto) async {
+    await carregar();
+    final t = texto.trim();
+    if (t.isEmpty) return;
+    Projeto? proj;
+    for (final p in _projetos) {
+      if (p.nome == nome) {
+        proj = p;
+        break;
+      }
+    }
+    if (proj == null) {
+      proj = Projeto(
+          id: DateTime.now().millisecondsSinceEpoch.toString(), nome: nome);
+      _projetos.add(proj);
+    }
+    proj.tarefas.insert(
+        0,
+        Nota(
+            id: DateTime.now().microsecondsSinceEpoch.toString(), texto: t));
+    await salvar();
+  }
+
   /// Horário (ms) da última modificação — vem do PRÓPRIO arquivo (sempre
   /// consistente com o conteúdo, nunca mais novo que ele).
   Future<int> ultimaModificacaoMs() async {
