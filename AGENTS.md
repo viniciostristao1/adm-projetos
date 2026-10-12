@@ -1017,8 +1017,10 @@ mesma cor do tema) — só aparece com o recurso ligado.
   (KB) são triviais.
 - **V0.1.108 — voz neural pt-BR:** o botão de áudio tenta primeiro a **voz neural feminina
   pt-BR** (`pt-BR-FranciscaNeural`, Microsoft Edge, sem chave e sem custo) via novo endpoint
-  do proxy **`POST /taskix/tts`** (`app.py`, `edge-tts`, teto 3000 chars/pedido; `requirements.txt`
-  ganhou `edge-tts`). App: `ChatService.audioNeural` busca o MP3 e toca com `audioplayers`
+  do proxy **  `POST /taskix/tts`** (`app.py`, teto 3000 chars/pedido; `requirements.txt` ganhou
+  `edge-tts` + `gTTS`). Cascata no servidor: Edge primeiro; se a Microsoft bloquear o IP da
+  VPS (403, padrão já visto no YouTube), cai para a voz do Tradutor em pedaços de ~90 chars;
+  se tudo falhar, 502 e o app usa o TTS local sem erro visível. App: `ChatService.audioNeural` busca o MP3 e toca com `audioplayers`
   (ampulheta ⌛ enquanto gera, ~2–5 s); qualquer falha cai em silêncio para o TTS local
   (`flutter_tts`, que continua como fallback). Caddy não mudou (`/taskix/*` já cobre a rota).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
