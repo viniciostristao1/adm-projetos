@@ -24,6 +24,7 @@ class ChatService {
     List<ChatMessage> historico, {
     required String presetId,
     required String modeloId,
+    String? imagemB64,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -52,8 +53,12 @@ class ChatService {
               'content-type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode(
-                {'messages': msgs, 'preset': presetId, 'model': modeloId}),
+            body: jsonEncode({
+              'messages': msgs,
+              'preset': presetId,
+              'model': modeloId,
+              'imagem_b64': ?imagemB64,
+            }),
           )
           .timeout(const Duration(seconds: 170));
 

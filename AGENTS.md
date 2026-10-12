@@ -992,6 +992,12 @@ mesma cor do tema) — só aparece com o recurso ligado.
   conversa funciona (o histórico é reenviado, o novo modelo lê tudo). **Botão de ÁUDIO** (TTS
   `flutter_tts`, pt-BR) no canto da bolha da IA. **Resumo da conversa** (menu ⋮ → preset `resumo`
   no proxy) p/ colar em outra IA. Banner do Coach encurtado p/ "Modo Coach Calis Timer".
+- **V0.1.103 — imagem (visão) + voz + contexto IA:** clip → **Anexar imagem** (`image_picker`,
+  base64); o app manda `imagem_b64`, o proxy embute na última msg (formato vision OpenAI-compat)
+  e **força o modelo com visão** (`deepseek-v4-flash-vision-exp`). **TTS escolhe voz FEMININA
+  pt-BR já instalada** (não baixa; pitch 1.08). Novo arquivo de conhecimento
+  `conhecimento/contexto_ia.md` (mundo da IA 2024→hoje, curado/editado — a IA NÃO navega na web)
+  injetado no modo **Geral** (junto do `pessoal.md`).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

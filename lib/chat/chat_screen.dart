@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../sync_service.dart';
 import 'chat_models.dart';
@@ -32,6 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _tick; // atualiza o contador do "pensando"
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
+  String? _imagemB64; // imagem anexada (visão) p/ a próxima mensagem
   final FlutterTts _tts = FlutterTts();
   int? _lendoIdx; // índice da mensagem que está sendo lida (TTS)
 
@@ -46,12 +48,35 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     SyncService.instance.addListener(_aoMudarAuth);
-    _tts.setLanguage('pt-BR');
-    _tts.setSpeechRate(0.5);
+    _configTts();
     _tts.setCompletionHandler(() {
       if (mounted) setState(() => _lendoIdx = null);
     });
     _carregar();
+  }
+
+  /// TTS em pt-BR, voz FEMININA já instalada (não baixa nada; se não houver, usa
+  /// a padrão do aparelho). Pitch levemente acima p/ soar mais natural/feminino.
+  Future<void> _configTts() async {
+    await _tts.setLanguage('pt-BR');
+    await _tts.setSpeechRate(0.5);
+    await _tts.setPitch(1.08);
+    try {
+      final voices = await _tts.getVoices as List?;
+      for (final v in voices ?? const []) {
+        final m = Map<String, dynamic>.from(v as Map);
+        final loc = '${m['locale']}'.toLowerCase();
+        final nome = '${m['name']}'.toLowerCase();
+        final fem = '${m['gender']}'.toLowerCase() == 'female' ||
+            nome.contains('female') ||
+            nome.contains('#f');
+        if (loc.startsWith('pt') && fem) {
+          await _tts.setVoice(
+              {'name': '${m['name']}', 'locale': '${m['locale']}'});
+          break;
+        }
+      }
+    } catch (_) {}
   }
 
   /// Lê (ou para) a resposta do Muse em voz alta (TTS do aparelho).
@@ -113,11 +138,17 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _enviar() async {
     if (_enviando) return;
     final texto = capitalizarFrases(_ctrl.text.trim());
-    if (texto.isEmpty && _anexo == null) return;
-    // Junta o anexo (clip) à mensagem, se houver.
-    final conteudo = _anexo == null
+    final img = _imagemB64;
+    if (texto.isEmpty && _anexo == null && img == null) return;
+    // Junta o anexo (clip) e/ou a imagem à mensagem, se houver.
+    var conteudo = _anexo == null
         ? texto
         : (texto.isEmpty ? _anexo! : '$texto\n\n--- Anexo ---\n${_anexo!}');
+    if (img != null) {
+      conteudo = conteudo.isEmpty
+          ? '[📷 imagem anexada]'
+          : '$conteudo\n[📷 imagem anexada]';
+    }
     _ctrl.clear();
     setState(() {
       _conv.mensagens = [..._conv.mensagens, ChatMessage.usuario(conteudo)];
@@ -125,6 +156,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _enviando = true;
       _inicioEnvio = DateTime.now();
       _anexo = null;
+      _imagemB64 = null;
     });
     // Conta o tempo de espera (segundos.décimos), atualizando a cada 100ms.
     _tick?.cancel();
@@ -136,7 +168,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _rolarFim();
 
     final res = await ChatService.enviar(_conv.mensagens,
-        presetId: _conv.preset.id, modeloId: _conv.modelo.id);
+        presetId: _conv.preset.id, modeloId: _conv.modelo.id, imagemB64: img);
     _tick?.cancel();
     if (!mounted) return;
     setState(() {
@@ -621,11 +653,28 @@ class _ChatScreenState extends State<ChatScreen> {
             subtitle: const Text('.txt, .md, .csv…'),
             onTap: () => Navigator.pop(c, 'arquivo'),
           ),
+          ListTile(
+            leading: const Icon(Icons.image_outlined),
+            title: const Text('Anexar imagem'),
+            subtitle: const Text('O Muse analisa a foto (visão)'),
+            onTap: () => Navigator.pop(c, 'imagem'),
+          ),
         ]),
       ),
     );
     if (escolha == 'texto') await _anexarTexto();
     if (escolha == 'arquivo') await _anexarArquivo();
+    if (escolha == 'imagem') await _anexarImagem();
+  }
+
+  Future<void> _anexarImagem() async {
+    try {
+      final x = await ImagePicker().pickImage(
+          source: ImageSource.gallery, maxWidth: 1280, imageQuality: 70);
+      if (x == null) return;
+      final bytes = await x.readAsBytes();
+      setState(() => _imagemB64 = base64Encode(bytes));
+    } catch (_) {}
   }
 
   Future<void> _anexarTexto() async {
@@ -677,22 +726,31 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(6, 6, 10, 10),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (_anexo != null)
+          if (_anexo != null || _imagemB64 != null)
             Align(
               alignment: Alignment.centerLeft,
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
-                child: Chip(
-                  avatar: const Icon(Icons.attach_file, size: 16),
-                  label: Text('Anexo (${_anexo!.length} caracteres)'),
-                  onDeleted: () => setState(() => _anexo = null),
-                ),
+                child: Wrap(spacing: 6, children: [
+                  if (_anexo != null)
+                    Chip(
+                      avatar: const Icon(Icons.attach_file, size: 16),
+                      label: Text('Anexo (${_anexo!.length} caracteres)'),
+                      onDeleted: () => setState(() => _anexo = null),
+                    ),
+                  if (_imagemB64 != null)
+                    Chip(
+                      avatar: const Icon(Icons.image, size: 16),
+                      label: const Text('Imagem anexada'),
+                      onDeleted: () => setState(() => _imagemB64 = null),
+                    ),
+                ]),
               ),
             ),
           Row(children: [
             IconButton(
               icon: Icon(Icons.attach_file,
-                  color: _anexo != null
+                  color: (_anexo != null || _imagemB64 != null)
                       ? Theme.of(context).colorScheme.primary
                       : null),
               tooltip: 'Anexar',
