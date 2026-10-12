@@ -659,12 +659,100 @@ class _ChatScreenState extends State<ChatScreen> {
             subtitle: const Text('O Muse analisa a foto (visão)'),
             onTap: () => Navigator.pop(c, 'imagem'),
           ),
+          ListTile(
+            leading: const Icon(Icons.smart_display_outlined),
+            title: const Text('Vídeo do YouTube (link)'),
+            subtitle: const Text('Transcrever ou resumir pelo link'),
+            onTap: () => Navigator.pop(c, 'youtube'),
+          ),
         ]),
       ),
     );
     if (escolha == 'texto') await _anexarTexto();
     if (escolha == 'arquivo') await _anexarArquivo();
     if (escolha == 'imagem') await _anexarImagem();
+    if (escolha == 'youtube') await _youtube();
+  }
+
+  /// Pede ao proxy a transcrição ou o resumo de um vídeo do YouTube (pelo link).
+  Future<void> _youtube() async {
+    final ctrl = TextEditingController();
+    final acao = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Vídeo do YouTube'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(hintText: 'Cole o link do vídeo…'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(c, 'transcricao'),
+              child: const Text('Transcrição')),
+          FilledButton(
+              onPressed: () => Navigator.pop(c, 'resumo'),
+              child: const Text('Resumo')),
+        ],
+      ),
+    );
+    final url = ctrl.text.trim();
+    if (acao == null || url.isEmpty || !mounted) return;
+    showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()));
+    final res = await ChatService.youtube(url, acao, _conv.modelo.id);
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // fecha o loading
+    if (!res.sucesso) {
+      _snack('⚠️ ${res.erro}');
+      return;
+    }
+    final tit = res.titulo ?? 'vídeo do YouTube';
+    if (acao == 'transcricao') {
+      setState(() => _anexo = 'Transcrição do vídeo "$tit":\n${res.texto}');
+      _snack('Transcrição anexada — escreva o que quer saber dela.');
+      return;
+    }
+    final texto = 'Resumo do vídeo "$tit":\n\n${res.texto}';
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Resumo do vídeo'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(child: SelectableText(texto)),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c), child: const Text('Fechar')),
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: texto));
+              Navigator.pop(c);
+              _snack('Resumo copiado');
+            },
+            child: const Text('Copiar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(c);
+              setState(() => _conv.mensagens = [
+                    ..._conv.mensagens,
+                    ChatMessage.ia(texto)
+                  ]);
+              ChatStore.salvar(_conv);
+              _rolarFim();
+            },
+            child: const Text('Inserir'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _anexarImagem() async {

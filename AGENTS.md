@@ -998,6 +998,12 @@ mesma cor do tema) — só aparece com o recurso ligado.
   pt-BR já instalada** (não baixa; pitch 1.08). Novo arquivo de conhecimento
   `conhecimento/contexto_ia.md` (mundo da IA 2024→hoje, curado/editado — a IA NÃO navega na web)
   injetado no modo **Geral** (junto do `pessoal.md`).
+- **V0.1.104 — YouTube + contexto IA no Projetos:** `contexto_ia.md` também injetado no modo
+  **Projetos**. **Transcrever/Resumir vídeo do YouTube**: clip → "Vídeo do YouTube (link)" →
+  Transcrição (vira anexo) ou Resumo (diálogo c/ Copiar/Inserir). Proxy: endpoint `/taskix/youtube`
+  (`youtube.py`, legendas via `youtube-transcript-api` — leve, sem baixar áudio; resume com o
+  modelo). Endpoint do gateway = **OpenCode Zen Go** (`opencode.ai/zen/go/...`); DeepSeek flash =
+  faixa barata/grátis (por isso o usage mostra ~0).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

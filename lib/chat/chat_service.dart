@@ -18,7 +18,61 @@ class ChatResult {
 /// Cliente do proxy de chat na VPS. A chave do OpenCode Go vive SÓ no servidor;
 /// aqui só vai o ID token do Firebase do usuário logado (o servidor só aceita a
 /// conta do dono). Ver `AGENTS.md` (módulo de chat) e o proxy `/opt/taskix-chat`.
+/// Resultado de um vídeo do YouTube (transcrição ou resumo).
+class YoutubeResult {
+  final String? titulo;
+  final String? texto;
+  final String? erro;
+  const YoutubeResult.ok(this.titulo, this.texto) : erro = null;
+  const YoutubeResult.falha(this.erro)
+      : titulo = null,
+        texto = null;
+  bool get sucesso => texto != null;
+}
+
 class ChatService {
+  /// Transcreve ou resume um vídeo do YouTube (pelo link), via proxy na VPS.
+  static Future<YoutubeResult> youtube(
+      String url, String modo, String modeloId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const YoutubeResult.falha('Entre na sua conta Google para usar.');
+    }
+    String token;
+    try {
+      token = (await user.getIdToken()) ?? '';
+    } catch (_) {
+      return const YoutubeResult.falha('Login inválido. Saia e entre de novo.');
+    }
+    try {
+      final r = await http
+          .post(
+            Uri.parse('${ChatConfig.url}/youtube'),
+            headers: {
+              'content-type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'url': url, 'modo': modo, 'model': modeloId}),
+          )
+          .timeout(const Duration(seconds: 170));
+      if (r.statusCode == 200) {
+        final j = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+        return YoutubeResult.ok(
+            j['titulo'] as String?, (j['texto'] as String?)?.trim());
+      }
+      return YoutubeResult.falha(switch (r.statusCode) {
+        400 => 'Link do YouTube inválido.',
+        422 => 'Esse vídeo não tem legendas disponíveis.',
+        401 => 'Seu login expirou. Saia e entre de novo.',
+        403 => 'Esta conta não tem acesso.',
+        _ => 'Erro ${r.statusCode}. Tente de novo.',
+      });
+    } catch (_) {
+      return const YoutubeResult.falha(
+          'Sem resposta (rede ou tempo). Tente de novo.');
+    }
+  }
+
   /// Envia o histórico com o preset (modo) e o modelo escolhidos.
   static Future<ChatResult> enviar(
     List<ChatMessage> historico, {
