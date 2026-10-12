@@ -984,6 +984,14 @@ mesma cor do tema) — só aparece com o recurso ligado.
   App: **anexo (clip)** no campo de texto (colar texto ou arquivo via `file_picker`; vai junto da
   mensagem); lista **invertida** (`reverse:true`) — sempre abre na mensagem mais recente; **renomear
   reflete no título na hora**.
+- **V0.1.102 — modelo + TTS + resumo:** ⚠️ **`muse-spark` saiu do ar** (gateway devolve 400
+  `ModelProtocolUnsupported`); o Muse agora usa **DeepSeek**. Seletor de **modelo** por conversa
+  (menu ⋮): **Rápido** = `deepseek-v4-flash-vision-exp` (padrão, com visão) · **Caprichado** =
+  `deepseek-v4.1-flash` (+ elaborado, + lento). `.env`: `OPENCODE_GO_MODEL`/`OPENCODE_FALLBACK`/
+  `MAX_TOKENS=3500`; proxy aceita `model` (allowlist `MODELOS_OK`). Trocar de modelo no meio da
+  conversa funciona (o histórico é reenviado, o novo modelo lê tudo). **Botão de ÁUDIO** (TTS
+  `flutter_tts`, pt-BR) no canto da bolha da IA. **Resumo da conversa** (menu ⋮ → preset `resumo`
+  no proxy) p/ colar em outra IA. Banner do Coach encurtado p/ "Modo Coach Calis Timer".
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

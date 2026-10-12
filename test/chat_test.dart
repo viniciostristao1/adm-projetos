@@ -61,6 +61,13 @@ void main() {
       expect(v.mensagens.first.texto, 'oi');
     });
 
+    test('round-trip preserva o modelo; deId cai no rápido se desconhecido', () {
+      final c = Conversa.nova(ChatPreset.geral)..modelo = ChatModelo.caprichado;
+      expect(Conversa.fromJson(c.toJson()).modelo, ChatModelo.caprichado);
+      expect(ChatModelo.deId('xyz'), ChatModelo.rapido);
+      expect(ChatModelo.deId('deepseek-v4.1-flash'), ChatModelo.caprichado);
+    });
+
     test('talvezTitular usa a 1ª mensagem do usuário (cortada)', () {
       final c = Conversa.nova(ChatPreset.projetos)
         ..mensagens = [ChatMessage.usuario('a' * 60)]

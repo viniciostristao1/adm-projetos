@@ -19,8 +19,12 @@ class ChatResult {
 /// aqui só vai o ID token do Firebase do usuário logado (o servidor só aceita a
 /// conta do dono). Ver `AGENTS.md` (módulo de chat) e o proxy `/opt/taskix-chat`.
 class ChatService {
+  /// Envia o histórico com o preset (modo) e o modelo escolhidos.
   static Future<ChatResult> enviar(
-      List<ChatMessage> historico, ChatPreset preset) async {
+    List<ChatMessage> historico, {
+    required String presetId,
+    required String modeloId,
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return const ChatResult.falha(
@@ -48,7 +52,8 @@ class ChatService {
               'content-type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({'messages': msgs, 'preset': preset.id}),
+            body: jsonEncode(
+                {'messages': msgs, 'preset': presetId, 'model': modeloId}),
           )
           .timeout(const Duration(seconds: 170));
 

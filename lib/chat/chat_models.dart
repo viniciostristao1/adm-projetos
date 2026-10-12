@@ -30,6 +30,20 @@ enum ChatPreset {
   }
 }
 
+/// Modelo de IA (no gateway OpenCode Go). O muse-spark saiu do ar; usamos DeepSeek.
+enum ChatModelo {
+  rapido('deepseek-v4-flash-vision-exp', 'Rápido', 'Rápido, com visão (padrão)'),
+  caprichado('deepseek-v4.1-flash', 'Caprichado', 'Respostas mais elaboradas (+ lento)');
+
+  const ChatModelo(this.id, this.rotulo, this.descricao);
+  final String id;
+  final String rotulo;
+  final String descricao;
+
+  static ChatModelo deId(String? id) =>
+      ChatModelo.values.firstWhere((m) => m.id == id, orElse: () => rapido);
+}
+
 /// Uma mensagem da conversa.
 class ChatMessage {
   final String role; // 'user' | 'assistant'
@@ -62,6 +76,7 @@ class Conversa {
   final String id;
   String titulo;
   ChatPreset preset;
+  ChatModelo modelo;
   List<ChatMessage> mensagens;
   DateTime atualizadaEm;
 
@@ -71,6 +86,7 @@ class Conversa {
     required this.preset,
     required this.mensagens,
     required this.atualizadaEm,
+    this.modelo = ChatModelo.rapido,
   });
 
   factory Conversa.nova(ChatPreset preset) => Conversa(
@@ -97,6 +113,7 @@ class Conversa {
         'id': id,
         'titulo': titulo,
         'preset': preset.id,
+        'modelo': modelo.id,
         'atualizadaEm': atualizadaEm.millisecondsSinceEpoch,
         'mensagens': mensagens.map((m) => m.toJson()).toList(),
       };
@@ -105,6 +122,7 @@ class Conversa {
         id: j['id'] as String? ?? DateTime.now().microsecondsSinceEpoch.toString(),
         titulo: j['titulo'] as String? ?? 'Conversa',
         preset: ChatPreset.deId(j['preset'] as String?),
+        modelo: ChatModelo.deId(j['modelo'] as String?),
         atualizadaEm: DateTime.fromMillisecondsSinceEpoch(
             (j['atualizadaEm'] as num?)?.toInt() ?? 0),
         mensagens: ((j['mensagens'] as List?) ?? const [])

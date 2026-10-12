@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 import '../sync_service.dart';
 import 'chat_models.dart';
@@ -31,6 +32,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _tick; // atualiza o contador do "pensando"
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
+  final FlutterTts _tts = FlutterTts();
+  int? _lendoIdx; // índice da mensagem que está sendo lida (TTS)
 
   /// Ícone de cada modo.
   static IconData _icone(ChatPreset p) => switch (p) {
@@ -43,7 +46,23 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     SyncService.instance.addListener(_aoMudarAuth);
+    _tts.setLanguage('pt-BR');
+    _tts.setSpeechRate(0.5);
+    _tts.setCompletionHandler(() {
+      if (mounted) setState(() => _lendoIdx = null);
+    });
     _carregar();
+  }
+
+  /// Lê (ou para) a resposta do Muse em voz alta (TTS do aparelho).
+  Future<void> _falar(int idx, String texto) async {
+    await _tts.stop();
+    if (_lendoIdx == idx) {
+      setState(() => _lendoIdx = null);
+      return;
+    }
+    setState(() => _lendoIdx = idx);
+    await _tts.speak(texto);
   }
 
   Future<void> _carregar() async {
@@ -64,6 +83,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     SyncService.instance.removeListener(_aoMudarAuth);
     _tick?.cancel();
+    _tts.stop();
     // Ao sair, salva a conversa atual e marca como a última (reabre nela depois).
     if (!_conv.vazia) {
       ChatStore.salvar(_conv);
@@ -115,7 +135,8 @@ class _ChatScreenState extends State<ChatScreen> {
     ChatStore.marcarUltima(_conv.id);
     _rolarFim();
 
-    final res = await ChatService.enviar(_conv.mensagens, _conv.preset);
+    final res = await ChatService.enviar(_conv.mensagens,
+        presetId: _conv.preset.id, modeloId: _conv.modelo.id);
     _tick?.cancel();
     if (!mounted) return;
     setState(() {
@@ -251,6 +272,81 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  PopupMenuItem<String> _item(String v, IconData ic, String t) => PopupMenuItem(
+        value: v,
+        child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(ic),
+            title: Text(t)),
+      );
+
+  void _acaoMenu(String v) {
+    switch (v) {
+      case 'nova':
+        _novaConversa();
+      case 'resumo':
+        _resumir();
+      case 'renomear':
+        _renomear(_conv);
+      default:
+        if (v.startsWith('m_')) {
+          setState(() => _conv.modelo = ChatModelo.deId(v.substring(2)));
+          ChatStore.salvar(_conv);
+          _snack('Modelo: ${_conv.modelo.rotulo}');
+        }
+    }
+  }
+
+  /// Pede ao Muse um resumo da conversa (tamanho bom p/ colar em outra IA).
+  Future<void> _resumir() async {
+    if (_conv.mensagens.isEmpty) {
+      _snack('Nada para resumir ainda.');
+      return;
+    }
+    showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()));
+    final res = await ChatService.enviar(_conv.mensagens,
+        presetId: 'resumo', modeloId: _conv.modelo.id);
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // fecha o loading
+    final texto = res.sucesso ? res.reply! : '⚠️ ${res.erro}';
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Resumo da conversa'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(child: SelectableText(texto)),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c), child: const Text('Fechar')),
+          if (res.sucesso)
+            FilledButton.icon(
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('Copiar'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: texto));
+                Navigator.pop(c);
+                _snack('Resumo copiado (cole no ChatGPT)');
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+          SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+  }
+
   String _data(DateTime d) {
     final dia = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
     final hora = '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
@@ -273,16 +369,7 @@ class _ChatScreenState extends State<ChatScreen> {
               fontSize: 14, fontWeight: FontWeight.w600, height: 1.1),
         ),
         actions: [
-          IconButton(
-            tooltip: 'Conversas',
-            icon: const Icon(Icons.history),
-            onPressed: _abrirHistorico,
-          ),
-          IconButton(
-            tooltip: 'Nova conversa',
-            icon: const Icon(Icons.add_comment_outlined),
-            onPressed: _novaConversa,
-          ),
+          // Seletor de MODO (mostra o modo atual).
           PopupMenuButton<ChatPreset>(
             tooltip: 'Modo',
             initialValue: _conv.preset,
@@ -304,6 +391,35 @@ class _ChatScreenState extends State<ChatScreen> {
               Icon(_icone(_conv.preset)),
               const Icon(Icons.arrow_drop_down),
             ]),
+          ),
+          IconButton(
+            tooltip: 'Conversas',
+            icon: const Icon(Icons.history),
+            onPressed: _abrirHistorico,
+          ),
+          // Menu: nova, resumo, renomear e MODELO de IA.
+          PopupMenuButton<String>(
+            tooltip: 'Mais',
+            onSelected: _acaoMenu,
+            itemBuilder: (_) => [
+              _item('nova', Icons.add_comment_outlined, 'Nova conversa'),
+              _item('resumo', Icons.summarize_outlined, 'Resumo da conversa'),
+              _item('renomear', Icons.edit_outlined, 'Renomear conversa'),
+              const PopupMenuDivider(),
+              for (final mdl in ChatModelo.values)
+                PopupMenuItem(
+                  value: 'm_${mdl.id}',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(_conv.modelo == mdl
+                        ? Icons.check
+                        : Icons.smart_toy_outlined),
+                    title: Text('Modelo: ${mdl.rotulo}'),
+                    subtitle: Text(mdl.descricao),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -347,9 +463,11 @@ class _ChatScreenState extends State<ChatScreen> {
           color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Text(
-            'Modo Coach: o Muse considera seu desempenho no Calis Timer.',
+            'Modo Coach Calis Timer',
             style: TextStyle(
-                fontSize: 12, color: Theme.of(context).colorScheme.primary),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary),
           ),
         ),
       Expanded(
@@ -364,7 +482,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   if (_enviando && i == 0) return _pensando(context);
                   final idx =
                       _conv.mensagens.length - 1 - (i - (_enviando ? 1 : 0));
-                  return _bolha(context, _conv.mensagens[idx]);
+                  return _bolha(context, _conv.mensagens[idx], idx);
                 },
               ),
       ),
@@ -385,9 +503,13 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
 
-  Widget _bolha(BuildContext context, ChatMessage m) {
+  Widget _bolha(BuildContext context, ChatMessage m, int idx) {
     final cs = Theme.of(context).colorScheme;
     final ehEu = m.ehUsuario;
+    final texto = Text(
+      m.texto,
+      style: TextStyle(color: ehEu ? cs.onPrimary : cs.onSurface, height: 1.3),
+    );
     return Align(
       alignment: ehEu ? Alignment.centerRight : Alignment.centerLeft,
       // Segurar = copia a mensagem INTEIRA (sem precisar selecionar tudo).
@@ -395,7 +517,7 @@ class _ChatScreenState extends State<ChatScreen> {
         onLongPress: () => _copiar(m.texto),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: EdgeInsets.fromLTRB(14, 10, ehEu ? 14 : 6, ehEu ? 10 : 2),
           constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.82),
           decoration: BoxDecoration(
@@ -407,11 +529,35 @@ class _ChatScreenState extends State<ChatScreen> {
               bottomRight: Radius.circular(ehEu ? 4 : 16),
             ),
           ),
-          child: Text(
-            m.texto,
-            style: TextStyle(
-                color: ehEu ? cs.onPrimary : cs.onSurface, height: 1.3),
-          ),
+          // Resposta da IA: botãozinho de ÁUDIO no canto inferior direito (cabe
+          // dentro da bolha, sem alargá-la).
+          child: ehEu
+              ? texto
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                        padding: const EdgeInsets.only(right: 8), child: texto),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: InkWell(
+                        onTap: () => _falar(idx, m.texto),
+                        customBorder: const CircleBorder(),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            _lendoIdx == idx
+                                ? Icons.stop_circle_outlined
+                                : Icons.volume_up_outlined,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
