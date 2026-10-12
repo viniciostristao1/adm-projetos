@@ -81,14 +81,32 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     try {
       const quickActions = QuickActions();
       quickActions.initialize((tipo) {
-        if (tipo == 'nova_nota' && mounted) _novaNotaRapida();
+        if (!mounted) return;
+        if (tipo == 'nova_nota') _novaNotaRapida();
+        if (tipo == 'muse') _abrirMuse();
       });
-      quickActions.setShortcutItems(const [
-        ShortcutItem(type: 'nova_nota', localizedTitle: 'Nova nota'),
+      quickActions.setShortcutItems([
+        const ShortcutItem(type: 'nova_nota', localizedTitle: 'Nova nota'),
+        // Atalho para o Muse na ÚLTIMA conversa (só com o chat habilitado).
+        if (ChatConfig.habilitado)
+          const ShortcutItem(
+              type: 'muse', localizedTitle: 'Muse (última conversa)'),
       ]);
     } catch (_) {
       // Sem atalhos (plataforma sem suporte) o app segue normal.
     }
+  }
+
+  /// Abre o Muse (na última conversa) — App Shortcut "Muse". Pós-frame p/ garantir
+  /// o Navigator pronto mesmo em cold start pelo atalho.
+  void _abrirMuse() {
+    if (!ChatConfig.habilitado) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ChatScreen()));
+      }
+    });
   }
 
   /// Abre o projeto "Notas rápidas" (cria se não existir) já com uma caixinha

@@ -1004,6 +1004,12 @@ mesma cor do tema) — só aparece com o recurso ligado.
   (`youtube.py`, legendas via `youtube-transcript-api` — leve, sem baixar áudio; resume com o
   modelo). Endpoint do gateway = **OpenCode Zen Go** (`opencode.ai/zen/go/...`); DeepSeek flash =
   faixa barata/grátis (por isso o usage mostra ~0).
+- **V0.1.105:** App Shortcut (segurar o ícone) ganhou **"Muse (última conversa)"** além de "Nova
+  nota" (`QuickActions` em `projetos_screen.dart`, gated por `ChatConfig.habilitado`). Conhecimento
+  do Muse ampliado em `conhecimento/contexto_ia.md` (famílias de modelos Claude/GPT/Gemini +
+  sistemas agênticos, curado/datado). ⚠️ **YouTube**: o YouTube bloqueia o IP da VPS ("not a bot");
+  `youtube.py` usa yt-dlp+deno+impersonate e cai p/ erro claro — só fica confiável com cookies em
+  `/opt/taskix-chat/yt_cookies.txt`.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
