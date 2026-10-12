@@ -635,7 +635,7 @@ class _ChatScreenState extends State<ChatScreen> {
               size: 54, color: Theme.of(context).colorScheme.primary),
           const SizedBox(height: 16),
           const Text(
-            'Entre com sua conta Google para usar o Muse.\n'
+            'Entre com sua conta Google para usar a Muse Spark.\n'
             'Só a sua conta tem acesso — ninguém mais usa seus créditos.',
             textAlign: TextAlign.center,
           ),
@@ -693,7 +693,7 @@ class _ChatScreenState extends State<ChatScreen> {
           padding: const EdgeInsets.all(28),
           child: Text(
             _conv.preset == ChatPreset.coach
-                ? 'Peça uma análise do seu treino, ou diga "oi" que o Muse te dá o panorama.'
+                ? 'Peça uma análise do seu treino, ou diga "oi" que a Muse Spark te dá o panorama.'
                 : 'Mande uma mensagem para começar a discutir seus projetos.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Theme.of(context).hintColor),
@@ -826,7 +826,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ListTile(
             leading: const Icon(Icons.image_outlined),
             title: const Text('Anexar imagem'),
-            subtitle: const Text('O Muse analisa a foto (visão)'),
+            subtitle: const Text('A Muse Spark analisa a foto (visão)'),
             onTap: () => Navigator.pop(c, 'imagem'),
           ),
         ]),
@@ -859,7 +859,7 @@ class _ChatScreenState extends State<ChatScreen> {
           minLines: 4,
           maxLines: 10,
           decoration:
-              const InputDecoration(hintText: 'Cole aqui o texto para o Muse analisar…'),
+              const InputDecoration(hintText: 'Cole aqui o texto para a Muse Spark analisar…'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),

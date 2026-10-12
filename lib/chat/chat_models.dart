@@ -16,7 +16,7 @@ String capitalizarFrases(String t) {
 /// Modo da conversa — define o "papel" da IA no servidor (system-prompt).
 enum ChatPreset {
   coach('coach', 'Coach Calis', 'Treinador do Calis Timer (vê seu desempenho)'),
-  projetos('projetos', 'Projetos', 'Discutir seus projetos (o Muse conhece)'),
+  projetos('projetos', 'Projetos', 'Discutir seus projetos (a Muse Spark conhece)'),
   geral('geral', 'Geral', 'Conversa livre / pessoal (sem contexto)');
 
   const ChatPreset(this.id, this.rotulo, this.descricao);

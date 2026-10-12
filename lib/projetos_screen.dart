@@ -90,7 +90,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         // Atalho para o Muse na ÚLTIMA conversa (só com o chat habilitado).
         if (ChatConfig.habilitado)
           const ShortcutItem(
-              type: 'muse', localizedTitle: 'Muse (última conversa)'),
+              type: 'muse', localizedTitle: 'Muse Spark (última conversa)'),
       ]);
     } catch (_) {
       // Sem atalhos (plataforma sem suporte) o app segue normal.
@@ -1223,7 +1223,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
               heroTag: 'fab_chat',
               onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ChatScreen())),
-              tooltip: 'Muse (assistente)',
+              tooltip: 'Muse Spark (assistente)',
               child: const Icon(Icons.chat_bubble_outline),
             ),
             const SizedBox(width: 12),

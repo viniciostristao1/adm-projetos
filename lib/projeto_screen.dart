@@ -687,7 +687,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
             if (ChatConfig.habilitado)
               IconButton(
                 icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                tooltip: 'Muse (assistente)',
+                tooltip: 'Muse Spark (assistente)',
                 onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const ChatScreen())),
                 visualDensity: VisualDensity.compact,

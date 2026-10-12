@@ -1023,7 +1023,14 @@ mesma cor do tema) — só aparece com o recurso ligado.
   se tudo falhar, 502 e o app usa o TTS local sem erro visível. (Edge dá 403 no IP da VPS
   desde 2026-10-12; Kokoro-82M foi avaliado e descartado: 15 s p/ 6 s de áudio em 1 vCPU.) App: `ChatService.audioNeural` busca o MP3 e toca com `audioplayers`
   (ampulheta ⌛ enquanto gera, ~2–5 s); qualquer falha cai em silêncio para o TTS local
-  (`flutter_tts`, que continua como fallback). Caddy não mudou (`/taskix/*` já cobre a rota).
+   (`flutter_tts`, que continua como fallback). Caddy não mudou (`/taskix/*` já cobre a rota).
+- **V0.1.109 — persona Muse Spark:** a assistente agora tem nome (**Muse Spark**), gênero
+  **feminino** (fala de si no feminino), é **especialista em neurociência e escritora** e tem tom
+  **amigável/elogioso/motivador com crítica honesta** (elogio + contraponto, fecha positivo e na
+  maioria das vezes com pergunta propositiva). Servidor: bloco `_PERSONA` em `app.py` via `_IDENT`
+  (vale nos 3 modos; `INSTRUCOES.md` documenta que personalidade mora no código). App: textos
+  visíveis ("Muse (assistente)", atalho, hints) viraram "Muse Spark" no feminino. Voz neural já era
+  feminina (FranciscaNeural/Piper faber) — combina.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
