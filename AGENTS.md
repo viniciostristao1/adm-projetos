@@ -1042,6 +1042,10 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   (vale nos 3 modos; `INSTRUCOES.md` documenta que personalidade mora no código). App: textos
   visíveis ("Muse (assistente)", atalho, hints) viraram "Muse Spark" no feminino. Voz neural já era
   feminina (FranciscaNeural/Piper faber) — combina.
+- **V0.1.111 — scroll mostra o "pensando":** ao enviar, a tela descia só até a msg enviada e o
+  "pensando… Ns" ficava escondido embaixo (parecia travado). Causa: o "pensando" é um item EXTRA
+  (`itemCount = n+1`) sem `AutoScrollTag`, e o `_rolarFim` mirava `n-1`. Fix: tag `pensando` no
+  índice n + `_rolarFim` mira `n` enquanto `_enviando` (volta a `n-1` ao abrir e ao chegar a resposta).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

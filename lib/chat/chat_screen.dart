@@ -160,12 +160,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   // Rola até a ÚLTIMA mensagem (via scrollToIndex — confiável mesmo fora da tela,
-  // inclusive ao abrir, resolvendo o "abriu na penúltima").
+  // inclusive ao abrir, resolvendo o "abriu na penúltima"). Enquanto envia, mira no
+  // item EXTRA do "pensando" (índice n) p/ o contador ficar visível sem rolagem manual.
   void _rolarFim() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final n = _conv.mensagens.length;
       if (n > 0 && _scroll.hasClients) {
-        _scroll.scrollToIndex(n - 1,
+        _scroll.scrollToIndex(n - 1 + (_enviando ? 1 : 0),
             preferPosition: AutoScrollPosition.end,
             duration: const Duration(milliseconds: 250));
       }
@@ -674,7 +675,17 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                 itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
                 itemBuilder: (c, i) {
-                  if (i == _conv.mensagens.length) return _pensando(context);
+                  // O "pensando" tem tag própria (índice n) p/ o _rolarFim mirar nele
+                  // durante o envio — sem isso o scroll parava na msg enviada e o
+                  // contador ficava escondido embaixo.
+                  if (i == _conv.mensagens.length) {
+                    return AutoScrollTag(
+                      key: const ValueKey('pensando'),
+                      controller: _scroll,
+                      index: i,
+                      child: _pensando(context),
+                    );
+                  }
                   // AutoScrollTag permite pular até a mensagem na busca.
                   return AutoScrollTag(
                     key: ValueKey('msg_$i'),
