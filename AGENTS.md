@@ -1059,6 +1059,15 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   motivador/propositivo. **`MAX_TOKENS` (12000) NÃO muda:** é só teto — a brevidade vem do
   prompt, então a resposta encolhe mas nunca trunca. Padrão = **longo** (comportamento atual
   preservado). `curto` não vale p/ o preset `resumo` (tem alvo próprio). Teste em `chat_test.dart`.
+- **V0.1.114 — horário + banner modo/tamanho:** (1) **Noção de horário:** o proxy manda
+  data+HORA de Brasília + período (`_hoje` → "terça-feira, 13 de outubro de 2026, 08:35 da manhã")
+  com ordem explícita de usar para saudações e "ontem à noite/hoje/amanhã" (nunca boa-noite de
+  manhã); o app manda `hora` (ms) por mensagem e o proxy prefixa `[dd/MM HH:mm]` no histórico —
+  custo de ~15 chars/msg, sem lentidão. Compat: sem `hora` = sem prefixo. (2) **Timestamp na tela:**
+  `_rotuloHora()` embaixo da bolha (hoje `HH:mm`, ontem `ontem HH:mm`, senão `dd/MM HH:mm`;
+  fora do Copiar). (3) **Banner sempre:** `Modo Calis • Longo` / `Modo Projetos • Curto` /
+  `Modo Geral • Curto` (preset+tamanho atuais, atualiza ao trocar); `ChatPreset.coach` encurtou
+  o rótulo `Coach Calis`→`Calis`; histórico mostra `preset · tamanho · data`.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

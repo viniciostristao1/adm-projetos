@@ -318,7 +318,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       title: Text(conv.titulo,
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text(
-                          '${conv.preset.rotulo} · ${_data(conv.atualizadaEm)}'),
+                          '${conv.preset.rotulo} · ${conv.tamanho.rotulo} · ${_data(conv.atualizadaEm)}'),
                       selected: atual,
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline),
@@ -546,6 +546,24 @@ class _ChatScreenState extends State<ChatScreen> {
     return '$dia $hora';
   }
 
+  /// Rótulo de hora de UMA mensagem (embaixo da bolha): hoje = só HH:mm,
+  /// ontem = "ontem HH:mm", outros dias = "dd/MM HH:mm". Vazio p/ data inválida
+  /// (JSON antigo sem hora).
+  String _rotuloHora(DateTime d) {
+    if (d.millisecondsSinceEpoch <= 0) return '';
+    final hhmm =
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final agora = DateTime.now();
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    final dia = DateTime(d.year, d.month, d.day);
+    final diff = hoje.difference(dia).inDays;
+    if (diff <= 0) return hhmm;
+    if (diff == 1) return 'ontem $hhmm';
+    final ddmm =
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+    return '$ddmm $hhmm';
+  }
+
   @override
   Widget build(BuildContext context) {
     final logado = SyncService.instance.conectado;
@@ -691,19 +709,18 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _conversa(BuildContext context) {
     return Column(children: [
-      if (_conv.preset == ChatPreset.coach)
-        Container(
-          width: double.infinity,
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            'Modo Coach Calis Timer',
-            style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary),
-          ),
+      Container(
+        width: double.infinity,
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        child: Text(
+          'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo}',
+          style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary),
         ),
+      ),
       Expanded(
         child: _conv.vazia
             ? _vazio(context)
@@ -759,58 +776,77 @@ class _ChatScreenState extends State<ChatScreen> {
     final texto = _busca.isEmpty
         ? Text(m.texto, style: estilo)
         : Text.rich(TextSpan(children: _grifar(m.texto, estilo, idx)));
+    final hora = _rotuloHora(m.hora);
     return Align(
       alignment: ehEu ? Alignment.centerRight : Alignment.centerLeft,
-      // Segurar = menu com Copiar / Salvar no Estudos (mensagem INTEIRA, sem
-      // precisar selecionar tudo).
-      child: GestureDetector(
-        onLongPress: () => _acoesMensagem(m.texto),
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: EdgeInsets.fromLTRB(14, 10, ehEu ? 14 : 6, ehEu ? 10 : 2),
-          constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.82),
-          decoration: BoxDecoration(
-            color: ehEu ? cs.primary : cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(16),
-              topRight: const Radius.circular(16),
-              bottomLeft: Radius.circular(ehEu ? 16 : 4),
-              bottomRight: Radius.circular(ehEu ? 4 : 16),
-            ),
-          ),
-          // Resposta da IA: botãozinho de ÁUDIO no canto inferior direito (cabe
-          // dentro da bolha, sem alargá-la).
-          child: ehEu
-              ? texto
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                        padding: const EdgeInsets.only(right: 8), child: texto),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: InkWell(
-                        onTap: () => _falar(idx, m.texto),
-                        customBorder: const CircleBorder(),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(
-                            _lendoIdx == idx
-                                ? (_gerandoVoz
-                                    ? Icons.hourglass_bottom_outlined
-                                    : Icons.stop_circle_outlined)
-                                : Icons.volume_up_outlined,
-                            size: 18,
-                            color: cs.onSurfaceVariant,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment:
+            ehEu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          // Segurar = menu com Copiar / Salvar no Estudos (mensagem INTEIRA, sem
+          // precisar selecionar tudo).
+          GestureDetector(
+            onLongPress: () => _acoesMensagem(m.texto),
+            child: Container(
+              margin: const EdgeInsets.only(top: 4, bottom: 2),
+              padding:
+                  EdgeInsets.fromLTRB(14, 10, ehEu ? 14 : 6, ehEu ? 10 : 2),
+              constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.82),
+              decoration: BoxDecoration(
+                color: ehEu ? cs.primary : cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(ehEu ? 16 : 4),
+                  bottomRight: Radius.circular(ehEu ? 4 : 16),
+                ),
+              ),
+              // Resposta da IA: botãozinho de ÁUDIO no canto inferior direito (cabe
+              // dentro da bolha, sem alargá-la).
+              child: ehEu
+                  ? texto
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: texto),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: InkWell(
+                            onTap: () => _falar(idx, m.texto),
+                            customBorder: const CircleBorder(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                _lendoIdx == idx
+                                    ? (_gerandoVoz
+                                        ? Icons.hourglass_bottom_outlined
+                                        : Icons.stop_circle_outlined)
+                                    : Icons.volume_up_outlined,
+                                size: 18,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
-        ),
+            ),
+          ),
+          // Data/hora FORA e EMBAIXO da bolha (não vai no Copiar).
+          if (hora.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(
+                  left: ehEu ? 0 : 4, right: ehEu ? 4 : 0, bottom: 4),
+              child: Text(hora,
+                  style: TextStyle(
+                      fontSize: 11, color: Theme.of(context).hintColor)),
+            ),
+        ],
       ),
     );
   }

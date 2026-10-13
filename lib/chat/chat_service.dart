@@ -75,7 +75,11 @@ class ChatService {
     }
 
     final msgs = historico
-        .map((m) => {'role': m.role, 'content': m.texto})
+        .map((m) => {
+              'role': m.role,
+              'content': m.texto,
+              'hora': m.hora.millisecondsSinceEpoch,
+            })
         .toList(growable: false);
     try {
       final r = await http
