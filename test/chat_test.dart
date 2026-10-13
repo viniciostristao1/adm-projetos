@@ -68,6 +68,17 @@ void main() {
       expect(ChatModelo.deId('deepseek-v4.1-flash'), ChatModelo.caprichado);
     });
 
+    test('tamanho: padrão longo, round-trip preserva, deId tolera ausente', () {
+      // Conversa nova nasce com tamanho LONGO (preserva o comportamento atual).
+      expect(Conversa.nova(ChatPreset.coach).tamanho, ChatTamanho.longo);
+      final c = Conversa.nova(ChatPreset.geral)..tamanho = ChatTamanho.curto;
+      expect(Conversa.fromJson(c.toJson()).tamanho, ChatTamanho.curto);
+      // Compat: JSON antigo sem 'tamanho' = longo.
+      expect(ChatTamanho.deId(null), ChatTamanho.longo);
+      expect(ChatTamanho.deId('xyz'), ChatTamanho.longo);
+      expect(ChatTamanho.deId('curto'), ChatTamanho.curto);
+    });
+
     test('talvezTitular usa a 1ª mensagem do usuário (cortada)', () {
       final c = Conversa.nova(ChatPreset.projetos)
         ..mensagens = [ChatMessage.usuario('a' * 60)]

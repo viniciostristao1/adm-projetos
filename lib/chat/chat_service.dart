@@ -55,6 +55,7 @@ class ChatService {
     List<ChatMessage> historico, {
     required String presetId,
     required String modeloId,
+    String tamanhoId = 'longo',
     String? imagemB64,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -88,6 +89,7 @@ class ChatService {
               'messages': msgs,
               'preset': presetId,
               'model': modeloId,
+              'tamanho': tamanhoId,
               'imagem_b64': ?imagemB64,
             }),
           )

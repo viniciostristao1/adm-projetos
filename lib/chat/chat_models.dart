@@ -44,6 +44,24 @@ enum ChatModelo {
       ChatModelo.values.firstWhere((m) => m.id == id, orElse: () => rapido);
 }
 
+/// Tamanho da resposta da Muse Spark (por conversa; vale a partir da próxima
+/// mensagem). "Longo" é o tamanho de sempre; "Curto" pede cerca de METADE — mais
+/// direto ao ponto. Em AMBOS o proxy mantém a regra de SEMPRE concluir o
+/// raciocínio e terminar as frases (o curto nunca corta no meio) e de continuar
+/// motivadora e propositiva. Ausente no JSON = Longo (compat).
+enum ChatTamanho {
+  longo('longo', 'Longo', 'Resposta completa (padrão)'),
+  curto('curto', 'Curto', 'Cerca de metade, direto ao ponto (sem cortar)');
+
+  const ChatTamanho(this.id, this.rotulo, this.descricao);
+  final String id;
+  final String rotulo;
+  final String descricao;
+
+  static ChatTamanho deId(String? id) =>
+      ChatTamanho.values.firstWhere((t) => t.id == id, orElse: () => longo);
+}
+
 /// Uma mensagem da conversa.
 class ChatMessage {
   final String role; // 'user' | 'assistant'
@@ -77,6 +95,7 @@ class Conversa {
   String titulo;
   ChatPreset preset;
   ChatModelo modelo;
+  ChatTamanho tamanho;
   List<ChatMessage> mensagens;
   DateTime atualizadaEm;
 
@@ -87,6 +106,7 @@ class Conversa {
     required this.mensagens,
     required this.atualizadaEm,
     this.modelo = ChatModelo.rapido,
+    this.tamanho = ChatTamanho.longo,
   });
 
   factory Conversa.nova(ChatPreset preset) => Conversa(
@@ -114,6 +134,7 @@ class Conversa {
         'titulo': titulo,
         'preset': preset.id,
         'modelo': modelo.id,
+        'tamanho': tamanho.id,
         'atualizadaEm': atualizadaEm.millisecondsSinceEpoch,
         'mensagens': mensagens.map((m) => m.toJson()).toList(),
       };
@@ -123,6 +144,7 @@ class Conversa {
         titulo: j['titulo'] as String? ?? 'Conversa',
         preset: ChatPreset.deId(j['preset'] as String?),
         modelo: ChatModelo.deId(j['modelo'] as String?),
+        tamanho: ChatTamanho.deId(j['tamanho'] as String?),
         atualizadaEm: DateTime.fromMillisecondsSinceEpoch(
             (j['atualizadaEm'] as num?)?.toInt() ?? 0),
         mensagens: ((j['mensagens'] as List?) ?? const [])

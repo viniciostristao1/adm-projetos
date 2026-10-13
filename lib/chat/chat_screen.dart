@@ -216,7 +216,10 @@ class _ChatScreenState extends State<ChatScreen> {
     _rolarFim();
 
     final res = await ChatService.enviar(_conv.mensagens,
-        presetId: _conv.preset.id, modeloId: _conv.modelo.id, imagemB64: img);
+        presetId: _conv.preset.id,
+        modeloId: _conv.modelo.id,
+        tamanhoId: _conv.tamanho.id,
+        imagemB64: img);
     _tick?.cancel();
     if (!mounted) return;
     setState(() {
@@ -375,6 +378,12 @@ class _ChatScreenState extends State<ChatScreen> {
           setState(() => _conv.modelo = ChatModelo.deId(v.substring(2)));
           ChatStore.salvar(_conv);
           _snack('Modelo: ${_conv.modelo.rotulo}');
+        } else if (v.startsWith('t_')) {
+          setState(() => _conv.tamanho = ChatTamanho.deId(v.substring(2)));
+          ChatStore.salvar(_conv);
+          _snack(_conv.tamanho == ChatTamanho.curto
+              ? 'Respostas curtas (cerca de metade, sem cortar)'
+              : 'Respostas longas (tamanho completo)');
         }
     }
   }
@@ -625,6 +634,23 @@ class _ChatScreenState extends State<ChatScreen> {
                         : Icons.smart_toy_outlined),
                     title: Text('Modelo: ${mdl.rotulo}'),
                     subtitle: Text(mdl.descricao),
+                  ),
+                ),
+              const PopupMenuDivider(),
+              // Tamanho da resposta (vale a partir da próxima mensagem). Curto
+              // nunca corta: o servidor ainda obriga concluir o raciocínio e
+              // terminar as frases, mantendo o tom motivador/propositivo.
+              for (final tam in ChatTamanho.values)
+                PopupMenuItem(
+                  value: 't_${tam.id}',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(_conv.tamanho == tam
+                        ? Icons.check
+                        : Icons.straighten),
+                    title: Text('Tamanho: ${tam.rotulo}'),
+                    subtitle: Text(tam.descricao),
                   ),
                 ),
             ],

@@ -1051,6 +1051,14 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   proíbe duração zero) e `inicioResposta` (`begin` em vez de `end`). Abrir = instantâneo na 1ª
   linha da última resposta (com msg sua por último, mostra o fim); resposta nova = animado até a
   1ª linha dela. Envio (pensando) e busca (meio) inalterados.
+- **V0.1.113 — seletor de TAMANHO da resposta:** novo `enum ChatTamanho {longo, curto}`
+  (`chat_models.dart`), guardado POR conversa (como `modelo`/`preset`; JSON compat: ausente =
+  `longo`), escolhido no menu **⋮** (divisor abaixo dos modelos, check no ativo). O app manda
+  `tamanho` no `/chat`; o proxy, no modo **curto**, acrescenta `_CURTO` ao system — pede ~METADE
+  do tamanho, SEM cortar (obriga concluir o raciocínio e terminar as frases) e mantendo o tom
+  motivador/propositivo. **`MAX_TOKENS` (12000) NÃO muda:** é só teto — a brevidade vem do
+  prompt, então a resposta encolhe mas nunca trunca. Padrão = **longo** (comportamento atual
+  preservado). `curto` não vale p/ o preset `resumo` (tem alvo próprio). Teste em `chat_test.dart`.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
