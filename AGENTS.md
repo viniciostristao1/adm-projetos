@@ -1067,7 +1067,15 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `_rotuloHora()` embaixo da bolha (hoje `HH:mm`, ontem `ontem HH:mm`, senão `dd/MM HH:mm`;
   fora do Copiar). (3) **Banner sempre:** `Modo Calis • Longo` / `Modo Projetos • Curto` /
   `Modo Geral • Curto` (preset+tamanho atuais, atualiza ao trocar); `ChatPreset.coach` encurtou
-  o rótulo `Coach Calis`→`Calis`; histórico mostra `preset · tamanho · data`.
+  o rótulo `Coach Calis`→`Calis`; histórico mostra   `preset · tamanho · data`.
+- **V0.1.115 — chat não perde mais mensagens ao sair/voltar:** causa era dois
+  `salvar` concorrentes (leitura-modificação-gravação): o mais lento sobrescrevia o
+  mais novo — ex.: salvar da resposta chegava antes do salvar da pergunta. Fix:
+  `ChatStore` com fila FIFO (`_fila`; `salvar`/`remover` encadeiam) + snapshot via
+  JSON na hora da chamada (o corte de 120 msgs vale só na cópia, sem mutar a tela).
+  Tela passa a esperar (`await`) os saves no envio, troca de modo/modelo/tamanho e
+  histórico; o `dispose` (que não pode esperar) vira só reforço. Teste de regressão
+  em `chat_test.dart` ("saves concorrentes não perdem mensagens").
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

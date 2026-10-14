@@ -146,8 +146,10 @@ class _ChatScreenState extends State<ChatScreen> {
     _vozNeural.dispose();
     _buscaCtrl.dispose();
     // Ao sair, salva a conversa atual e marca como a última (reabre nela depois).
+    // Vai para a fila do ChatStore (não dá p/ esperar no dispose); como todo
+    // envio já salva com await, aqui é só reforço.
     if (!_conv.vazia) {
-      ChatStore.salvar(_conv);
+      ChatStore.salvar(_conv); // fila: não bloquear o dispose (segue em background)
       ChatStore.marcarUltima(_conv.id);
     }
     _ctrl.dispose();
@@ -211,8 +213,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _tick = Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (mounted) setState(() {});
     });
-    ChatStore.salvar(_conv);
-    ChatStore.marcarUltima(_conv.id);
+    await ChatStore.salvar(_conv);
+    await ChatStore.marcarUltima(_conv.id);
     _rolarFim();
 
     final res = await ChatService.enviar(_conv.mensagens,
@@ -229,7 +231,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ];
       _enviando = false;
     });
-    ChatStore.salvar(_conv);
+    await ChatStore.salvar(_conv);
     // Resposta chegou: mostra a 1ª linha dela (p/ começar lendo de cima).
     _rolarFim(inicioResposta: true);
     _foco.requestFocus();
@@ -238,7 +240,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _novaConversa() async {
     if (!_conv.vazia) await ChatStore.salvar(_conv);
     setState(() => _conv = Conversa.nova(_conv.preset));
-    ChatStore.marcarUltima(_conv.id);
+    await ChatStore.marcarUltima(_conv.id);
   }
 
   /// Renomeia uma conversa (usado ao segurar no histórico). O nome aparece no topo.
@@ -334,10 +336,10 @@ class _ChatScreenState extends State<ChatScreen> {
                           }
                         },
                       ),
-                      onTap: () {
+                      onTap: () async {
                         Navigator.pop(ctx);
                         setState(() => _conv = conv);
-                        ChatStore.marcarUltima(conv.id);
+                        await ChatStore.marcarUltima(conv.id);
                         _rolarFim();
                       },
                       // Segurar = renomear (o nome aparece no topo).
@@ -365,10 +367,10 @@ class _ChatScreenState extends State<ChatScreen> {
             title: Text(t)),
       );
 
-  void _acaoMenu(String v) {
+  Future<void> _acaoMenu(String v) async {
     switch (v) {
       case 'nova':
-        _novaConversa();
+        await _novaConversa();
       case 'resumo':
         _resumir();
       case 'renomear':
@@ -376,11 +378,11 @@ class _ChatScreenState extends State<ChatScreen> {
       default:
         if (v.startsWith('m_')) {
           setState(() => _conv.modelo = ChatModelo.deId(v.substring(2)));
-          ChatStore.salvar(_conv);
+          await ChatStore.salvar(_conv);
           _snack('Modelo: ${_conv.modelo.rotulo}');
         } else if (v.startsWith('t_')) {
           setState(() => _conv.tamanho = ChatTamanho.deId(v.substring(2)));
-          ChatStore.salvar(_conv);
+          await ChatStore.salvar(_conv);
           _snack(_conv.tamanho == ChatTamanho.curto
               ? 'Respostas curtas (cerca de metade, sem cortar)'
               : 'Respostas longas (tamanho completo)');
@@ -608,7 +610,10 @@ class _ChatScreenState extends State<ChatScreen> {
           PopupMenuButton<ChatPreset>(
             tooltip: 'Modo',
             initialValue: _conv.preset,
-            onSelected: (p) => setState(() => _conv.preset = p),
+            onSelected: (p) async {
+              setState(() => _conv.preset = p);
+              if (!_conv.vazia) await ChatStore.salvar(_conv);
+            },
             itemBuilder: (_) => [
               for (final p in ChatPreset.values)
                 PopupMenuItem(

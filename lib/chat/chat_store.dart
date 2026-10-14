@@ -13,6 +13,14 @@ class ChatStore {
   static const _maxConversas = 60;
   static const _maxMsgs = 120; // por conversa
 
+  /// Fila FIFO de gravações: `salvar`/`remover` encadeiam aqui para nunca haver
+  /// dois read-modify-write concorrentes (o 2º lia antes do 1º gravar e o 1º,
+  /// mais lento, sobrescrevia o mais novo = mensagens sumindo ao sair/voltar).
+  static Future<void> _fila = Future.value();
+
+  /// Espera a fila esvaziar (usado em testes).
+  static Future<void> sincronizar() => _fila;
+
   /// Marca/ lê qual foi a última conversa aberta (para reabrir a MESMA ao voltar).
   static Future<void> marcarUltima(String id) async {
     try {
@@ -66,27 +74,37 @@ class ChatStore {
     }
   }
 
-  /// Insere/atualiza a conversa (upsert) e devolve a lista atualizada.
-  static Future<void> salvar(Conversa conv) async {
-    try {
-      final todas = await listar();
-      if (conv.mensagens.length > _maxMsgs) {
-        conv.mensagens =
-            conv.mensagens.sublist(conv.mensagens.length - _maxMsgs);
-      }
-      conv.atualizadaEm = DateTime.now();
-      todas.removeWhere((c) => c.id == conv.id);
-      todas.insert(0, conv);
-      await _gravar(todas);
-    } catch (_) {}
+  /// Insere/atualiza a conversa (upsert). Fotografa o estado NA HORA da chamada
+  /// e aplica na fila, em ordem: o último estado fotografado sempre vence —
+  /// sair da tela e voltar em segundos não perde mais mensagens.
+  static Future<void> salvar(Conversa conv) {
+    // Deep-copy via JSON para desgrudar do objeto vivo (que continua mutando
+    // enquanto a fila anda); o corte de _maxMsgs vale só na cópia.
+    final foto = Conversa.fromJson(conv.toJson());
+    if (foto.mensagens.length > _maxMsgs) {
+      foto.mensagens = foto.mensagens.sublist(foto.mensagens.length - _maxMsgs);
+    }
+    foto.atualizadaEm = DateTime.now();
+    _fila = _fila.then((_) async {
+      try {
+        final todas = await listar();
+        todas.removeWhere((c) => c.id == foto.id);
+        todas.insert(0, foto);
+        await _gravar(todas);
+      } catch (_) {}
+    });
+    return _fila;
   }
 
-  static Future<void> remover(String id) async {
-    try {
-      final todas = await listar()
-        ..removeWhere((c) => c.id == id);
-      await _gravar(todas);
-    } catch (_) {}
+  static Future<void> remover(String id) {
+    _fila = _fila.then((_) async {
+      try {
+        final todas = await listar()
+          ..removeWhere((c) => c.id == id);
+        await _gravar(todas);
+      } catch (_) {}
+    });
+    return _fila;
   }
 
   static Future<void> _gravar(List<Conversa> todas) async {

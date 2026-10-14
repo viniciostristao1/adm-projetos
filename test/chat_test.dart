@@ -151,5 +151,19 @@ void main() {
       final lista = await ChatStore.listar();
       expect(lista.single.titulo, 'Meu papo');
     });
+
+    test('saves concorrentes não perdem mensagens (o mais novo vence)', () async {
+      // Regressão: sair da tela e voltar em segundos sumia com mensagens, pois
+      // dois read-modify-write corriam juntos e o mais lento sobrescrevia o novo.
+      final c = Conversa.nova(ChatPreset.geral)..mensagens = [ChatMessage.usuario('1')];
+      final f1 = ChatStore.salvar(c); // foto com 1 msg
+      c.mensagens = [...c.mensagens, ChatMessage.ia('2'), ChatMessage.usuario('3')];
+      final f2 = ChatStore.salvar(c); // foto com 3 msgs
+      await Future.wait([f1, f2]);
+      await ChatStore.sincronizar();
+      final lista = await ChatStore.listar();
+      expect(lista.single.mensagens.length, 3);
+      expect(lista.single.mensagens.last.texto, '3');
+    });
   });
 }
