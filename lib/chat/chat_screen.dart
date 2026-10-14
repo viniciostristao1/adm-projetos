@@ -41,7 +41,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _tick; // atualiza o contador do "pensando"
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
-  String? _imagemB64; // imagem anexada (visão) p/ a próxima mensagem
+  final List<String> _imagensB64 = []; // imagens anexadas (visão), máx. 3
+  static const int _maxImagens = 3;
   final FlutterTts _tts = FlutterTts();
   int? _lendoIdx; // índice da mensagem que está sendo lida (TTS)
   final AudioPlayer _vozNeural = AudioPlayer(); // MP3 da voz neural (/tts)
@@ -188,16 +189,16 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _enviar() async {
     if (_enviando) return;
     final texto = capitalizarFrases(_ctrl.text.trim());
-    final img = _imagemB64;
-    if (texto.isEmpty && _anexo == null && img == null) return;
-    // Junta o anexo (clip) e/ou a imagem à mensagem, se houver.
+    final imgs = List<String>.from(_imagensB64);
+    if (texto.isEmpty && _anexo == null && imgs.isEmpty) return;
+    // Junta o anexo (clip) e/ou as imagens à mensagem, se houver.
     var conteudo = _anexo == null
         ? texto
         : (texto.isEmpty ? _anexo! : '$texto\n\n--- Anexo ---\n${_anexo!}');
-    if (img != null) {
-      conteudo = conteudo.isEmpty
-          ? '[📷 imagem anexada]'
-          : '$conteudo\n[📷 imagem anexada]';
+    if (imgs.isNotEmpty) {
+      final marca =
+          imgs.length == 1 ? '[📷 imagem anexada]' : '[📷 ${imgs.length} imagens anexadas]';
+      conteudo = conteudo.isEmpty ? marca : '$conteudo\n$marca';
     }
     _ctrl.clear();
     setState(() {
@@ -206,7 +207,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _enviando = true;
       _inicioEnvio = DateTime.now();
       _anexo = null;
-      _imagemB64 = null;
+      _imagensB64.clear();
     });
     // Conta o tempo de espera (segundos.décimos), atualizando a cada 100ms.
     _tick?.cancel();
@@ -221,7 +222,7 @@ class _ChatScreenState extends State<ChatScreen> {
         presetId: _conv.preset.id,
         modeloId: _conv.modelo.id,
         tamanhoId: _conv.tamanho.id,
-        imagemB64: img);
+        imagensB64: imgs.isEmpty ? null : imgs);
     _tick?.cancel();
     if (!mounted) return;
     setState(() {
@@ -958,8 +959,8 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.image_outlined),
-            title: const Text('Anexar imagem'),
-            subtitle: const Text('A Muse Spark analisa a foto (visão)'),
+            title: const Text('Anexar imagens (até 3)'),
+            subtitle: const Text('A Muse Spark analisa as fotos (visão)'),
             onTap: () => Navigator.pop(c, 'imagem'),
           ),
         ]),
@@ -972,11 +973,24 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _anexarImagem() async {
     try {
-      final x = await ImagePicker().pickImage(
-          source: ImageSource.gallery, maxWidth: 1280, imageQuality: 70);
-      if (x == null) return;
-      final bytes = await x.readAsBytes();
-      setState(() => _imagemB64 = base64Encode(bytes));
+      if (_imagensB64.length >= _maxImagens) {
+        _snack('Máximo de $_maxImagens imagens por mensagem');
+        return;
+      }
+      final xs = await ImagePicker().pickMultiImage(
+          maxWidth: 1280, imageQuality: 70);
+      if (xs.isEmpty) return;
+      final faltam = _maxImagens - _imagensB64.length;
+      var avisou = false;
+      for (final x in xs.take(faltam)) {
+        final bytes = await x.readAsBytes();
+        _imagensB64.add(base64Encode(bytes));
+      }
+      if (xs.length > faltam) avisou = true;
+      if (mounted) {
+        setState(() {});
+        if (avisou) _snack('Só as $_maxImagens primeiras foram anexadas');
+      }
     } catch (_) {}
   }
 
@@ -1029,7 +1043,7 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(6, 6, 10, 10),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (_anexo != null || _imagemB64 != null)
+          if (_anexo != null || _imagensB64.isNotEmpty)
             Align(
               alignment: Alignment.centerLeft,
               child: Padding(
@@ -1041,11 +1055,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       label: Text('Anexo (${_anexo!.length} caracteres)'),
                       onDeleted: () => setState(() => _anexo = null),
                     ),
-                  if (_imagemB64 != null)
+                  for (var i = 0; i < _imagensB64.length; i++)
                     Chip(
                       avatar: const Icon(Icons.image, size: 16),
-                      label: const Text('Imagem anexada'),
-                      onDeleted: () => setState(() => _imagemB64 = null),
+                      label: Text(_imagensB64.length == 1
+                          ? 'Imagem anexada'
+                          : 'Imagem ${i + 1}'),
+                      onDeleted: () => setState(() => _imagensB64.removeAt(i)),
                     ),
                 ]),
               ),
@@ -1053,7 +1069,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Row(children: [
             IconButton(
               icon: Icon(Icons.attach_file,
-                  color: (_anexo != null || _imagemB64 != null)
+                  color: (_anexo != null || _imagensB64.isNotEmpty)
                       ? Theme.of(context).colorScheme.primary
                       : null),
               tooltip: 'Anexar',

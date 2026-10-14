@@ -56,7 +56,7 @@ class ChatService {
     required String presetId,
     required String modeloId,
     String tamanhoId = 'longo',
-    String? imagemB64,
+    List<String>? imagensB64, // até 3 imagens (visão) p/ a última mensagem
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -94,7 +94,7 @@ class ChatService {
               'preset': presetId,
               'model': modeloId,
               'tamanho': tamanhoId,
-              'imagem_b64': ?imagemB64,
+              'imagens_b64': ?imagensB64,
             }),
           )
           .timeout(const Duration(seconds: 170));

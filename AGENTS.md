@@ -1076,6 +1076,10 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   Tela passa a esperar (`await`) os saves no envio, troca de modo/modelo/tamanho e
   histórico; o `dispose` (que não pode esperar) vira só reforço. Teste de regressão
   em `chat_test.dart` ("saves concorrentes não perdem mensagens").
+- **V0.1.116 — até 3 imagens por mensagem:** o clip passa a usar `pickMultiImage` (lista
+  `_imagensB64`, máx. 3; chip por imagem com X individual; aviso ao estourar). O app manda
+  `imagens_b64` (lista) e o proxy embute as 3 como `image_url` + força o modelo de visão.
+  Compat: o proxy ainda aceita o `imagem_b64` único do APK antigo. Servidor reiniciado junto.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
@@ -1119,7 +1123,7 @@ flutter build apk --release
 
 # Commit + push (usar este padrão)
 cd /root/adm-projetos && git add -A && \
-  git -c user.name="Vinicius Tristao" -c user.email="viniciostristao@gmail.com" \
+  git -c user.name="Vinícios Tristao" -c user.email="viniciostristao@gmail.com" \
   commit -m "<mensagem>" && git push
 
 # Acompanhar build
@@ -1324,7 +1328,7 @@ A cada publicação de APK:
    Só enviar depois que `gh run list --workflow=build-apk.yml` mostrar
    `completed success` e o asset existir (`gh release view v0.1.0 --json assets`).
 5. **SEMPRE fazer commit e push imediatamente após bump de versão** — nunca
-   deixar a versão só local. Padrão: `git add -A && git -c user.name="Vinicius Tristao" -c user.email="viniciostristao@gmail.com" commit -m "V0.1.<N>: <resumo>" && git push` e só então enviar o link do passo 4. ⚠️ Esquecer o push = o APK nunca é gerado e o usuário fica sem link (falha da V0.1.76).
+    deixar a versão só local. Padrão: `git add -A && git -c user.name="Vinícios Tristao" -c user.email="viniciostristao@gmail.com" commit -m "V0.1.<N>: <resumo>" && git push` e só então enviar o link do passo 4. ⚠️ Esquecer o push = o APK nunca é gerado e o usuário fica sem link (falha da V0.1.76).
 
 ## 13. Histórico de Decisões
 
