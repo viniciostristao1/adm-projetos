@@ -88,10 +88,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       });
       quickActions.setShortcutItems([
         const ShortcutItem(type: 'nova_nota', localizedTitle: 'Nova nota'),
-        // Atalho para o Muse na ÚLTIMA conversa (só com o chat habilitado).
+        // Atalho para o Muse (só com o chat habilitado).
         if (ChatConfig.habilitado)
           const ShortcutItem(
-              type: 'muse', localizedTitle: 'Muse Spark (última conversa)'),
+              type: 'muse', localizedTitle: 'Muse Spark'),
       ]);
     } catch (_) {
       // Sem atalhos (plataforma sem suporte) o app segue normal.

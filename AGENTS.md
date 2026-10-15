@@ -1080,6 +1080,17 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `_imagensB64`, máx. 3; chip por imagem com X individual; aviso ao estourar). O app manda
   `imagens_b64` (lista) e o proxy embute as 3 como `image_url` + força o modelo de visão.
   Compat: o proxy ainda aceita o `imagem_b64` único do APK antigo. Servidor reiniciado junto.
+- **Busca na internet SOB DEMANDA (servidor, sem APK novo):** novo `busca_web.py` no proxy
+  (Tavily; chave `TAVILY_API_KEY` no `.env` do serviço — plano grátis 1.000 buscas/mês). Só
+  pesquisa quando o usuário PEDE na mensagem ("pesquise na internet…", "veja no site…",
+  "pesquisa pra mim…"); injeta um bloco datado "RESULTADOS DE BUSCA NA INTERNET" naquela
+  resposta (teto 5 resultados/~4.5k chars, cache de 12h por termo). Sem chave/falha = fica
+  desligada ou a IA avisa e segue com o que sabe. Fora do pedido, o Muse continua sem internet
+  (o `contexto_ia.md`/`INSTRUCOES.md` documentam). Custo: ~1 chamada HTTPS + bloco pequeno só
+  na resposta pesquisada.
+- **V0.1.117 — atalho "Muse Spark" curto:** o App Shortcut ao segurar o ícone perdeu o
+  sufixo "(última conversa)" — agora é só "Muse Spark" ("Nova nota" intacto; o destino
+  continua abrindo na última conversa).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
