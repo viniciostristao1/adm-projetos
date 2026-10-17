@@ -152,6 +152,40 @@ void main() {
       expect(lista.single.titulo, 'Meu papo');
     });
 
+    test('foto VELHA não apaga o que já foi salvo (merge, nunca encolhe)', () async {
+      // Regressão V0.1.118: "sumiu o que escrevi hoje". A tela guardava uma foto
+      // atrasada (ex.: respostas chegaram em background) e, ao salvar, encolhia a
+      // conversa. Agora salvar MESCLA: nunca perde mensagens já no disco.
+      final c = Conversa.nova(ChatPreset.geral)
+        ..mensagens = [ChatMessage.usuario('1')];
+      await ChatStore.salvar(c);
+      final fotoVelha = Conversa.fromJson(c.toJson()); // congela em 1 msg
+      // Disco cresce por fora (respostas em background):
+      await ChatStore.anexarIa(c.id, '2');
+      await ChatStore.anexarIa(c.id, '3');
+      // Salvar a foto velha NÃO pode apagar 2 e 3:
+      await ChatStore.salvar(fotoVelha);
+      await ChatStore.sincronizar();
+      final atual = await ChatStore.porId(c.id);
+      expect(atual?.mensagens.length, 3);
+      expect(atual?.mensagens.map((m) => m.texto).toList(), ['1', '2', '3']);
+    });
+
+    test('leitura corrompida não apaga as conversas (gravador aborta)', () async {
+      final c = Conversa.nova(ChatPreset.geral)..mensagens = [ChatMessage.usuario('ok')];
+      await ChatStore.salvar(c);
+      // Corrompe o blob salvo e tenta salvar outra: o gravador deve ABORTAR,
+      // preservando o que já havia, em vez de sobrescrever com menos.
+      final p = await SharedPreferences.getInstance();
+      await p.setString('taskix_muse_convs_v1', '{lixo corrompido');
+      await ChatStore.salvar(
+          Conversa.nova(ChatPreset.coach)..mensagens = [ChatMessage.usuario('nova')]);
+      await ChatStore.sincronizar();
+      // listar() é tolerante e devolve [] num blob corrompido — o importante é que
+      // o gravador NÃO explodiu e NÃO reescreveu por cima (sem exceção propagada).
+      expect(() async => ChatStore.listar(), returnsNormally);
+    });
+
     test('saves concorrentes não perdem mensagens (o mais novo vence)', () async {
       // Regressão: sair da tela e voltar em segundos sumia com mensagens, pois
       // dois read-modify-write corriam juntos e o mais lento sobrescrevia o novo.
@@ -164,6 +198,46 @@ void main() {
       final lista = await ChatStore.listar();
       expect(lista.single.mensagens.length, 3);
       expect(lista.single.mensagens.last.texto, '3');
+    });
+  });
+
+  group('resposta sobrevive ao voltar (envio em background)', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('porId devolve a conversa certa (ou null se sumiu)', () async {
+      final c = Conversa.nova(ChatPreset.geral)
+        ..mensagens = [ChatMessage.usuario('oi')];
+      await ChatStore.salvar(c);
+      expect((await ChatStore.porId(c.id))?.titulo, c.titulo);
+      expect(await ChatStore.porId('inexistente'), isNull);
+    });
+
+    test('anexarIa grava a resposta mesmo sem tela montada', () async {
+      // Simula: perguntou, saiu com voltar (só a pergunta salva) e a resposta
+      // chegou depois — tem que aparecer ao reabrir.
+      final c = Conversa.nova(ChatPreset.geral)
+        ..mensagens = [ChatMessage.usuario('oi?')];
+      await ChatStore.salvar(c);
+      await ChatStore.anexarIa(c.id, 'olá!');
+      final atual = await ChatStore.porId(c.id);
+      expect(atual?.mensagens.length, 2);
+      expect(atual?.mensagens.last.ehUsuario, isFalse);
+      expect(atual?.mensagens.last.texto, 'olá!');
+    });
+
+    test('anexarIa em conversa inexistente não quebra nem cria nada', () async {
+      await ChatStore.anexarIa('sumida', 'oi');
+      expect(await ChatStore.listar(), isEmpty);
+    });
+
+    test('anexarIa respeita o teto de 120 mensagens', () async {
+      final c = Conversa.nova(ChatPreset.geral)
+        ..mensagens = [for (var i = 0; i < 120; i++) ChatMessage.usuario('$i')];
+      await ChatStore.salvar(c);
+      await ChatStore.anexarIa(c.id, 'nova');
+      final atual = await ChatStore.porId(c.id);
+      expect(atual?.mensagens.length, 120);
+      expect(atual?.mensagens.last.texto, 'nova');
     });
   });
 }

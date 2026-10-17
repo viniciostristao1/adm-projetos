@@ -79,17 +79,99 @@ class ChatStore {
   /// sair da tela e voltar em segundos não perde mais mensagens.
   static Future<void> salvar(Conversa conv) {
     // Deep-copy via JSON para desgrudar do objeto vivo (que continua mutando
-    // enquanto a fila anda); o corte de _maxMsgs vale só na cópia.
+    // enquanto a fila anda).
     final foto = Conversa.fromJson(conv.toJson());
-    if (foto.mensagens.length > _maxMsgs) {
-      foto.mensagens = foto.mensagens.sublist(foto.mensagens.length - _maxMsgs);
-    }
     foto.atualizadaEm = DateTime.now();
     _fila = _fila.then((_) async {
       try {
-        final todas = await listar();
-        todas.removeWhere((c) => c.id == foto.id);
+        final todas = await _listarInterno(); // LANÇA se corrompido -> aborta (não apaga)
+        final idx = todas.indexWhere((c) => c.id == foto.id);
+        if (idx >= 0) {
+          // NUNCA ENCOLHER: a foto da tela pode estar ATRASADA em relação ao que já
+          // está salvo (ex.: resposta anexada em background via `anexarIa`, ou a tela
+          // recarregada de um disco já defasado). Então MESCLA (união de mensagens,
+          // sem perder nenhuma de nenhum lado) em vez de sobrescrever. Era a causa de
+          // "sumiu o que escrevi hoje" — uma foto velha apagava o recente (V0.1.118).
+          foto.mensagens = _mesclarMensagens(todas[idx].mensagens, foto.mensagens);
+          todas.removeAt(idx);
+        }
+        if (foto.mensagens.length > _maxMsgs) {
+          foto.mensagens = foto.mensagens.sublist(foto.mensagens.length - _maxMsgs);
+        }
         todas.insert(0, foto);
+        await _gravar(todas);
+      } catch (_) {
+        // leitura corrompida/indisponível: NÃO grava (preserva o que há no disco).
+      }
+    });
+    return _fila;
+  }
+
+  /// Lê as conversas SEM tolerar corrupção (usado pelos GRAVADORES): se o JSON
+  /// salvo estiver corrompido/ilegível, LANÇA — e quem grava aborta, nunca
+  /// sobrescrevendo o disco com MENOS dados. A `listar()` pública é tolerante
+  /// (devolve [] em erro) só para a UI não travar; gravar com [] apagaria tudo.
+  static Future<List<Conversa>> _listarInterno() async {
+    final p = await SharedPreferences.getInstance();
+    final s = p.getString(_chave);
+    if (s == null || s.isEmpty) return <Conversa>[];
+    final list = (jsonDecode(s) as List)
+        .map((e) => Conversa.fromJson(e as Map<String, dynamic>))
+        .toList();
+    list.sort((a, b) => b.atualizadaEm.compareTo(a.atualizadaEm));
+    return list;
+  }
+
+  /// União de mensagens que NUNCA perde nenhuma: mantém TODAS as `salvas`, na
+  /// ordem, e acrescenta as da `foto` que ainda não estão lá (chave =
+  /// role|hora|texto). Resolve o caso de uma foto atrasada tentar encolher.
+  static List<ChatMessage> _mesclarMensagens(
+      List<ChatMessage> salvas, List<ChatMessage> foto) {
+    String chave(ChatMessage m) =>
+        '${m.role}|${m.hora.millisecondsSinceEpoch}|${m.texto}';
+    final vistos = <String>{};
+    final out = <ChatMessage>[];
+    for (final m in salvas) {
+      if (vistos.add(chave(m))) out.add(m);
+    }
+    for (final m in foto) {
+      if (vistos.add(chave(m))) out.add(m);
+    }
+    return out;
+  }
+
+  /// Uma conversa pelo id (ou null). Usado p/ recarregar a tela a partir do
+  /// store (fonte da verdade da resposta que chegou em background).
+  static Future<Conversa?> porId(String id) async {
+    try {
+      final todas = await listar();
+      for (final c in todas) {
+        if (c.id == id) return c;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Anexa a resposta da IA na conversa (pela fila — mesma proteção do
+  /// `salvar`). É assim que a resposta SOBREVIVE ao botão voltar: o envio em
+  /// background grava aqui mesmo sem tela montada; ao voltar, a tela recarrega
+  /// de lá (`porId`) ou reanexa ao futuro em voo (`ChatService.pendenteDe`).
+  static Future<void> anexarIa(String id, String reply) {
+    _fila = _fila.then((_) async {
+      try {
+        final todas = await _listarInterno();
+        final i = todas.indexWhere((c) => c.id == id);
+        if (i < 0) return;
+        final c = todas[i];
+        c.mensagens = [...c.mensagens, ChatMessage.ia(reply)];
+        if (c.mensagens.length > _maxMsgs) {
+          c.mensagens = c.mensagens.sublist(c.mensagens.length - _maxMsgs);
+        }
+        c.atualizadaEm = DateTime.now();
+        todas.removeAt(i);
+        todas.insert(0, c);
         await _gravar(todas);
       } catch (_) {}
     });
@@ -99,7 +181,7 @@ class ChatStore {
   static Future<void> remover(String id) {
     _fila = _fila.then((_) async {
       try {
-        final todas = await listar()
+        final todas = await _listarInterno()
           ..removeWhere((c) => c.id == id);
         await _gravar(todas);
       } catch (_) {}

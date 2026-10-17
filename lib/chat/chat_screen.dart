@@ -26,7 +26,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _ctrl = TextEditingController();
   final _scroll = AutoScrollController();
   final _foco = FocusNode();
@@ -58,6 +58,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     SyncService.instance.addListener(_aoMudarAuth);
     _configTts();
     _tts.setCompletionHandler(() {
@@ -137,10 +138,67 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     // Abre direto na 1ª linha da última resposta (sem animação de scroll).
     _rolarFim(instantaneo: true, inicioResposta: true);
+    // Se há um envio em voo p/ esta conversa (perguntou e saiu com voltar no
+    // meio), reanexa: mostra o "pensando" e aplica a resposta ao chegar.
+    final pend = ChatService.pendenteDe(_conv.id);
+    if (pend != null) await _reatachar(pend);
+  }
+
+  /// Reanexa a um envio que continua em background (a tela saiu com voltar no
+  /// meio da resposta): mostra o "pensando" e aplica a resposta ao chegar.
+  Future<void> _reatachar(Future<ChatResult> pend) async {
+    if (_enviando) return;
+    final idOrigem = _conv.id;
+    setState(() {
+      _enviando = true;
+      _inicioEnvio = DateTime.now();
+    });
+    _rolarFim(); // mira no "pensando"
+    _tick?.cancel();
+    _tick = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (mounted) setState(() {});
+    });
+    final res = await pend;
+    _tick?.cancel();
+    if (!mounted) return;
+    if (_conv.id != idOrigem) {
+      setState(() => _enviando = ChatService.pendenteDe(_conv.id) != null);
+      return;
+    }
+    if (res.sucesso) {
+      final atual = await ChatStore.porId(idOrigem);
+      if (!mounted) return;
+      if (atual != null) setState(() => _conv = atual);
+    } else {
+      setState(() {
+        _conv.mensagens = [..._conv.mensagens, ChatMessage.ia('⚠️ ${res.erro}')];
+      });
+      await ChatStore.salvar(_conv);
+    }
+    if (!mounted) return;
+    setState(() => _enviando = false);
+    // Resposta chegou: mostra a 1ª linha dela (p/ começar lendo de cima).
+    _rolarFim(inicioResposta: true);
+  }
+
+  // Salva ao ir para SEGUNDO PLANO (paused/detached): no Android o `dispose` NÃO
+  // dispara quando o app é mandado pra background e depois morto pelo sistema —
+  // sem isto, o estado em memória da sessão se perdia. Com o merge do ChatStore,
+  // salvar aqui é seguro (nunca encolhe o que já está salvo).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      if (!_conv.vazia) {
+        ChatStore.salvar(_conv);
+        ChatStore.marcarUltima(_conv.id);
+      }
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     SyncService.instance.removeListener(_aoMudarAuth);
     _tick?.cancel();
     _tts.stop();
@@ -218,23 +276,53 @@ class _ChatScreenState extends State<ChatScreen> {
     await ChatStore.marcarUltima(_conv.id);
     _rolarFim();
 
-    final res = await ChatService.enviar(_conv.mensagens,
+    // Envio em BACKGROUND (sobrevive ao botão voltar): o futuro fica registrado
+    // por conversa (`ChatService.enviarNaConversa`) e a resposta é salva no store
+    // ao concluir — mesmo sem tela montada. Aqui só espelhamos na tela.
+    final idOrigem = _conv.id;
+    final fut = ChatService.enviarNaConversa(
+        idOrigem, List<ChatMessage>.from(_conv.mensagens),
         presetId: _conv.preset.id,
         modeloId: _conv.modelo.id,
         tamanhoId: _conv.tamanho.id,
         imagensB64: imgs.isEmpty ? null : imgs);
+    final res = await fut;
     _tick?.cancel();
-    if (!mounted) return;
-    setState(() {
-      _conv.mensagens = [
-        ..._conv.mensagens,
-        ChatMessage.ia(res.sucesso ? res.reply! : '⚠️ ${res.erro}'),
-      ];
-      _enviando = false;
-    });
-    await ChatStore.salvar(_conv);
-    // Resposta chegou: mostra a 1ª linha dela (p/ começar lendo de cima).
-    _rolarFim(inicioResposta: true);
+    if (!mounted) return; // saiu com voltar: o background já salvou a resposta
+    if (_conv.id != idOrigem) {
+      // Trocou de conversa no meio do envio: a resposta já está salva na origem.
+      // Se FALHOU, registra o erro lá (não some em silêncio).
+      if (!res.sucesso) {
+        final orig = await ChatStore.porId(idOrigem);
+        if (orig != null) {
+          orig.mensagens = [...orig.mensagens, ChatMessage.ia('⚠️ ${res.erro}')];
+          await ChatStore.salvar(orig);
+        }
+        if (!mounted) return;
+      }
+      setState(() => _enviando = ChatService.pendenteDe(_conv.id) != null);
+      return;
+    }
+    if (res.sucesso) {
+      // Recarrega do store (fonte da verdade — o background já anexou lá).
+      final atual = await ChatStore.porId(idOrigem);
+      if (!mounted) return;
+      setState(() {
+        if (atual != null) _conv = atual;
+        _enviando = false;
+      });
+      // Resposta chegou: mostra a 1ª linha dela (p/ começar lendo de cima).
+      _rolarFim(inicioResposta: true);
+    } else {
+      setState(() {
+        _conv.mensagens = [
+          ..._conv.mensagens,
+          ChatMessage.ia('⚠️ ${res.erro}'),
+        ];
+        _enviando = false;
+      });
+      await ChatStore.salvar(_conv);
+    }
     _foco.requestFocus();
   }
 

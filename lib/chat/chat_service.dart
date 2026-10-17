@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import 'chat_config.dart';
 import 'chat_models.dart';
+import 'chat_store.dart';
 
 /// Resultado de um envio: ou a resposta da IA, ou uma mensagem de erro amigável.
 class ChatResult {
@@ -48,6 +49,45 @@ class ChatService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Envios EM VOO, um por conversa: o futuro fica registrado até concluir
+  /// (chamadas repetidas p/ a mesma conversa retornam o MESMO futuro — sem
+  /// disparo duplo). É o que faz a resposta SOBREVIVER ao botão voltar: a tela
+  /// pode ser destruída que o envio continua; ao concluir com sucesso, a
+  /// resposta é anexada no store (fila) — a tela, se ainda montada, recarrega
+  /// de lá; se saiu, a resposta espera salva e a tela reanexa ao voltar.
+  static final Map<String, Future<ChatResult>> _voando = {};
+
+  /// Futuro em voo p/ a conversa (ou null). A tela usa p/ reanexar ao voltar.
+  static Future<ChatResult>? pendenteDe(String conversaId) =>
+      _voando[conversaId];
+
+  /// Envia com sobrevivência: registra em `_voando` e grava a resposta no
+  /// store ao concluir. `historico` é fotografado na chamada (o chamador passa
+  /// uma cópia — a lista viva da tela continua mutando).
+  static Future<ChatResult> enviarNaConversa(
+    String conversaId,
+    List<ChatMessage> historico, {
+    required String presetId,
+    required String modeloId,
+    String tamanhoId = 'longo',
+    List<String>? imagensB64, // até 3 imagens (visão) p/ a última mensagem
+  }) {
+    final exist = _voando[conversaId];
+    if (exist != null) return exist;
+    final fut = enviar(historico,
+            presetId: presetId,
+            modeloId: modeloId,
+            tamanhoId: tamanhoId,
+            imagensB64: imagensB64)
+        .then((res) async {
+      _voando.remove(conversaId);
+      if (res.sucesso) await ChatStore.anexarIa(conversaId, res.reply!);
+      return res;
+    });
+    _voando[conversaId] = fut;
+    return fut;
   }
 
   /// Envia o histórico com o preset (modo) e o modelo escolhidos.

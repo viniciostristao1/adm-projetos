@@ -1088,6 +1088,13 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   desligada ou a IA avisa e segue com o que sabe. Fora do pedido, o Muse continua sem internet
   (o `contexto_ia.md`/`INSTRUCOES.md` documentam). Custo: ~1 chamada HTTPS + bloco pequeno só
   na resposta pesquisada.
+- **Novidade científica do dia (servidor, sem APK novo):** novo `novidade.py` — 1x/dia, só
+  entre 09–19h (Brasília), na 1ª mensagem da janela ainda sem novidade. Tópicos giram por
+  data (neurociência, hipertrofia, atividade física, sono… — editável em `TOPICOS`); títulos
+  já usados não repetem (estado em `/var/lib/taskix-chat/novidade.json`, escrita liberada via
+  `ReadWritePaths` no systemd). Bloco curto (~1,5k chars) manda encaixar só se couber no
+  assunto, senão citar de passagem. Custo: 1 busca Tavily/dia + bloco em 1 resposta/dia;
+  sem chave/falha/fora da janela = desligada sozinha. Testes em `tests_novidade.py`.
 - **V0.1.117 — atalho "Muse Spark" curto:** o App Shortcut ao segurar o ícone perdeu o
   sufixo "(última conversa)" — agora é só "Muse Spark" ("Nova nota" intacto; o destino
   continua abrindo na última conversa).
