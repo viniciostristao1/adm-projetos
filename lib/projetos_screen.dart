@@ -54,6 +54,14 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   final TextEditingController _ctrlBusca = TextEditingController();
   final FocusNode _focoBusca = FocusNode();
   bool _buscando = false;
+  // Anti-abertura-DUPLICADA pelos App Shortcuts (quick_actions): o handler da
+  // ação de lançamento pode disparar mais de uma vez no cold start, empilhando
+  // duas telas (sintoma: "voltar" exigia 2 toques e a conversa do Muse rolava de
+  // novo ao revelar a 2ª). `_museAberto` impede abrir um 2º Muse enquanto um já
+  // está aberto; a de-duplicação por tipo/tempo no handler cobre os dois atalhos.
+  bool _museAberto = false;
+  String? _ultimoAtalhoTipo;
+  DateTime _ultimoAtalhoEm = DateTime.fromMillisecondsSinceEpoch(0);
   static const String _projetoNotasRapidas = 'Notas rápidas';
   static const String _projetoEstudos = 'Estudos';
 
@@ -83,6 +91,15 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       const quickActions = QuickActions();
       quickActions.initialize((tipo) {
         if (!mounted) return;
+        // De-dup: ignora o MESMO atalho repetido em <2s (disparo duplo do cold
+        // start). Reabrir o mesmo atalho depois disso segue funcionando.
+        final agora = DateTime.now();
+        if (tipo == _ultimoAtalhoTipo &&
+            agora.difference(_ultimoAtalhoEm).inMilliseconds < 2000) {
+          return;
+        }
+        _ultimoAtalhoTipo = tipo;
+        _ultimoAtalhoEm = agora;
         if (tipo == 'nova_nota') _novaNotaRapida();
         if (tipo == 'muse') _abrirMuse();
       });
@@ -101,12 +118,16 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   /// Abre o Muse (na última conversa) — App Shortcut "Muse". Pós-frame p/ garantir
   /// o Navigator pronto mesmo em cold start pelo atalho.
   void _abrirMuse() {
-    if (!ChatConfig.habilitado) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ChatScreen()));
+    if (!ChatConfig.habilitado || _museAberto) return;
+    _museAberto = true; // trava já aqui (disparo duplo no MESMO frame)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        _museAberto = false;
+        return;
       }
+      await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ChatScreen()));
+      _museAberto = false; // libera ao fechar o Muse (permite reabrir depois)
     });
   }
 
