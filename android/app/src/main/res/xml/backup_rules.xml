@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Regras do Auto Backup do Google para Android 11 e ANTERIORES
+     (android:fullBackupContent). No Android 12+ valem as
+     data_extraction_rules.xml — manter os DOIS em sincronia.
+
+     Backup de TUDO, MENOS as SharedPreferences do Flutter
+     (FlutterSharedPreferences.xml), que guardam o histórico LOCAL da Muse.
+     Ver a explicação completa em data_extraction_rules.xml (V0.1.119): um
+     restore de snapshot ANTIGO sobrescrevia as conversas recentes. Os DADOS
+     dos projetos (adm_projetos.json, domínio file) continuam no backup. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSharedPreferences.xml" />
+</full-backup-content>

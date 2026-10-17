@@ -6,6 +6,17 @@ import 'chat_models.dart';
 
 /// Histórico LOCAL das conversas do Muse. Chave PRÓPRIA no SharedPreferences —
 /// NÃO toca no `Storage` dos projetos nem na cadeia de proteção do AGENTS.md.
+///
+/// ⚠️ PROTEÇÃO CONTRA PERDA (duas camadas, complementares):
+///  1. NO APP (aqui): fila FIFO + leitura estrita + MERGE que nunca encolhe
+///     (V0.1.118) — defende de saves concorrentes / foto atrasada.
+///  2. NO ANDROID (V0.1.119): o `FlutterSharedPreferences.xml` está EXCLUÍDO do
+///     Auto Backup do Google (ver `android/.../xml/backup_rules.xml` e
+///     `data_extraction_rules.xml`). Sem isso, um restore de snapshot ANTIGO
+///     (reinstalar / trocar de aparelho / auto-restaurar) trocava o arquivo
+///     inteiro embaixo do app e as conversas voltavam para um dia passado — o
+///     merge da camada 1 não alcança isso (o SO substitui o arquivo, não as
+///     mensagens). Os projetos NÃO dependem disto (ficam em arquivos próprios).
 class ChatStore {
   static const _chave = 'taskix_muse_convs_v1';
   static const _chaveAntiga = 'taskix_chat_v1'; // conversa única (pré-histórico)

@@ -1,19 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Backup automático completo (Google Drive + transferência entre
-     aparelhos): arquivos do app (adm_projetos.json, .bak) e preferências. -->
+<!-- Backup automático do Google (Android 12+): cloud-backup + transferência
+     entre aparelhos.
+
+     ⚠️ Os DADOS dos projetos ficam em ARQUIVOS (adm_projetos.json / .bak /
+     snapshots, domínio `file`) e CONTINUAM no backup — é o que sobrevive ao
+     desinstalar (objetivo da V0.1.42).
+
+     ⚠️ As SharedPreferences do Flutter (FlutterSharedPreferences.xml) ficam
+     EXCLUÍDAS do backup a partir da V0.1.119. Motivo: é lá que vive o histórico
+     LOCAL da Muse (chat). O Auto Backup do Google sobe um snapshot ~diário e,
+     ao reinstalar/transferir/auto-restaurar, o Android RESTAURAVA um snapshot
+     ANTIGO POR CIMA do local — as conversas recentes voltavam para um dia
+     passado (ex.: "última conversa é de 13/10"). Nenhum merge no app defende
+     disso: o SO troca o arquivo inteiro embaixo. Excluir do backup = o chat é
+     sempre o LOCAL e nunca é sobrescrito por uma cópia velha. Só se perde o
+     backup de ajustes triviais (tema, lembretes, barra) — todos locais e
+     re-configuráveis; os projetos NÃO são afetados. -->
 <data-extraction-rules>
     <cloud-backup>
         <include domain="file" path="." />
-        <include domain="sharedpref" path="." />
         <include domain="database" path="." />
         <include domain="external" path="." />
         <include domain="root" path="." />
+        <exclude domain="sharedpref" path="FlutterSharedPreferences.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="file" path="." />
-        <include domain="sharedpref" path="." />
         <include domain="database" path="." />
         <include domain="external" path="." />
         <include domain="root" path="." />
+        <exclude domain="sharedpref" path="FlutterSharedPreferences.xml" />
     </device-transfer>
 </data-extraction-rules>

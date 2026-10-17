@@ -15,7 +15,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="true"
-        android:fullBackupContent="true"
+        android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules">
         <!-- Referência ESTÁTICA ao ícone de notificação: sem isto o build de
              release REMOVE (shrink) o @drawable/ic_notif — ele só é usado por

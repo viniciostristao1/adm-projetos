@@ -429,7 +429,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         Navigator.pop(ctx);
                         setState(() => _conv = conv);
                         await ChatStore.marcarUltima(conv.id);
-                        _rolarFim();
+                        // Abre direto na 1ª linha da última resposta da Muse, SEM
+                        // animar a conversa inteira até o fim (instantâneo) — igual
+                        // ao reabrir o app (`_carregar`).
+                        _rolarFim(instantaneo: true, inicioResposta: true);
                       },
                       // Segurar = renomear (o nome aparece no topo).
                       onLongPress: () async {

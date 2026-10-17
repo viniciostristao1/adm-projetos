@@ -693,11 +693,22 @@ ordem salva de quem já usava o app. Ordem PADRÃO (esquerda→direita, após o 
   do último projeto passa (`liberarEsvaziamento()` chamado em `_excluirComUndo`).
   Impede que um bug/versão nova "abra vazio e grave por cima".
 - **Google Drive:** `AndroidManifest.xml` com `allowBackup="true"` +
-  `fullBackupContent="true"` + `dataExtractionRules` (xml que inclui tudo:
-  arquivos, sharedprefs, banco) — o Android passa a subir os dados do app
-  para a conta Google do usuário e RESTAURA automaticamente ao reinstalar.
+  `fullBackupContent="@xml/backup_rules"` + `dataExtractionRules` — o Android
+  sobe os dados do app para a conta Google e RESTAURA ao reinstalar.
   ⚠️ Antes da V0.1.42 o atributo não existia e, com targetSdk 36, o backup do
   Google ficava DESLIGADO por padrão (perda irreversível ao desinstalar).
+- **⚠️ SharedPreferences EXCLUÍDAS do backup (V0.1.119) — NÃO re-incluir.** As
+  duas regras de backup (`xml/backup_rules.xml` p/ Android ≤11 e
+  `xml/data_extraction_rules.xml` p/ Android 12+) agora EXCLUEM
+  `FlutterSharedPreferences.xml`; só os ARQUIVOS (projetos) continuam no backup.
+  **Causa:** o histórico LOCAL da Muse (chat) vive nas SharedPreferences; o Auto
+  Backup sobe um snapshot ~diário e, ao reinstalar/transferir/auto-restaurar, o
+  Android RESTAURAVA um snapshot ANTIGO POR CIMA do local → as conversas de hoje
+  sumiam e a "última" voltava para dias atrás (sintoma relatado: "última conversa
+  é de 13/10"). O merge no app (V0.1.118) NÃO defende disso — o SO troca o
+  arquivo inteiro embaixo. Trade-off aceito: tema/lembretes/barra deixam de ter
+  backup na nuvem (locais e re-configuráveis); projetos ficam intactos (arquivos).
+  Mesma família do incidente 2026-08-22 (desinstalar restaurava estado antigo).
 
 ### Sincronização com a nuvem (Firebase) — 100% MANUAL (por botão)
 - **`SyncService`** (sync_service.dart, ChangeNotifier): doc `usuarios/{uid}` no
