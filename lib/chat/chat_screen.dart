@@ -116,6 +116,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       .where((s) => s.isNotEmpty)
       .toList();
 
+  /// Remove carimbo de data/hora que possa ter vazado no INÍCIO de mensagens
+  /// (ex.: "[hoje 23:16] [16/10 …] Oi…"). Novas respostas já vêm limpas do
+  /// servidor; isto cobre as ANTIGAS ao falar. Preserva "[📷 imagem]" etc.
+  String _semCarimbo(String t) => t.replaceFirst(
+      RegExp(r'^\s*(?:\[(?:hoje|ontem|\d{1,2}/\d{1,2})[^\]]*\]\s*)+',
+          caseSensitive: false),
+      '');
+
   /// Lê (ou para) a resposta da Muse em voz alta. Toca FRASE A FRASE: busca a 1ª
   /// no /tts e já reproduz (início rápido), enquanto prefetcha a próxima durante a
   /// reprodução — como o Piper é ~5× mais rápido que o tempo real, não há buraco
@@ -140,7 +148,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _gerandoVoz = true; // buscando a 1ª frase
       });
     }
-    final frases = _dividirFrases(texto);
+    final frases = _dividirFrases(_semCarimbo(texto));
     if (frases.isEmpty) {
       if (mounted) {
         setState(() {
@@ -1287,12 +1295,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             // Segurar o botão ALTERNA o "modo áudio": a resposta da Muse toca
             // sozinha (semi-conversação). No modo áudio o ícone vira microfone e
             // o botão fica destacado. Tocar = enviar (como sempre).
+            // NÃO usar `tooltip:` no FAB: o Tooltip do Material captura o
+            // long-press (só aparecia a dica, o modo não alternava). Sem ele, o
+            // GestureDetector abaixo recebe o onLongPress.
             GestureDetector(
               onLongPress: () {
                 setState(() => _modoAudio = !_modoAudio);
                 if (!_modoAudio) _pararFala();
                 _snack(_modoAudio
-                    ? 'Modo áudio ligado: a Muse responde falando (dite pelo teclado por voz)'
+                    ? '🎤 Modo áudio LIGADO: a Muse responde falando (dite pelo teclado por voz)'
                     : 'Modo áudio desligado');
               },
               child: FloatingActionButton.small(
@@ -1304,9 +1315,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 foregroundColor: _modoAudio
                     ? Theme.of(context).colorScheme.onTertiary
                     : null,
-                tooltip: _modoAudio
-                    ? 'Enviar · modo áudio LIGADO (segure p/ desligar)'
-                    : 'Enviar (segure p/ ligar o modo áudio)',
                 child: Icon(_enviando
                     ? Icons.hourglass_empty
                     : (_modoAudio ? Icons.mic : Icons.send)),
