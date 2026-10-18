@@ -107,15 +107,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     await _vozNeural.stop();
   }
 
-  /// Quebra o texto em FRASES (corta após . ! ? seguido de espaço) p/ tocar
-  /// progressivamente — começa a falar a 1ª frase sem esperar o resto. Não corta
-  /// decimais (ex.: "3.5") porque exige espaço após a pontuação.
-  List<String> _dividirFrases(String t) => t
-      .split(RegExp(r'(?<=[.!?])\s+'))
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
-
   /// Remove carimbo de data/hora que possa ter vazado no INÍCIO de mensagens
   /// (ex.: "[23:40]", "[hoje 23:16] [16/10 …]"). Novas respostas já vêm limpas do
   /// servidor; isto cobre as ANTIGAS na escrita E na fala. Exige hora (HH:MM),
@@ -126,10 +117,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           caseSensitive: false),
       '');
 
-  /// Lê (ou para) a resposta da Muse em voz alta. Toca FRASE A FRASE: busca a 1ª
-  /// no /tts e já reproduz (início rápido), enquanto prefetcha a próxima durante a
-  /// reprodução — como o Piper é ~5× mais rápido que o tempo real, não há buraco
-  /// entre frases. Cai para o TTS do aparelho se a voz neural falhar.
+  /// Lê (ou para) a resposta da Muse em voz alta. Sintetiza o texto INTEIRO de
+  /// uma vez (1 clipe) — a prosódia/pausas do Piper ficam naturais e consistentes,
+  /// sem as emendas que a leitura frase-a-frase criava entre pontos/parágrafos.
+  /// Cai para o TTS do aparelho se a voz neural falhar. Cancelável via `_falaToken`.
   Future<void> _falar(int idx, String texto) async {
     // Tocar na mesma mensagem que já está lendo = parar (toggle).
     if (_lendoIdx == idx) {
@@ -147,55 +138,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (mounted) {
       setState(() {
         _lendoIdx = idx;
-        _gerandoVoz = true; // buscando a 1ª frase
+        _gerandoVoz = true; // buscando o áudio
       });
     }
-    final frases = _dividirFrases(_semCarimbo(texto));
-    if (frases.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _lendoIdx = null;
-          _gerandoVoz = false;
-        });
-      }
+    final limpo = _semCarimbo(texto);
+    final bytes = await ChatService.audioNeural(limpo);
+    if (token != _falaToken || !mounted) return; // parado/trocado enquanto buscava
+    if (mounted) setState(() => _gerandoVoz = false);
+    if (bytes == null) {
+      // Voz neural falhou: usa o TTS do aparelho.
+      await _tts.speak(limpo);
+      if (token == _falaToken && mounted) setState(() => _lendoIdx = null);
       return;
     }
-    // Prefetch com cache: mantém 1 frase à frente (busca enquanto toca a atual).
-    final cache = <int, Future<Uint8List?>>{};
-    Future<Uint8List?> buscar(int i) =>
-        cache.putIfAbsent(i, () => ChatService.audioNeural(frases[i]));
-    buscar(0);
-    for (var i = 0; i < frases.length; i++) {
-      if (token != _falaToken || !mounted) return; // cancelado
-      final bytes = await buscar(i);
-      if (token != _falaToken || !mounted) return;
-      if (i == 0 && mounted) setState(() => _gerandoVoz = false);
-      if (i + 1 < frases.length) buscar(i + 1); // prefetcha a próxima
-      if (bytes == null) {
-        // Neural falhou nesta frase: usa o TTS do aparelho p/ o resto e encerra.
-        await _tts.speak(frases.sublist(i).join(' '));
-        return;
+    final done = Completer<void>();
+    final sub = _vozNeural.onPlayerComplete.listen((_) {
+      if (!done.isCompleted) done.complete();
+    });
+    try {
+      await _vozNeural.play(BytesSource(bytes));
+      while (!done.isCompleted) {
+        if (token != _falaToken || !mounted) return; // parou no meio
+        await Future.delayed(const Duration(milliseconds: 100));
       }
-      final done = Completer<void>();
-      final sub = _vozNeural.onPlayerComplete.listen((_) {
-        if (!done.isCompleted) done.complete();
-      });
-      try {
-        await _vozNeural.play(BytesSource(bytes));
-        while (!done.isCompleted) {
-          if (token != _falaToken || !mounted) return; // parou no meio
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-      } finally {
-        await sub.cancel();
-      }
+    } finally {
+      await sub.cancel();
     }
-    if (token == _falaToken && mounted) {
-      setState(() {
-        _lendoIdx = null;
-        _gerandoVoz = false;
-      });
-    }
+    if (token == _falaToken && mounted) setState(() => _lendoIdx = null);
   }
 
   /// No MODO ÁUDIO, dispara a leitura automática da última resposta da Muse.
