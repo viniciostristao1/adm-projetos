@@ -14,6 +14,7 @@ import '../sync_service.dart';
 import 'chat_models.dart';
 import 'chat_service.dart';
 import 'chat_store.dart';
+import 'tts_ondevice.dart';
 
 /// Janela do Muse (assistente de chat do Taskix) — módulo isolado, só aberto pelo
 /// botão de mensagem (que só existe com a flag `CHAT`). Auth = login Google que o
@@ -131,6 +132,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     await _vozNeural.stop();
   }
 
+  /// Sintetiza um trecho: tenta NO APARELHO (sherpa-onnx/dii, rápido e offline) e,
+  /// se não estiver pronto/falhar, cai no /tts da VPS (reserva).
+  Future<Uint8List?> _sintetizarTrecho(String texto) async {
+    if (TtsOnDevice.pronto) {
+      final b = await TtsOnDevice.sintetizar(_normalizarFala(texto));
+      if (b != null) return b;
+    }
+    return ChatService.audioNeural(texto); // servidor aplica a própria normalização
+  }
+
+  /// Normalização de fala do CLIENTE (p/ a síntese on-device, que não passa pelo
+  /// /tts) — espelha o dicionário do servidor: NxM→"N de M", bike→báik, etc.
+  String _normalizarFala(String t) {
+    t = t.replaceAllMapped(
+        RegExp(r'(\d+)\s*[xX]\s*(\d+)'), (m) => '${m[1]} de ${m[2]}');
+    const mapa = {
+      'bike': 'báik', 'bikes': 'báiks',
+      'delay': 'delei', 'delays': 'deleis',
+      'rep': 'repetição', 'reps': 'repetições',
+    };
+    mapa.forEach((p, g) {
+      t = t.replaceAllMapped(
+          RegExp('\\b$p\\b', caseSensitive: false), (_) => g);
+    });
+    return t;
+  }
+
+  /// Prepara a voz on-device (baixa o modelo na 1ª vez). Chamado ao ligar o modo
+  /// áudio / tocar o alto-falante. Enquanto não fica pronta, usa a voz do servidor.
+  Future<void> _prepararVozOffline() async {
+    if (TtsOnDevice.pronto) return;
+    if (await TtsOnDevice.precisaBaixar()) {
+      _snack('Baixando a voz offline (~67 MB, só 1 vez) — até lá uso a do servidor');
+    }
+    final ok = await TtsOnDevice.preparar();
+    if (mounted && ok) _snack('🎙️ Voz offline pronta — bem mais rápida!');
+  }
+
   /// Enfileira um trecho (frase/parágrafo) p/ falar e aciona os dois workers.
   void _enfileirarVoz(String trecho) {
     _vozTextos.add(trecho);
@@ -147,7 +186,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final token = _falaToken;
     while (_vozAudios.length < _vozTextos.length) {
       if (token != _falaToken || !mounted) break;
-      final bytes = await ChatService.audioNeural(_vozTextos[_vozAudios.length]);
+      final bytes = await _sintetizarTrecho(_vozTextos[_vozAudios.length]);
       if (token != _falaToken || !mounted) break;
       _vozAudios.add(bytes);
       _vozPlay(); // pode haver áudio novo pronto p/ tocar
@@ -227,6 +266,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
     await _pararFala();
+    TtsOnDevice.preparar(); // carrega a voz on-device (se ainda não) p/ o replay
     if (mounted) {
       setState(() {
         _lendoIdx = idx;
@@ -1514,7 +1554,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             GestureDetector(
               onLongPress: () {
                 setState(() => _modoAudio = !_modoAudio);
-                if (!_modoAudio) {
+                if (_modoAudio) {
+                  _prepararVozOffline(); // baixa/carrega a voz no aparelho
+                } else {
                   _pararFala();
                   _autoSendTimer?.cancel();
                 }

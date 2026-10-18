@@ -31,6 +31,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Só ARM (arm64 cobre todo celular moderno; arm32 p/ aparelhos antigos).
+        // Sem isto, o sherpa-onnx inclui libs x86/x86_64 (emulador) e incha o APK.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {

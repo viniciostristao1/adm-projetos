@@ -1152,6 +1152,17 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   Gboard), quando o texto para de mudar por ~1,5s (soltou o mic), ENVIA sozinho → semi-conversa
   hands-free (dita→envia→responde falando). App não recebe o evento do mic do teclado; por isso é
   por PAUSA. Só no modo áudio; fora dele, envio normal no botão.
+- **V0.1.131 — VOZ ON-DEVICE (sherpa-onnx, offline):** a síntese sai da VPS de 1 vCPU (gargalo dos
+  ~7s) e vai pro PRÓPRIO CELULAR. `lib/chat/tts_ondevice.dart` (`TtsOnDevice`): baixa 1x o modelo
+  dii (`vits-piper-pt_BR-dii-high.tar.bz2`, ~67 MB, do release tts-models do sherpa-onnx), extrai
+  (`archive`: BZip2+Tar → `extractArchiveToDisk`) p/ `<docs>/tts_dii/`, carrega `OfflineTts` (vits,
+  lengthScale 1.02). `sintetizar()` → WAV (Float32→PCM16). A fila de voz tenta on-device primeiro
+  (`_sintetizarTrecho`); se não pronto/falhar, cai no `/tts` da VPS (reserva). Normalização de
+  pronúncia replicada no cliente (`_normalizarFala`: NxM→"N de M", bike→báik, delay→delei, rep→…)
+  porque on-device não passa pelo servidor. `preparar()` ao ligar o modo áudio / tocar o alto-falante
+  (download em 2º plano; até ficar pronta usa o servidor). **Build:** deps `sherpa_onnx`+`archive`;
+  `abiFilters = arm64-v8a, armeabi-v7a` no build.gradle.kts (sem x86 p/ não inflar o APK). ⚠️ Síntese
+  no isolate principal (jank leve ~0,5-1s/parágrafo; corre adiantada à fala). Modelo NÃO embutido (baixado).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
