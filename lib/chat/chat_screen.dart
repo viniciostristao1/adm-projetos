@@ -39,6 +39,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _enviando = false;
   bool _carregando = true;
   Timer? _tick; // atualiza o contador do "pensando"
+  Timer? _autoSendTimer; // modo áudio: envia sozinho quando a ditado por voz pausa
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
   final List<String> _imagensB64 = []; // imagens anexadas (visão), máx. 3
@@ -59,7 +60,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _streamTexto = ''; // resposta parcial sendo recebida (balão ao vivo)
   String _proxSep = ' '; // separador antes da próxima frase ('\n\n' após parágrafo)
   String _vozParag = ''; // parágrafo em montagem p/ a voz (fala por PARÁGRAFO, não frase)
-  bool _primeiroChunkVoz = true; // a 1ª fala sai já na 1ª frase (início mais rápido)
   StreamSubscription<MuseEvent>? _subStream;
   // Fila de voz PRODUTOR-CONSUMIDOR: a SÍNTESE roda ADIANTADA (um trecho por vez,
   // sem contenção de CPU) e fica À FRENTE da reprodução → começa cedo e sem vão
@@ -89,6 +89,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     // A conclusão da voz neural é gerida pelo streaming em `_falar` (o listener
     // global zerava o _lendoIdx no fim de CADA frase, cortando a leitura).
+    _ctrl.addListener(_aoDigitarVoz); // auto-enviar no modo áudio
     _carregar();
   }
 
@@ -349,6 +350,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     SyncService.instance.removeListener(_aoMudarAuth);
     _tick?.cancel();
+    _autoSendTimer?.cancel();
     _subStream?.cancel(); // o stream segue vivo no ChatService e salva ao fim
     _tts.stop();
     _vozNeural.dispose();
@@ -419,7 +421,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
+  /// MODO ÁUDIO hands-free: ao ditar por voz (teclado/Whisper), quando o texto
+  /// para de mudar por ~1,5s (você soltou o microfone), envia sozinho. Fora do
+  /// modo áudio não faz nada (aí você envia no botão, como sempre).
+  void _aoDigitarVoz() {
+    _autoSendTimer?.cancel();
+    if (!_modoAudio || _enviando || _ctrl.text.trim().isEmpty) return;
+    _autoSendTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted &&
+          _modoAudio &&
+          !_enviando &&
+          _ctrl.text.trim().isNotEmpty) {
+        _enviar();
+      }
+    });
+  }
+
   Future<void> _enviar() async {
+    _autoSendTimer?.cancel();
     if (_enviando) return;
     final texto = capitalizarFrases(_ctrl.text.trim());
     final imgs = List<String>.from(_imagensB64);
@@ -443,7 +462,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _streamTexto = '';
       _proxSep = ' ';
       _vozParag = '';
-      _primeiroChunkVoz = true;
       _inicioEnvio = DateTime.now();
       _anexo = null;
       _imagensB64.clear();
@@ -515,15 +533,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _proxSep = e.fimParagrafo ? '\n\n' : ' ';
             });
             _rolarFim();
-            // Voz por PARÁGRAFO: acumula as frases e fala quando o parágrafo fecha
-            // (entonação/pergunta certas, sem vão interno). EXCEÇÃO: a 1ª frase sai
-            // IMEDIATAMENTE (início mais rápido) — costuma ser saudação/abertura.
+            // Voz por PARÁGRAFO: acumula as frases e fala quando o parágrafo fecha,
+            // MAS só se já tiver texto suficiente (~80 chars) — assim uma 1ª linha
+            // curta/título NÃO é falada sozinha (ela "secaria" antes do próximo
+            // ficar pronto, criando o vão); junta com o próximo numa fala só.
             if (_modoAudio) {
               _vozParag = _vozParag.isEmpty ? e.texto : '$_vozParag ${e.texto}';
-              if (e.fimParagrafo || _primeiroChunkVoz) {
-                _enfileirarVoz(_vozParag);
+              if (e.fimParagrafo && _vozParag.trim().length >= 80) {
+                _enfileirarVoz(_vozParag.trim());
                 _vozParag = '';
-                _primeiroChunkVoz = false;
               }
             }
           }
@@ -1496,9 +1514,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             GestureDetector(
               onLongPress: () {
                 setState(() => _modoAudio = !_modoAudio);
-                if (!_modoAudio) _pararFala();
+                if (!_modoAudio) {
+                  _pararFala();
+                  _autoSendTimer?.cancel();
+                }
                 _snack(_modoAudio
-                    ? '🎤 Modo áudio LIGADO: a Muse responde falando (dite pelo teclado por voz)'
+                    ? '🎤 Modo áudio: dite por voz, solta o mic e ela ENVIA e RESPONDE falando'
                     : 'Modo áudio desligado');
               },
               child: FloatingActionButton.small(

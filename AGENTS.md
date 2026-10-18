@@ -1145,6 +1145,13 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `_vozSintese` (sintetiza um trecho por vez, ADIANTADO) + `_vozPlay` (toca em ordem). Como o Piper é
   5× realtime, o próximo fica pronto antes de o atual acabar = sem vão. **Replay (`_falar`) agora toca
   por PARÁGRAFO** (começa após o 1º, não a msg toda). Pronúncia: +delay→"delei".
+- **V0.1.130 — vão de linha curta + auto-enviar por voz:** (1) trecho de voz só é falado quando o
+  parágrafo fecha E tem ≥80 chars — uma 1ª linha/título curto JUNTA com o próximo numa fala só (antes
+  "secava" e dava vão grande antes do 2º parágrafo); removido o `_primeiroChunkVoz`. (2) **Auto-enviar
+  no modo áudio** (`_aoDigitarVoz` + `_autoSendTimer`): ao ditar pelo teclado de voz (Dictate/Whisper/
+  Gboard), quando o texto para de mudar por ~1,5s (soltou o mic), ENVIA sozinho → semi-conversa
+  hands-free (dita→envia→responde falando). App não recebe o evento do mic do teclado; por isso é
+  por PAUSA. Só no modo áudio; fora dele, envio normal no botão.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
