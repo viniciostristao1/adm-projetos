@@ -54,6 +54,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Token p/ cancelar/validar a reprodução por frases (streaming): cada nova fala
   // incrementa; loops antigos param ao ver o token mudar.
   int _falaToken = 0;
+  // STREAMING da resposta (fala enquanto escreve): a resposta chega frase a frase.
+  bool _streamando = false;
+  String _streamTexto = ''; // resposta parcial sendo recebida (balão ao vivo)
+  StreamSubscription<MuseEvent>? _subStream;
+  final List<String> _filaVoz = []; // frases esperando p/ falar (modo áudio)
+  bool _tocandoFila = false;
 
   /// Ícone de cada modo.
   static IconData _icone(ChatPreset p) => switch (p) {
@@ -102,9 +108,49 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Para qualquer leitura em curso (neural ou do aparelho) e invalida o stream.
   Future<void> _pararFala() async {
-    _falaToken++; // invalida o loop de frases em andamento
+    _falaToken++; // invalida o loop de frases/fila em andamento
+    _filaVoz.clear();
+    _tocandoFila = false;
     await _tts.stop();
     await _vozNeural.stop();
+  }
+
+  /// Enfileira uma frase p/ falar (modo áudio durante o streaming) e bombeia a fila.
+  void _enfileirarVoz(String frase) {
+    _filaVoz.add(frase);
+    _bombearFila();
+  }
+
+  /// Toca as frases da fila EM ORDEM, uma após a outra. Busca o áudio da próxima
+  /// enquanto não há nada tocando; para na hora se `_pararFala` mudar o token.
+  Future<void> _bombearFila() async {
+    if (_tocandoFila) return;
+    _tocandoFila = true;
+    final token = _falaToken;
+    while (_filaVoz.isNotEmpty) {
+      if (token != _falaToken || !mounted) break;
+      final f = _filaVoz.removeAt(0);
+      final bytes = await ChatService.audioNeural(f);
+      if (token != _falaToken || !mounted) break;
+      if (bytes == null) {
+        await _tts.speak(f);
+        continue;
+      }
+      final done = Completer<void>();
+      final sub = _vozNeural.onPlayerComplete.listen((_) {
+        if (!done.isCompleted) done.complete();
+      });
+      try {
+        await _vozNeural.play(BytesSource(bytes));
+        while (!done.isCompleted) {
+          if (token != _falaToken || !mounted) break;
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+      } finally {
+        await sub.cancel();
+      }
+    }
+    if (token == _falaToken) _tocandoFila = false;
   }
 
   /// Remove carimbo de data/hora que possa ter vazado no INÍCIO de mensagens
@@ -188,10 +234,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     // Abre direto na 1ª linha da última resposta (sem animação de scroll).
     _abrirNoFim();
-    // Se há um envio em voo p/ esta conversa (perguntou e saiu com voltar no
-    // meio), reanexa: mostra o "pensando" e aplica a resposta ao chegar.
-    final pend = ChatService.pendenteDe(_conv.id);
-    if (pend != null) await _reatachar(pend);
+    // Reatar a um envio em voo (perguntou e saiu com voltar no meio): primeiro o
+    // STREAMING (frase a frase); senão o envio normal (futuro único).
+    final stream = ChatService.streamPendente(_conv.id);
+    if (stream != null) {
+      setState(() {
+        _enviando = true;
+        _streamando = true;
+        _streamTexto = '';
+      });
+      _escutarStream(_conv.id, stream, const [], null);
+    } else {
+      final pend = ChatService.pendenteDe(_conv.id);
+      if (pend != null) await _reatachar(pend);
+    }
   }
 
   /// Reanexa a um envio que continua em background (a tela saiu com voltar no
@@ -252,6 +308,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     SyncService.instance.removeListener(_aoMudarAuth);
     _tick?.cancel();
+    _subStream?.cancel(); // o stream segue vivo no ChatService e salva ao fim
     _tts.stop();
     _vozNeural.dispose();
     _buscaCtrl.dispose();
@@ -336,15 +393,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       conteudo = conteudo.isEmpty ? marca : '$conteudo\n$marca';
     }
     _ctrl.clear();
+    await _pararFala(); // zera qualquer leitura/fila de voz anterior
     setState(() {
       _conv.mensagens = [..._conv.mensagens, ChatMessage.usuario(conteudo)];
       _conv.talvezTitular();
       _enviando = true;
+      _streamando = true;
+      _streamTexto = '';
       _inicioEnvio = DateTime.now();
       _anexo = null;
       _imagensB64.clear();
     });
-    // Conta o tempo de espera (segundos.décimos), atualizando a cada 100ms.
+    // Conta o tempo de espera (até a 1ª frase chegar), atualizando a cada 100ms.
     _tick?.cancel();
     _tick = Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (mounted) setState(() {});
@@ -353,22 +413,95 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     await ChatStore.marcarUltima(_conv.id);
     _rolarFim();
 
-    // Envio em BACKGROUND (sobrevive ao botão voltar): o futuro fica registrado
-    // por conversa (`ChatService.enviarNaConversa`) e a resposta é salva no store
-    // ao concluir — mesmo sem tela montada. Aqui só espelhamos na tela.
+    // Envio em STREAMING: a resposta chega FRASE A FRASE (fala enquanto escreve).
+    // A consumição vive no ChatService (sobrevive ao voltar) e salva no store ao
+    // terminar. Se o stream falhar ANTES de qualquer frase, cai no envio normal.
     final idOrigem = _conv.id;
-    final fut = ChatService.enviarNaConversa(
-        idOrigem, List<ChatMessage>.from(_conv.mensagens),
+    final snapshot = List<ChatMessage>.from(_conv.mensagens);
+    final imgsEnvio = imgs.isEmpty ? null : imgs;
+    _escutarStream(
+      idOrigem,
+      ChatService.enviarStream(idOrigem, snapshot,
+          presetId: _conv.preset.id,
+          modeloId: _conv.modelo.id,
+          tamanhoId: _conv.tamanho.id,
+          imagensB64: imgsEnvio),
+      snapshot,
+      imgsEnvio,
+    );
+    _foco.requestFocus();
+  }
+
+  /// Escuta o stream de frases: mostra o texto ao vivo + fala por frase (modo
+  /// áudio). Ao concluir, recarrega a conversa do store (fonte da verdade).
+  void _escutarStream(String idOrigem, Stream<MuseEvent> stream,
+      List<ChatMessage> snapshot, List<String>? imgs) {
+    _subStream?.cancel();
+    var recebeu = false;
+
+    Future<void> finalizar() async {
+      final atual = await ChatStore.porId(idOrigem);
+      if (!mounted) return;
+      setState(() {
+        if (atual != null) _conv = atual;
+        _enviando = false;
+        _streamando = false;
+        _streamTexto = '';
+      });
+      _rolarFim(inicioResposta: true);
+    }
+
+    _subStream = stream.listen((e) {
+      if (!mounted) return;
+      final mesma = _conv.id == idOrigem;
+      switch (e.tipo) {
+        case 'frase':
+          recebeu = true;
+          if (mesma) {
+            setState(() => _streamTexto =
+                _streamTexto.isEmpty ? e.texto : '$_streamTexto ${e.texto}');
+            _rolarFim();
+            if (_modoAudio) _enfileirarVoz(e.texto);
+          }
+        case 'done':
+          _tick?.cancel();
+          if (mesma) finalizar();
+        case 'erro':
+          _tick?.cancel();
+          if (!recebeu) {
+            _fallbackEnvio(idOrigem, snapshot, imgs); // nada veio: envio normal
+          } else if (mesma) {
+            finalizar(); // já salvou o parcial; só recarrega
+          }
+      }
+    }, onError: (_) {
+      if (!recebeu) _fallbackEnvio(idOrigem, snapshot, imgs);
+    });
+  }
+
+  /// Caminho de RESERVA (robusto, como antes do streaming): usado se o streaming
+  /// falhar sem produzir nada. Sobrevive ao voltar e salva via `anexarIa`.
+  Future<void> _fallbackEnvio(
+      String idOrigem, List<ChatMessage> snapshot, List<String>? imgs) async {
+    if (mounted) {
+      setState(() {
+        _streamando = false;
+        _streamTexto = '';
+      });
+    }
+    // Reatação sem histórico (voltou e o stream morreu na hora): não reenviar vazio.
+    if (snapshot.isEmpty) {
+      if (mounted) setState(() => _enviando = false);
+      return;
+    }
+    final res = await ChatService.enviarNaConversa(idOrigem, snapshot,
         presetId: _conv.preset.id,
         modeloId: _conv.modelo.id,
         tamanhoId: _conv.tamanho.id,
-        imagensB64: imgs.isEmpty ? null : imgs);
-    final res = await fut;
+        imagensB64: imgs);
     _tick?.cancel();
-    if (!mounted) return; // saiu com voltar: o background já salvou a resposta
+    if (!mounted) return;
     if (_conv.id != idOrigem) {
-      // Trocou de conversa no meio do envio: a resposta já está salva na origem.
-      // Se FALHOU, registra o erro lá (não some em silêncio).
       if (!res.sucesso) {
         final orig = await ChatStore.porId(idOrigem);
         if (orig != null) {
@@ -381,22 +514,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
     if (res.sucesso) {
-      // Recarrega do store (fonte da verdade — o background já anexou lá).
       final atual = await ChatStore.porId(idOrigem);
       if (!mounted) return;
       setState(() {
         if (atual != null) _conv = atual;
         _enviando = false;
       });
-      // Resposta chegou: mostra a 1ª linha dela (p/ começar lendo de cima).
       _rolarFim(inicioResposta: true);
-      _autoFalar(); // modo áudio: lê a resposta automaticamente
+      _autoFalar();
     } else {
       setState(() {
-        _conv.mensagens = [
-          ..._conv.mensagens,
-          ChatMessage.ia('⚠️ ${res.erro}'),
-        ];
+        _conv.mensagens = [..._conv.mensagens, ChatMessage.ia('⚠️ ${res.erro}')];
         _enviando = false;
       });
       await ChatStore.salvar(_conv);
@@ -908,11 +1036,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   // durante o envio — sem isso o scroll parava na msg enviada e o
                   // contador ficava escondido embaixo.
                   if (i == _conv.mensagens.length) {
+                    // Durante o streaming, mostra a resposta chegando AO VIVO; antes
+                    // da 1ª frase, o "pensando…" com o contador.
                     return AutoScrollTag(
                       key: const ValueKey('pensando'),
                       controller: _scroll,
                       index: i,
-                      child: _pensando(context),
+                      child: (_streamando && _streamTexto.isNotEmpty)
+                          ? _bolhaStream(context)
+                          : _pensando(context),
                     );
                   }
                   // AutoScrollTag permite pular até a mensagem na busca.
@@ -1101,6 +1233,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ]),
         ),
       );
+
+  /// Balão da resposta chegando AO VIVO (streaming): mesmo estilo da bolha da IA,
+  /// com um cursorzinho piscando no fim p/ indicar que ainda está escrevendo.
+  Widget _bolhaStream(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(top: 4, bottom: 2),
+        padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(16),
+          ),
+        ),
+        child: Text('${_semCarimbo(_streamTexto)} ▌',
+            style: TextStyle(color: cs.onSurface, height: 1.3)),
+      ),
+    );
+  }
 
   /// Segundos.décimos desde o envio (ex.: "2.3").
   String _tempoEspera() {

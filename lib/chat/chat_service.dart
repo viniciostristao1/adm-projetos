@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -15,6 +16,15 @@ class ChatResult {
   const ChatResult.ok(this.reply) : erro = null;
   const ChatResult.falha(this.erro) : reply = null;
   bool get sucesso => reply != null;
+}
+
+/// Evento do envio em STREAMING (frase a frase).
+/// tipo: 'frase' (uma frase pronta) | 'done' (fim; `texto` = resposta inteira,
+/// JÁ salva no store) | 'erro' (falhou; `texto` = motivo).
+class MuseEvent {
+  final String tipo;
+  final String texto;
+  const MuseEvent(this.tipo, this.texto);
 }
 
 /// Cliente do proxy de chat na VPS. A chave do OpenCode Go vive SÓ no servidor;
@@ -88,6 +98,127 @@ class ChatService {
     });
     _voando[conversaId] = fut;
     return fut;
+  }
+
+  // ───────────────────────── Envio em STREAMING ─────────────────────────
+  // Igual ao `_voando`, mas por STREAM: a consumição roda AQUI (no serviço), não
+  // na tela — sobrevive ao botão voltar. Ao terminar, salva a resposta no store
+  // (`anexarIa`, o MESMO caminho robusto do envio normal). A tela só escuta.
+  static final Map<String, StreamController<MuseEvent>> _stream = {};
+
+  /// Stream em voo p/ a conversa (ou null) — a tela usa p/ reatar ao voltar.
+  static Stream<MuseEvent>? streamPendente(String conversaId) =>
+      _stream[conversaId]?.stream;
+
+  /// Envia em streaming; devolve um Stream (broadcast) de [MuseEvent]. Chamadas
+  /// repetidas p/ a mesma conversa retornam o MESMO stream (sem disparo duplo).
+  static Stream<MuseEvent> enviarStream(
+    String conversaId,
+    List<ChatMessage> historico, {
+    required String presetId,
+    required String modeloId,
+    String tamanhoId = 'longo',
+    List<String>? imagensB64,
+  }) {
+    final exist = _stream[conversaId];
+    if (exist != null) return exist.stream;
+    final ctrl = StreamController<MuseEvent>.broadcast();
+    _stream[conversaId] = ctrl;
+    _rodar(conversaId, historico, presetId, modeloId, tamanhoId, imagensB64, ctrl);
+    return ctrl.stream;
+  }
+
+  static Future<void> _rodar(
+    String id,
+    List<ChatMessage> historico,
+    String presetId,
+    String modeloId,
+    String tamanhoId,
+    List<String>? imagensB64,
+    StreamController<MuseEvent> ctrl,
+  ) async {
+    void emit(MuseEvent e) {
+      if (!ctrl.isClosed) ctrl.add(e);
+    }
+
+    final full = StringBuffer();
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final token = user == null ? '' : (await user.getIdToken() ?? '');
+      if (token.isEmpty) {
+        emit(const MuseEvent('erro', 'login'));
+        return;
+      }
+      final msgs = historico
+          .map((m) => {
+                'role': m.role,
+                'content': m.texto,
+                'hora': m.hora.millisecondsSinceEpoch,
+              })
+          .toList(growable: false);
+      final req = http.Request('POST', Uri.parse('${ChatConfig.url}/chat_stream'))
+        ..headers['content-type'] = 'application/json'
+        ..headers['Authorization'] = 'Bearer $token'
+        ..body = jsonEncode({
+          'messages': msgs,
+          'preset': presetId,
+          'model': modeloId,
+          'tamanho': tamanhoId,
+          'imagens_b64': ?imagensB64,
+        });
+      final resp =
+          await http.Client().send(req).timeout(const Duration(seconds: 190));
+      if (resp.statusCode != 200) {
+        emit(MuseEvent('erro', 'HTTP ${resp.statusCode}'));
+        return;
+      }
+      String? replyFinal;
+      await for (final line in resp.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())) {
+        if (!line.startsWith('data:')) continue;
+        final data = line.substring(5).trim();
+        if (data.isEmpty) continue;
+        Map<String, dynamic> obj;
+        try {
+          obj = jsonDecode(data) as Map<String, dynamic>;
+        } catch (_) {
+          continue;
+        }
+        if (obj['erro'] != null) {
+          emit(MuseEvent('erro', obj['erro'].toString()));
+        } else if (obj['done'] == true) {
+          replyFinal = (obj['reply'] as String?)?.trim();
+        } else if (obj['t'] != null) {
+          final f = obj['t'].toString().trim();
+          if (f.isEmpty) continue;
+          if (full.isNotEmpty) full.write(' ');
+          full.write(f);
+          emit(MuseEvent('frase', f));
+        }
+      }
+      final reply = (replyFinal != null && replyFinal.isNotEmpty)
+          ? replyFinal
+          : full.toString().trim();
+      if (reply.isNotEmpty) {
+        await ChatStore.anexarIa(id, reply); // mesmo save do envio normal
+        emit(MuseEvent('done', reply));
+      } else {
+        emit(const MuseEvent('erro', 'vazio'));
+      }
+    } catch (_) {
+      // Caiu no meio: salva o PARCIAL p/ não perder o que já veio.
+      final parcial = full.toString().trim();
+      if (parcial.isNotEmpty) {
+        await ChatStore.anexarIa(id, parcial);
+        emit(MuseEvent('done', parcial));
+      } else {
+        emit(const MuseEvent('erro', 'rede'));
+      }
+    } finally {
+      _stream.remove(id);
+      await ctrl.close();
+    }
   }
 
   /// Envia o histórico com o preset (modo) e o modelo escolhidos.

@@ -1121,6 +1121,19 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   Piper ~5× mais rápido que o tempo real = sem buraco). Cancelamento via `_falaToken`; fallback
   `flutter_tts` por frase se a neural falhar. ⚠️ A voz NÃO fica residente (subprocess por chamada =
   zero RAM parada; modelo de ajuste só em teste, removido depois).
+- **V0.1.123-125 — afinação da voz dii:** +velocidade (`length_scale` 1.10→1.02), carimbo de
+  data/hora NÃO vaza mais (servidor `_sem_carimbo` + app `_semCarimbo`, some da escrita e da fala),
+  pausa de ponto curta (`--sentence_silence 0.05` ≈ vírgula), parágrafos colados na fala (`\n+`→espaço),
+  e a leitura voltou a ser **1 clipe** (prosódia natural, sem emendas). Dicionário de **pronúncia**
+  (`PRONUNCIA_FALA` no proxy; ex.: bike→"báik") — só afeta a fala, não a escrita.
+- **V0.1.126 — STREAMING (fala enquanto escreve) + modo áudio por frase:** novo endpoint
+  **`/chat_stream`** (SSE) no proxy: `_montar_contexto` (prompt COMPARTILHADO com `/chat`) +
+  `_call_gateway_stream` (gateway com `stream:true`) emite FRASES conforme gera; o app
+  (`ChatService.enviarStream`/`MuseEvent`) consome no serviço (sobrevive ao voltar) e salva via
+  `anexarIa` ao terminar. A tela mostra a resposta AO VIVO (`_bolhaStream`) e, no modo áudio, fala
+  **frase a frase** (`_filaVoz`/`_bombearFila`) — começa ~1,5s e segue sem buraco (Piper 5× realtime).
+  Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
+  toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
