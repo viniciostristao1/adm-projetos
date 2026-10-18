@@ -137,7 +137,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _carregando = false;
     });
     // Abre direto na 1ª linha da última resposta (sem animação de scroll).
-    _rolarFim(instantaneo: true, inicioResposta: true);
+    _abrirNoFim();
     // Se há um envio em voo p/ esta conversa (perguntou e saiu com voltar no
     // meio), reanexa: mostra o "pensando" e aplica a resposta ao chegar.
     final pend = ChatService.pendenteDe(_conv.id);
@@ -240,6 +240,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _scroll.scrollToIndex(alvo,
             preferPosition: pos,
             duration: Duration(milliseconds: instantaneo ? 1 : 250));
+      }
+    });
+  }
+
+  // Abre a conversa JÁ posicionada na última resposta da Muse SEM "rolar" a
+  // conversa inteira. `scrollToIndex` percorre a lista passo a passo até um índice
+  // distante (a rolagem que o usuário via ao abrir); `jumpTo` NÃO anima. Então:
+  // (1) salta instantaneamente até o fim, repetindo enquanto a lista lazy ainda
+  // cresce o maxScrollExtent (o extent é estimado e refina a cada frame);
+  // (2) no fim, se a última mensagem é da Muse, alinha a 1ª LINHA dela ao topo
+  // (movimento curto — o item já está na viewport). Usado só ao ABRIR/trocar de
+  // conversa (no envio a lista já está embaixo, aí o _rolarFim curto basta).
+  void _abrirNoFim([int tentativas = 8]) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final pos = _scroll.position;
+      if (tentativas > 0 && pos.pixels < pos.maxScrollExtent - 1) {
+        _scroll.jumpTo(pos.maxScrollExtent);
+        _abrirNoFim(tentativas - 1);
+        return;
+      }
+      final n = _conv.mensagens.length;
+      if (n > 0 && !_enviando && !_conv.mensagens.last.ehUsuario) {
+        _scroll.scrollToIndex(n - 1,
+            preferPosition: AutoScrollPosition.begin,
+            duration: const Duration(milliseconds: 1));
       }
     });
   }
@@ -432,7 +458,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         // Abre direto na 1ª linha da última resposta da Muse, SEM
                         // animar a conversa inteira até o fim (instantâneo) — igual
                         // ao reabrir o app (`_carregar`).
-                        _rolarFim(instantaneo: true, inicioResposta: true);
+                        _abrirNoFim();
                       },
                       // Segurar = renomear (o nome aparece no topo).
                       onLongPress: () async {
