@@ -117,10 +117,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       .toList();
 
   /// Remove carimbo de data/hora que possa ter vazado no INÍCIO de mensagens
-  /// (ex.: "[hoje 23:16] [16/10 …] Oi…"). Novas respostas já vêm limpas do
-  /// servidor; isto cobre as ANTIGAS ao falar. Preserva "[📷 imagem]" etc.
+  /// (ex.: "[23:40]", "[hoje 23:16] [16/10 …]"). Novas respostas já vêm limpas do
+  /// servidor; isto cobre as ANTIGAS na escrita E na fala. Exige hora (HH:MM),
+  /// hoje/ontem ou dd/MM dentro do colchete p/ preservar "[📷 imagem]" etc.
   String _semCarimbo(String t) => t.replaceFirst(
-      RegExp(r'^\s*(?:\[(?:hoje|ontem|\d{1,2}/\d{1,2})[^\]]*\]\s*)+',
+      RegExp(
+          r'^\s*(?:\[[^\]]*(?:\d{1,2}:\d{2}|hoje|ontem|\d{1,2}/\d{1,2})[^\]]*\]\s*)+',
           caseSensitive: false),
       '');
 
@@ -605,7 +607,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final hits = <(int, int)>[];
     if (q.isNotEmpty) {
       for (var i = 0; i < _conv.mensagens.length; i++) {
-        final low = _conv.mensagens[i].texto.toLowerCase();
+        final low = _semCarimbo(_conv.mensagens[i].texto).toLowerCase();
         var start = low.indexOf(q);
         while (start >= 0) {
           hits.add((i, start)); // cada OCORRÊNCIA (não cada mensagem)
@@ -976,10 +978,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final ehEu = m.ehUsuario;
     final estilo =
         TextStyle(color: ehEu ? cs.onPrimary : cs.onSurface, height: 1.3);
-    // Na busca, grifa as ocorrências do termo; senão texto simples.
+    // Texto SEM o carimbo de data/hora (some da escrita; só o servidor usa p/
+    // contexto). Na busca, grifa as ocorrências; senão texto simples.
+    final txt = _semCarimbo(m.texto);
     final texto = _busca.isEmpty
-        ? Text(m.texto, style: estilo)
-        : Text.rich(TextSpan(children: _grifar(m.texto, estilo, idx)));
+        ? Text(txt, style: estilo)
+        : Text.rich(TextSpan(children: _grifar(txt, estilo, idx)));
     final hora = _rotuloHora(m.hora);
     return Align(
       alignment: ehEu ? Alignment.centerRight : Alignment.centerLeft,
@@ -991,7 +995,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // Segurar = menu com Copiar / Salvar no Estudos (mensagem INTEIRA, sem
           // precisar selecionar tudo).
           GestureDetector(
-            onLongPress: () => _acoesMensagem(m.texto),
+            onLongPress: () => _acoesMensagem(_semCarimbo(m.texto)),
             child: Container(
               margin: const EdgeInsets.only(top: 4, bottom: 2),
               padding:
