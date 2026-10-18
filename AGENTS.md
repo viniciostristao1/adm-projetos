@@ -1131,7 +1131,9 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `_call_gateway_stream` (gateway com `stream:true`) emite FRASES conforme gera; o app
   (`ChatService.enviarStream`/`MuseEvent`) consome no serviço (sobrevive ao voltar) e salva via
   `anexarIa` ao terminar. A tela mostra a resposta AO VIVO (`_bolhaStream`) e, no modo áudio, fala
-  **frase a frase** (`_filaVoz`/`_bombearFila`) — começa ~1,5s e segue sem buraco (Piper 5× realtime).
+  **por PARÁGRAFO** (V0.1.127: `MuseEvent.fimParagrafo`; `/chat_stream` marca `p` quando há linha em
+  branco — `_cortar_frase` com lookahead). Falar por parágrafo (não por frase) dá entonação de
+  PERGUNTA correta + sem vão interno; só pausa (natural) ENTRE parágrafos. Começa após o 1º parágrafo.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

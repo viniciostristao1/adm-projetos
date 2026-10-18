@@ -57,8 +57,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // STREAMING da resposta (fala enquanto escreve): a resposta chega frase a frase.
   bool _streamando = false;
   String _streamTexto = ''; // resposta parcial sendo recebida (balão ao vivo)
+  String _proxSep = ' '; // separador antes da próxima frase ('\n\n' após parágrafo)
+  String _vozParag = ''; // parágrafo em montagem p/ a voz (fala por PARÁGRAFO, não frase)
   StreamSubscription<MuseEvent>? _subStream;
-  final List<String> _filaVoz = []; // frases esperando p/ falar (modo áudio)
+  final List<String> _filaVoz = []; // PARÁGRAFOS esperando p/ falar (modo áudio)
   bool _tocandoFila = false;
 
   /// Ícone de cada modo.
@@ -110,6 +112,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _pararFala() async {
     _falaToken++; // invalida o loop de frases/fila em andamento
     _filaVoz.clear();
+    _vozParag = '';
     _tocandoFila = false;
     await _tts.stop();
     await _vozNeural.stop();
@@ -400,6 +403,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _enviando = true;
       _streamando = true;
       _streamTexto = '';
+      _proxSep = ' ';
+      _vozParag = '';
       _inicioEnvio = DateTime.now();
       _anexo = null;
       _imagensB64.clear();
@@ -440,6 +445,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     var recebeu = false;
 
     Future<void> finalizar() async {
+      if (_modoAudio && _vozParag.trim().isNotEmpty) {
+        _enfileirarVoz(_vozParag.trim()); // fala o último parágrafo que faltou
+      }
+      _vozParag = '';
       final atual = await ChatStore.porId(idOrigem);
       if (!mounted) return;
       setState(() {
@@ -447,6 +456,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _enviando = false;
         _streamando = false;
         _streamTexto = '';
+        _proxSep = ' ';
       });
       _rolarFim(inicioResposta: true);
     }
@@ -458,10 +468,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         case 'frase':
           recebeu = true;
           if (mesma) {
-            setState(() => _streamTexto =
-                _streamTexto.isEmpty ? e.texto : '$_streamTexto ${e.texto}');
+            // Texto ao vivo: parágrafos preservados (quebra dupla ao fim de parágrafo).
+            setState(() {
+              _streamTexto = _streamTexto.isEmpty
+                  ? e.texto
+                  : '$_streamTexto$_proxSep${e.texto}';
+              _proxSep = e.fimParagrafo ? '\n\n' : ' ';
+            });
             _rolarFim();
-            if (_modoAudio) _enfileirarVoz(e.texto);
+            // Voz por PARÁGRAFO: acumula as frases e só fala quando o parágrafo fecha
+            // (entonação/pergunta certas e sem vão dentro do parágrafo).
+            if (_modoAudio) {
+              _vozParag = _vozParag.isEmpty ? e.texto : '$_vozParag ${e.texto}';
+              if (e.fimParagrafo) {
+                _enfileirarVoz(_vozParag);
+                _vozParag = '';
+              }
+            }
           }
         case 'done':
           _tick?.cancel();

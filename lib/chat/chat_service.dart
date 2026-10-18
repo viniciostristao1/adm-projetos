@@ -24,7 +24,8 @@ class ChatResult {
 class MuseEvent {
   final String tipo;
   final String texto;
-  const MuseEvent(this.tipo, this.texto);
+  final bool fimParagrafo; // só em 'frase': esta frase fecha um parágrafo
+  const MuseEvent(this.tipo, this.texto, {this.fimParagrafo = false});
 }
 
 /// Cliente do proxy de chat na VPS. A chave do OpenCode Go vive SÓ no servidor;
@@ -194,7 +195,7 @@ class ChatService {
           if (f.isEmpty) continue;
           if (full.isNotEmpty) full.write(' ');
           full.write(f);
-          emit(MuseEvent('frase', f));
+          emit(MuseEvent('frase', f, fimParagrafo: obj['p'] == true));
         }
       }
       final reply = (replyFinal != null && replyFinal.isNotEmpty)
