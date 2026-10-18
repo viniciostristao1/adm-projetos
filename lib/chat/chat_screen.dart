@@ -47,6 +47,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int? _lendoIdx; // índice da mensagem que está sendo lida (TTS)
   final AudioPlayer _vozNeural = AudioPlayer(); // MP3 da voz neural (/tts)
   bool _gerandoVoz = false; // buscando o áudio (mostra ampulheta)
+  // MODO ÁUDIO (segurar o botão enviar): a resposta da Muse toca sozinha, sem
+  // tocar no alto-falante — semi-conversação (você dita no Gboard, ela responde
+  // em texto + voz). Fica salvo só em memória (default desligado a cada abertura).
+  bool _modoAudio = false;
+  // Token p/ cancelar/validar a reprodução por frases (streaming): cada nova fala
+  // incrementa; loops antigos param ao ver o token mudar.
+  int _falaToken = 0;
 
   /// Ícone de cada modo.
   static IconData _icone(ChatPreset p) => switch (p) {
@@ -64,9 +71,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _tts.setCompletionHandler(() {
       if (mounted) setState(() => _lendoIdx = null);
     });
-    _vozNeural.onPlayerComplete.listen((_) {
-      if (mounted) setState(() => _lendoIdx = null);
-    });
+    // A conclusão da voz neural é gerida pelo streaming em `_falar` (o listener
+    // global zerava o _lendoIdx no fim de CADA frase, cortando a leitura).
     _carregar();
   }
 
@@ -94,35 +100,100 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  /// Lê (ou para) a resposta do Muse em voz alta: tenta primeiro a voz neural
-  /// pt-BR da VPS (/tts, feminina) e, se falhar, cai para o TTS do aparelho.
-  Future<void> _falar(int idx, String texto) async {
+  /// Para qualquer leitura em curso (neural ou do aparelho) e invalida o stream.
+  Future<void> _pararFala() async {
+    _falaToken++; // invalida o loop de frases em andamento
     await _tts.stop();
     await _vozNeural.stop();
+  }
+
+  /// Quebra o texto em FRASES (corta após . ! ? seguido de espaço) p/ tocar
+  /// progressivamente — começa a falar a 1ª frase sem esperar o resto. Não corta
+  /// decimais (ex.: "3.5") porque exige espaço após a pontuação.
+  List<String> _dividirFrases(String t) => t
+      .split(RegExp(r'(?<=[.!?])\s+'))
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
+
+  /// Lê (ou para) a resposta da Muse em voz alta. Toca FRASE A FRASE: busca a 1ª
+  /// no /tts e já reproduz (início rápido), enquanto prefetcha a próxima durante a
+  /// reprodução — como o Piper é ~5× mais rápido que o tempo real, não há buraco
+  /// entre frases. Cai para o TTS do aparelho se a voz neural falhar.
+  Future<void> _falar(int idx, String texto) async {
+    // Tocar na mesma mensagem que já está lendo = parar (toggle).
     if (_lendoIdx == idx) {
+      await _pararFala();
+      if (mounted) {
+        setState(() {
+          _lendoIdx = null;
+          _gerandoVoz = false;
+        });
+      }
+      return;
+    }
+    await _pararFala();
+    final token = _falaToken;
+    if (mounted) {
+      setState(() {
+        _lendoIdx = idx;
+        _gerandoVoz = true; // buscando a 1ª frase
+      });
+    }
+    final frases = _dividirFrases(texto);
+    if (frases.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _lendoIdx = null;
+          _gerandoVoz = false;
+        });
+      }
+      return;
+    }
+    // Prefetch com cache: mantém 1 frase à frente (busca enquanto toca a atual).
+    final cache = <int, Future<Uint8List?>>{};
+    Future<Uint8List?> buscar(int i) =>
+        cache.putIfAbsent(i, () => ChatService.audioNeural(frases[i]));
+    buscar(0);
+    for (var i = 0; i < frases.length; i++) {
+      if (token != _falaToken || !mounted) return; // cancelado
+      final bytes = await buscar(i);
+      if (token != _falaToken || !mounted) return;
+      if (i == 0 && mounted) setState(() => _gerandoVoz = false);
+      if (i + 1 < frases.length) buscar(i + 1); // prefetcha a próxima
+      if (bytes == null) {
+        // Neural falhou nesta frase: usa o TTS do aparelho p/ o resto e encerra.
+        await _tts.speak(frases.sublist(i).join(' '));
+        return;
+      }
+      final done = Completer<void>();
+      final sub = _vozNeural.onPlayerComplete.listen((_) {
+        if (!done.isCompleted) done.complete();
+      });
+      try {
+        await _vozNeural.play(BytesSource(bytes));
+        while (!done.isCompleted) {
+          if (token != _falaToken || !mounted) return; // parou no meio
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+      } finally {
+        await sub.cancel();
+      }
+    }
+    if (token == _falaToken && mounted) {
       setState(() {
         _lendoIdx = null;
         _gerandoVoz = false;
       });
-      return;
     }
-    setState(() {
-      _lendoIdx = idx;
-      _gerandoVoz = true; // buscando o áudio (alguns segundos, sem custo)
-    });
-    final bytes = await ChatService.audioNeural(texto);
-    if (!mounted) return;
-    if (bytes != null) {
-      setState(() => _gerandoVoz = false);
-      try {
-        await _vozNeural.play(BytesSource(bytes));
-        return;
-      } catch (_) {
-        // cai para o TTS local abaixo
-      }
-    }
-    setState(() => _gerandoVoz = false);
-    await _tts.speak(texto);
+  }
+
+  /// No MODO ÁUDIO, dispara a leitura automática da última resposta da Muse.
+  void _autoFalar() {
+    if (!_modoAudio || _conv.mensagens.isEmpty) return;
+    final i = _conv.mensagens.length - 1;
+    if (_conv.mensagens[i].ehUsuario) return;
+    _falar(i, _conv.mensagens[i].texto);
   }
 
   Future<void> _carregar() async {
@@ -179,6 +250,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     setState(() => _enviando = false);
     // Resposta chegou: mostra a 1ª linha dela (p/ começar lendo de cima).
     _rolarFim(inicioResposta: true);
+    if (res.sucesso) _autoFalar(); // modo áudio: lê a resposta automaticamente
   }
 
   // Salva ao ir para SEGUNDO PLANO (paused/detached): no Android o `dispose` NÃO
@@ -339,6 +411,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
       // Resposta chegou: mostra a 1ª linha dela (p/ começar lendo de cima).
       _rolarFim(inicioResposta: true);
+      _autoFalar(); // modo áudio: lê a resposta automaticamente
     } else {
       setState(() {
         _conv.mensagens = [
@@ -1211,11 +1284,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ),
             const SizedBox(width: 8),
-            FloatingActionButton.small(
-              heroTag: 'fab_chat_enviar',
-              onPressed: _enviando ? null : _enviar,
-              tooltip: 'Enviar',
-              child: Icon(_enviando ? Icons.hourglass_empty : Icons.send),
+            // Segurar o botão ALTERNA o "modo áudio": a resposta da Muse toca
+            // sozinha (semi-conversação). No modo áudio o ícone vira microfone e
+            // o botão fica destacado. Tocar = enviar (como sempre).
+            GestureDetector(
+              onLongPress: () {
+                setState(() => _modoAudio = !_modoAudio);
+                if (!_modoAudio) _pararFala();
+                _snack(_modoAudio
+                    ? 'Modo áudio ligado: a Muse responde falando (dite pelo teclado por voz)'
+                    : 'Modo áudio desligado');
+              },
+              child: FloatingActionButton.small(
+                heroTag: 'fab_chat_enviar',
+                onPressed: _enviando ? null : _enviar,
+                backgroundColor: _modoAudio
+                    ? Theme.of(context).colorScheme.tertiary
+                    : null,
+                foregroundColor: _modoAudio
+                    ? Theme.of(context).colorScheme.onTertiary
+                    : null,
+                tooltip: _modoAudio
+                    ? 'Enviar · modo áudio LIGADO (segure p/ desligar)'
+                    : 'Enviar (segure p/ ligar o modo áudio)',
+                child: Icon(_enviando
+                    ? Icons.hourglass_empty
+                    : (_modoAudio ? Icons.mic : Icons.send)),
+              ),
             ),
           ]),
         ]),

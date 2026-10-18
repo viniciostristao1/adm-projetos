@@ -1109,6 +1109,18 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
 - **V0.1.117 — atalho "Muse Spark" curto:** o App Shortcut ao segurar o ícone perdeu o
   sufixo "(última conversa)" — agora é só "Muse Spark" ("Nova nota" intacto; o destino
   continua abrindo na última conversa).
+- **V0.1.122 — voz feminina dii + modo áudio + leitura por frase:** (1) **Voz:** o `/tts` do
+  proxy passou do **faber (masculino)** para a **dii** (FEMININA pt-BR, comunidade
+  `csukuangfj/vits-piper-pt_BR-dii-high`, em `/opt/taskix-chat/vozes/`), com **`length_scale 1.10`**
+  no `.onnx.json` (~10% mais lenta, sem robotizar); faber vira **reserva** (`PIPER_VOZ_FALLBACK`).
+  Edge segue bloqueado (403) e Kokoro foi descartada (RTF>1 em 1 vCPU). (2) **Modo áudio
+  (`_modoAudio`):** SEGURAR o botão enviar alterna — o ícone vira 🎤 e a resposta da Muse **toca
+  sozinha** (semi-conversação: você dita no Gboard, ela responde em texto+voz). (3) **Leitura por
+  FRASE (streaming):** `_falar` quebra a resposta em frases (`_dividirFrases`, corta após .!? +
+  espaço), toca a 1ª assim que chega e **prefetcha** a próxima durante a reprodução (início ~1–1,5 s;
+  Piper ~5× mais rápido que o tempo real = sem buraco). Cancelamento via `_falaToken`; fallback
+  `flutter_tts` por frase se a neural falhar. ⚠️ A voz NÃO fica residente (subprocess por chamada =
+  zero RAM parada; modelo de ajuste só em teste, removido depois).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
