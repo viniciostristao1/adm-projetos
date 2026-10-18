@@ -61,8 +61,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _vozParag = ''; // parágrafo em montagem p/ a voz (fala por PARÁGRAFO, não frase)
   bool _primeiroChunkVoz = true; // a 1ª fala sai já na 1ª frase (início mais rápido)
   StreamSubscription<MuseEvent>? _subStream;
-  final List<String> _filaVoz = []; // PARÁGRAFOS esperando p/ falar (modo áudio)
-  bool _tocandoFila = false;
+  // Fila de voz PRODUTOR-CONSUMIDOR: a SÍNTESE roda ADIANTADA (um trecho por vez,
+  // sem contenção de CPU) e fica À FRENTE da reprodução → começa cedo e sem vão
+  // entre trechos. Vale pro streaming (por parágrafo) e pro replay (toque manual).
+  final List<String> _vozTextos = []; // textos a falar, na ordem
+  final List<Uint8List?> _vozAudios = []; // áudios já sintetizados (alinhado a _vozTextos); null = falhou
+  int _vozTocarIdx = 0; // próximo índice a tocar
+  bool _vozSintetizando = false;
+  bool _vozTocando = false;
+  int? _vozMsgIdx; // se a fila é de um REPLAY de mensagem, qual índice (p/ limpar o ícone no fim)
 
   /// Ícone de cada modo.
   static IconData _icone(ChatPreset p) => switch (p) {
@@ -111,38 +118,55 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Para qualquer leitura em curso (neural ou do aparelho) e invalida o stream.
   Future<void> _pararFala() async {
-    _falaToken++; // invalida o loop de frases/fila em andamento
-    _filaVoz.clear();
+    _falaToken++; // invalida sínteses/reproduções em andamento
+    _vozTextos.clear();
+    _vozAudios.clear();
+    _vozTocarIdx = 0;
+    _vozSintetizando = false;
+    _vozTocando = false;
+    _vozMsgIdx = null;
     _vozParag = '';
-    _tocandoFila = false;
     await _tts.stop();
     await _vozNeural.stop();
   }
 
-  /// Enfileira uma frase p/ falar (modo áudio durante o streaming) e bombeia a fila.
-  void _enfileirarVoz(String frase) {
-    _filaVoz.add(frase);
-    _bombearFila();
+  /// Enfileira um trecho (frase/parágrafo) p/ falar e aciona os dois workers.
+  void _enfileirarVoz(String trecho) {
+    _vozTextos.add(trecho);
+    _vozSintese();
+    _vozPlay();
   }
 
-  /// Toca as frases da fila EM ORDEM, uma após a outra. Busca o áudio da próxima
-  /// enquanto não há nada tocando; para na hora se `_pararFala` mudar o token.
-  Future<void> _bombearFila() async {
-    if (_tocandoFila) return;
-    _tocandoFila = true;
+  /// WORKER DE SÍNTESE: sintetiza os trechos UM A UM (sem contenção de CPU),
+  /// ADIANTADO em relação à reprodução. Como o Piper é ~5× mais rápido que o
+  /// tempo real, o áudio do próximo fica pronto antes de o atual acabar = sem vão.
+  Future<void> _vozSintese() async {
+    if (_vozSintetizando) return;
+    _vozSintetizando = true;
     final token = _falaToken;
-    Future<Uint8List?>? prefetch; // áudio do PRÓXIMO item, buscado enquanto toca o atual
-    while (_filaVoz.isNotEmpty) {
+    while (_vozAudios.length < _vozTextos.length) {
       if (token != _falaToken || !mounted) break;
-      final f = _filaVoz.removeAt(0);
-      // Usa o áudio já prefetchado (se era deste item) ou busca agora.
-      final bytes = await (prefetch ?? ChatService.audioNeural(f));
-      prefetch = null;
+      final bytes = await ChatService.audioNeural(_vozTextos[_vozAudios.length]);
       if (token != _falaToken || !mounted) break;
-      // Já dispara a busca do próximo (toca sem vão entre parágrafos).
-      if (_filaVoz.isNotEmpty) prefetch = ChatService.audioNeural(_filaVoz.first);
+      _vozAudios.add(bytes);
+      _vozPlay(); // pode haver áudio novo pronto p/ tocar
+    }
+    if (token == _falaToken) _vozSintetizando = false;
+  }
+
+  /// WORKER DE REPRODUÇÃO: toca os áudios já sintetizados, EM ORDEM.
+  Future<void> _vozPlay() async {
+    if (_vozTocando) return;
+    _vozTocando = true;
+    final token = _falaToken;
+    while (_vozTocarIdx < _vozAudios.length) {
+      if (token != _falaToken || !mounted) break;
+      final i = _vozTocarIdx;
+      final bytes = _vozAudios[i];
+      _vozTocarIdx++;
+      if (mounted && _gerandoVoz) setState(() => _gerandoVoz = false); // 1º áudio saiu
       if (bytes == null) {
-        await _tts.speak(f);
+        await _tts.speak(_vozTextos[i]); // neural falhou nesse trecho: TTS do aparelho
         continue;
       }
       final done = Completer<void>();
@@ -159,7 +183,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         await sub.cancel();
       }
     }
-    if (token == _falaToken) _tocandoFila = false;
+    _vozTocando = false;
+    // Terminou TUDO (tocou todos e a síntese acabou)? Se for um replay, limpa o ícone.
+    if (token == _falaToken &&
+        _vozTocarIdx >= _vozTextos.length &&
+        !_vozSintetizando &&
+        _vozMsgIdx != null) {
+      if (mounted) {
+        setState(() {
+          _lendoIdx = null;
+          _gerandoVoz = false;
+        });
+      }
+      _vozMsgIdx = null;
+    }
   }
 
   /// Remove carimbo de data/hora que possa ter vazado no INÍCIO de mensagens
@@ -189,37 +226,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
     await _pararFala();
-    final token = _falaToken;
     if (mounted) {
       setState(() {
         _lendoIdx = idx;
-        _gerandoVoz = true; // buscando o áudio
+        _gerandoVoz = true; // buscando o 1º áudio
       });
     }
-    final limpo = _semCarimbo(texto);
-    final bytes = await ChatService.audioNeural(limpo);
-    if (token != _falaToken || !mounted) return; // parado/trocado enquanto buscava
-    if (mounted) setState(() => _gerandoVoz = false);
-    if (bytes == null) {
-      // Voz neural falhou: usa o TTS do aparelho.
-      await _tts.speak(limpo);
-      if (token == _falaToken && mounted) setState(() => _lendoIdx = null);
+    // Toca por PARÁGRAFO pela fila produtor-consumidor: começa após o 1º parágrafo
+    // (não espera sintetizar a mensagem inteira) e os seguintes já vêm prontos.
+    final pars = _semCarimbo(texto)
+        .split(RegExp(r'\n\s*\n'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (pars.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _lendoIdx = null;
+          _gerandoVoz = false;
+        });
+      }
       return;
     }
-    final done = Completer<void>();
-    final sub = _vozNeural.onPlayerComplete.listen((_) {
-      if (!done.isCompleted) done.complete();
-    });
-    try {
-      await _vozNeural.play(BytesSource(bytes));
-      while (!done.isCompleted) {
-        if (token != _falaToken || !mounted) return; // parou no meio
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-    } finally {
-      await sub.cancel();
+    _vozMsgIdx = idx; // é um replay desta msg → limpa o ícone quando acabar
+    for (final p in pars) {
+      _enfileirarVoz(p);
     }
-    if (token == _falaToken && mounted) setState(() => _lendoIdx = null);
   }
 
   /// No MODO ÁUDIO, dispara a leitura automática da última resposta da Muse.

@@ -1139,6 +1139,12 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   próximo parágrafo enquanto toca o atual (acaba o vão entre parágrafos). ⚠️ Limite físico: em resposta
   curta/rápida o texto termina antes de a voz conseguir sair (síntese leva ~1s); overlap real só em
   respostas longas. Reduzir mais = manter o Piper residente (não feito: custa RAM na VPS).
+- **V0.1.129 — fila de voz PRODUTOR-CONSUMIDOR (mata os vãos):** o bug era a fila sintetizar o
+  próximo trecho só DEPOIS que o atual acabava de tocar → vão de ~2-3s entre frases/parágrafos, e o
+  replay sintetizava a mensagem INTEIRA antes de tocar (~10s em resposta longa). Agora dois workers:
+  `_vozSintese` (sintetiza um trecho por vez, ADIANTADO) + `_vozPlay` (toca em ordem). Como o Piper é
+  5× realtime, o próximo fica pronto antes de o atual acabar = sem vão. **Replay (`_falar`) agora toca
+  por PARÁGRAFO** (começa após o 1º, não a msg toda). Pronúncia: +delay→"delei".
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
