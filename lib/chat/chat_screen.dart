@@ -59,6 +59,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _streamTexto = ''; // resposta parcial sendo recebida (balão ao vivo)
   String _proxSep = ' '; // separador antes da próxima frase ('\n\n' após parágrafo)
   String _vozParag = ''; // parágrafo em montagem p/ a voz (fala por PARÁGRAFO, não frase)
+  bool _primeiroChunkVoz = true; // a 1ª fala sai já na 1ª frase (início mais rápido)
   StreamSubscription<MuseEvent>? _subStream;
   final List<String> _filaVoz = []; // PARÁGRAFOS esperando p/ falar (modo áudio)
   bool _tocandoFila = false;
@@ -130,11 +131,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_tocandoFila) return;
     _tocandoFila = true;
     final token = _falaToken;
+    Future<Uint8List?>? prefetch; // áudio do PRÓXIMO item, buscado enquanto toca o atual
     while (_filaVoz.isNotEmpty) {
       if (token != _falaToken || !mounted) break;
       final f = _filaVoz.removeAt(0);
-      final bytes = await ChatService.audioNeural(f);
+      // Usa o áudio já prefetchado (se era deste item) ou busca agora.
+      final bytes = await (prefetch ?? ChatService.audioNeural(f));
+      prefetch = null;
       if (token != _falaToken || !mounted) break;
+      // Já dispara a busca do próximo (toca sem vão entre parágrafos).
+      if (_filaVoz.isNotEmpty) prefetch = ChatService.audioNeural(_filaVoz.first);
       if (bytes == null) {
         await _tts.speak(f);
         continue;
@@ -405,6 +411,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _streamTexto = '';
       _proxSep = ' ';
       _vozParag = '';
+      _primeiroChunkVoz = true;
       _inicioEnvio = DateTime.now();
       _anexo = null;
       _imagensB64.clear();
@@ -476,13 +483,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _proxSep = e.fimParagrafo ? '\n\n' : ' ';
             });
             _rolarFim();
-            // Voz por PARÁGRAFO: acumula as frases e só fala quando o parágrafo fecha
-            // (entonação/pergunta certas e sem vão dentro do parágrafo).
+            // Voz por PARÁGRAFO: acumula as frases e fala quando o parágrafo fecha
+            // (entonação/pergunta certas, sem vão interno). EXCEÇÃO: a 1ª frase sai
+            // IMEDIATAMENTE (início mais rápido) — costuma ser saudação/abertura.
             if (_modoAudio) {
               _vozParag = _vozParag.isEmpty ? e.texto : '$_vozParag ${e.texto}';
-              if (e.fimParagrafo) {
+              if (e.fimParagrafo || _primeiroChunkVoz) {
                 _enfileirarVoz(_vozParag);
                 _vozParag = '';
+                _primeiroChunkVoz = false;
               }
             }
           }

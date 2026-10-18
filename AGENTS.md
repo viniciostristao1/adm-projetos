@@ -1134,6 +1134,11 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   **por PARÁGRAFO** (V0.1.127: `MuseEvent.fimParagrafo`; `/chat_stream` marca `p` quando há linha em
   branco — `_cortar_frase` com lookahead). Falar por parágrafo (não por frase) dá entonação de
   PERGUNTA correta + sem vão interno; só pausa (natural) ENTRE parágrafos. Começa após o 1º parágrafo.
+- **V0.1.128 — início + sem vão:** a 1ª FRASE sai imediatamente (`_primeiroChunkVoz`, início ~1s em vez
+  de esperar o 1º parágrafo fechar; costuma ser saudação) e `_bombearFila` faz PREFETCH do áudio do
+  próximo parágrafo enquanto toca o atual (acaba o vão entre parágrafos). ⚠️ Limite físico: em resposta
+  curta/rápida o texto termina antes de a voz conseguir sair (síntese leva ~1s); overlap real só em
+  respostas longas. Reduzir mais = manter o Piper residente (não feito: custa RAM na VPS).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
