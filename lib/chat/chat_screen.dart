@@ -147,10 +147,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _normalizarFala(String t) {
     t = t.replaceAllMapped(
         RegExp(r'(\d+)\s*[xX]\s*(\d+)'), (m) => '${m[1]} de ${m[2]}');
+    // Vocativo: tira a vírgula antes do nome ("boa noite, Vinícios" → "…Vinícios").
+    t = t.replaceAllMapped(
+        RegExp(r',\s*(Vin[ií]ci[ou]s)\b', caseSensitive: false),
+        (m) => ' ${m[1]}');
     const mapa = {
       'bike': 'báik', 'bikes': 'báiks',
       'delay': 'delei', 'delays': 'deleis',
       'rep': 'repetição', 'reps': 'repetições',
+      'halter': 'altér', 'halteres': 'altéres',
     };
     mapa.forEach((p, g) {
       t = t.replaceAllMapped(
@@ -467,7 +472,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _aoDigitarVoz() {
     _autoSendTimer?.cancel();
     if (!_modoAudio || _enviando || _ctrl.text.trim().isEmpty) return;
-    _autoSendTimer = Timer(const Duration(milliseconds: 1500), () {
+    // Curto (~0,6s): manda quase na hora que você solta o mic, mas espera um
+    // tiquinho pro teclado de voz terminar de inserir o texto. Tunável.
+    _autoSendTimer = Timer(const Duration(milliseconds: 600), () {
       if (mounted &&
           _modoAudio &&
           !_enviando &&

@@ -18,7 +18,7 @@ class TtsOnDevice {
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_BR-dii-high.tar.bz2';
   static const _pasta = 'tts_dii'; // sob o diretório de documentos do app
   static const _sub = 'vits-piper-pt_BR-dii-high'; // pasta que o .tar.bz2 cria
-  static const double _lengthScale = 1.02; // ~mesma velocidade da VPS
+  static const double _lengthScale = 1.04; // velocidade da fala (↑ = mais lenta)
 
   static sherpa.OfflineTts? _tts;
   static bool _bindings = false;

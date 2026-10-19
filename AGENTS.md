@@ -1163,6 +1163,16 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   (download em 2º plano; até ficar pronta usa o servidor). **Build:** deps `sherpa_onnx`+`archive`;
   `abiFilters = arm64-v8a, armeabi-v7a` no build.gradle.kts (sem x86 p/ não inflar o APK). ⚠️ Síntese
   no isolate principal (jank leve ~0,5-1s/parágrafo; corre adiantada à fala). Modelo NÃO embutido (baixado).
+- **V0.1.132 — ajustes + 📘 DOC MESTRE `MUSE.md`:** (1) velocidade da fala −2% (length_scale 1.02→
+  **1.04**, nos DOIS lados: `vozes/pt_BR-dii-high.onnx.json` no proxy + `_lengthScale` em
+  `tts_ondevice.dart`); (2) **auto-enviar** por voz mais rápido (1500→**600 ms**); (3) sono **sexta e
+  sábado** mais tarde (sinal ≥21:30, enfático ≥22:00; seg-qui inalterado; `_nivel_sono` no `app.py`);
+  (4) perfil: +2 halteres de 2 kg (`conhecimento/perfil.md`); (5) pronúncia **halter→"altér"**,
+  **halteres→"altéres"** (nos dois lados); (6) **nome sem pausa de vírgula** ("boa noite, Vinícios" →
+  fala "boa noite Vinícios"; regex nos dois lados). (7) **Criado `MUSE.md`** (raiz do repo): guia
+  COMPLETO p/ qualquer IA/agente — voz/repo/download, onde mudar VELOCIDADE e PRONÚNCIA (sempre 2
+  lugares), sílaba tônica, Dictate+auto-enviar, memória/conhecimento/modos, checklist de contribuição.
+  **➜ Ao mexer na Muse, comece pelo `MUSE.md`.**
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
