@@ -1196,6 +1196,10 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   (vermelho na hora, antes do `initialize`) — 1º segurar já grava, sem 2º clique. (2) Teclado/
   caixa crescendo escondia o fim: `didChangeMetrics` + foco + `onTap/onChanged` chamam
   `_rolarFim` (ditado usa `instantaneo`), última mensagem fica acima do teclado/caixa.
+- **V0.1.140 — caixa acompanha o ditado:** o TextField 1→5 linhas ganhava scroll interno mas a
+  atualização programática (`_ctrl.text = ...`) não descia sozinha — após 5 linhas o texto novo
+  ficava escondido embaixo. Fix: `ScrollController` próprio (`_caixaScroll`) + `_rolarCaixaFim`
+  (jump ao fim) a cada parcial do ditado, no `onChanged` e no `onTap`.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

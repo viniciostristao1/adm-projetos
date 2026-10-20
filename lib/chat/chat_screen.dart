@@ -32,6 +32,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _ctrl = TextEditingController();
   final _scroll = AutoScrollController();
   final _foco = FocusNode();
+  // Scroll INTERNO da caixa de mensagem (TextField 1→5 linhas): quando o ditado
+  // passa de 5 linhas, o texto novo desce para fora da viewport da caixa — sem
+  // isso o usuário não vê o que acabou de ser capturado. Mantemos no fim.
+  final _caixaScroll = ScrollController();
   final _buscaCtrl = TextEditingController();
   bool _buscando = false; // modo busca na conversa
   String _busca = '';
@@ -465,12 +469,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _ctrl.dispose();
     _scroll.dispose();
+    _caixaScroll.dispose();
     _foco.dispose();
     super.dispose();
   }
 
   void _aoMudarAuth() {
     if (mounted) setState(() {});
+  }
+
+  // Rola o INTERIOR da caixa de mensagem até o fim (última linha visível).
+  // O TextField com maxLines:5 cria um scroll interno quando o ditado passa de
+  // 5 linhas; a atualização programática (_ctrl.text = ...) NÃO acompanha o
+  // cursor sozinha — sem isto o texto novo desce para baixo da caixa e o usuário
+  // não vê o que foi capturado. Chamado a cada parcial do ditado e ao digitar.
+  void _rolarCaixaFim() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_caixaScroll.hasClients) return;
+      final pos = _caixaScroll.position;
+      if (pos.pixels < pos.maxScrollExtent) {
+        _caixaScroll.jumpTo(pos.maxScrollExtent);
+      }
+    });
   }
 
   // Rola até a ÚLTIMA mensagem (via scrollToIndex — confiável mesmo fora da tela,
@@ -565,7 +585,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         onResult: (r) {
           _ctrl.text = r.recognizedWords;
           _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
-          // A caixa cresce (1→5 linhas) enquanto dita: mantém o fim visível.
+          // Caixa: mostra sempre o fim do que foi capturado (últimas linhas).
+          _rolarCaixaFim();
+          // Conversa: mantém o fim visível acima do teclado/caixa.
           _rolarFim(instantaneo: true);
         },
         listenOptions: SpeechListenOptions(
@@ -1661,14 +1683,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               child: TextField(
                 controller: _ctrl,
                 focusNode: _foco,
+                scrollController: _caixaScroll,
                 minLines: 1,
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.newline,
-                onTap: () => _rolarFim(),
+                onTap: () {
+                  _rolarFim();
+                  _rolarCaixaFim();
+                },
                 // Digitando a caixa cresce (1→5 linhas) e o teclado pode cobrir o
-                // fim: mantém a última mensagem visível acima do teclado/caixa.
-                onChanged: (_) => _rolarFim(instantaneo: true),
+                // fim: mantém a última mensagem visível + o fim do texto da caixa.
+                onChanged: (_) {
+                  _rolarFim(instantaneo: true);
+                  _rolarCaixaFim();
+                },
                 decoration: InputDecoration(
                   hintText: _gravando
                       ? 'Ouvindo… toque em enviar para concluir'
