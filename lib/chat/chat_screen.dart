@@ -167,6 +167,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       'rep': 'repetição', 'reps': 'repetições',
       'halter': 'altér', 'halteres': 'altéres',
       'arrego': 'arrêgo', 'arregos': 'arrêgos',
+      'app': 'ép', 'apps': 'éps',
+      'foram': 'fôram',
     };
     mapa.forEach((p, g) {
       t = t.replaceAllMapped(

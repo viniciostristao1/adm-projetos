@@ -1181,6 +1181,8 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   envia o texto digitado (resposta em texto); SEGURAR grava por voz e, ao soltar, envia + resposta
   FALANDO (voz→voz). Auto-play passa a seguir o método de entrada (sem modo-áudio-toggle nem
   auto-enviar-por-pausa, removidos). Ver MUSE.md §6.
+- **V0.1.136 — pronúncias app/foram:** `app`→"ép", `apps`→"éps", `foram`→"fôram" nos DOIS lados
+  (`PRONUNCIA_FALA` no proxy + `_normalizarFala` no app). `\b` protege `WhatsApp`.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
