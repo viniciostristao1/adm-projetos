@@ -29,6 +29,20 @@ class ChatStore {
   /// mais lento, sobrescrevia o mais novo = mensagens sumindo ao sair/voltar).
   static Future<void> _fila = Future.value();
 
+  /// Cache em memória da última decodificação de `listar()`, VALIDADO pelo string
+  /// bruto salvo (`_cacheStr`): se o disco não mudou desde a última leitura, não
+  /// redecodifica. É só de LEITURA (UI) — os GRAVADORES NUNCA usam o cache (leem
+  /// o disco via `_listarInterno`, fonte da verdade do merge anti-perda). Como a
+  /// validação é por conteúdo do string, os testes seguem isolados (cada
+  /// `setMockInitialValues` muda o string → redecodifica).
+  static List<Conversa>? _cache;
+  static String? _cacheStr;
+
+  /// Pré-carrega o histórico (e inicializa o SharedPreferences) em 2º plano, para
+  /// a 1ª abertura do Muse não piscar ~1s na tela de loading enquanto lê o disco.
+  /// Fire-and-forget no start do app (`ProjetosScreen`), só com o chat habilitado.
+  static Future<void> aquecer() => listar();
+
   /// Espera a fila esvaziar (usado em testes).
   static Future<void> sincronizar() => _fila;
 
@@ -54,10 +68,14 @@ class ChatStore {
       final p = await SharedPreferences.getInstance();
       final s = p.getString(_chave);
       if (s != null && s.isNotEmpty) {
+        // Disco inalterado desde a última leitura → devolve o cache (sem redecodificar).
+        if (_cache != null && s == _cacheStr) return _cache!;
         final list = (jsonDecode(s) as List)
             .map((e) => Conversa.fromJson(e as Map<String, dynamic>))
             .toList();
         list.sort((a, b) => b.atualizadaEm.compareTo(a.atualizadaEm));
+        _cacheStr = s;
+        _cache = list;
         return list;
       }
       // migração do formato antigo
@@ -205,7 +223,10 @@ class ChatStore {
     final corte = todas.length > _maxConversas
         ? todas.sublist(0, _maxConversas)
         : todas;
-    await p.setString(
-        _chave, jsonEncode(corte.map((c) => c.toJson()).toList()));
+    final str = jsonEncode(corte.map((c) => c.toJson()).toList());
+    await p.setString(_chave, str);
+    // Mantém o cache coerente com o disco: a próxima `listar()` não redecodifica.
+    _cacheStr = str;
+    _cache = List<Conversa>.of(corte);
   }
 }

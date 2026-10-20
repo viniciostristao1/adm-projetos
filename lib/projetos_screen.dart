@@ -12,6 +12,7 @@ import 'barra_config.dart';
 import 'caixa3d.dart';
 import 'chat/chat_config.dart';
 import 'chat/chat_screen.dart';
+import 'chat/chat_store.dart';
 import 'cores.dart';
 import 'editor.dart';
 import 'lembretes.dart';
@@ -82,6 +83,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     // Quando a nuvem baixa dados, recarrega a lista.
     Storage.instance.addListener(_aoMudarStorage);
     _configurarAtalhos();
+    // Pré-aquece o histórico do Muse em 2º plano (inicializa o SharedPreferences
+    // + decodifica o histórico fora do caminho quente) p/ a 1ª abertura do chat
+    // não piscar ~1s na tela de loading. Só com o chat habilitado; ignora erro.
+    if (ChatConfig.habilitado) ChatStore.aquecer();
   }
 
   /// Atalho ao segurar o ícone do app (App Shortcut): "Nova nota" cria uma
