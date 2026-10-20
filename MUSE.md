@@ -73,6 +73,7 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 | delay | `delei` | idem |
 | halter / halteres | `altér` / `altéres` | tônica no "é", sem o "h" |
 | rep / reps | `repetição` / `repetições` | expandir abreviação |
+| arrego / arregos | `arrêgo` / `arrêgos` | tônica na 2ª sílaba (ê fechado) |
 
 **Para ADICIONAR uma palavra:** inclua a mesma entrada nos DOIS lugares:
 - `app.py`: `PRONUNCIA_FALA = { …, "palavra": "grafía_que_soa_certo" }` → `systemctl restart taskix-chat`.
@@ -81,7 +82,9 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 
 ### Regras especiais de fala (já implementadas, nos dois lados)
 - **"NxM" → "N de M"**: "3x7" é lido "três de sete" (notação séries×repetições). Regex `(\d+)\s*[xX]\s*(\d+)` → `\1 de \2`.
+- **"kg" → "quilo(s)"**: "2 kg"→"2 quilos", "1 kg"→"1 quilo". Regex `\b(\d+)\s*kg\b` (pluraliza) + `\bkg\b`→"quilos".
 - **Nome sem pausa de vírgula:** "boa noite, Vinícios" → fala "boa noite Vinícios" (tira a vírgula antes do nome). Regex `,\s*(Vin[ií]ci[ou]s)` → ` \1`.
+- **Despedidas naturais** (persona, `app.py`): votos como "bom café/bom treino/bom descanso" em vez de construções tortas ("vai bem no café").
 
 ---
 
