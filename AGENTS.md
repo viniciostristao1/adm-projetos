@@ -1205,6 +1205,11 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   o foco. (2) Segurar o ícone → Muse: mostrava a lista de projetos por 1-2s com fantasma do
   chat (cold start + push). Fix: `_museAberto` vira loading (`setState` imediato + body troca
   p/ `CircularProgressIndicator`) até o `ChatScreen` empilhar.
+- **V0.1.142 — ditado longo não corta:** o recognizer parava sozinho em pausa (~3s) ou teto
+  de sessão e o texto truncava no meio da frase (`cancelOnError:true` + sem restart +
+  sobrescrevia `_ctrl.text`). Fix: ditado CONTÍNUO — `listenFor:120s` + `pauseFor:8s` (em
+  `SpeechListenOptions`) + `cancelOnError:false`; `_aoStatusStt` recomeca sozinho acumulando
+  em `_textoBase`; `_paradaManual` distingue sistema (recomeça) de usuário (enviar/X/limpar).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

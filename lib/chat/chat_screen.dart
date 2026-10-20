@@ -53,6 +53,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final SpeechToText _stt = SpeechToText();
   bool _sttOk = false; // inicializado com sucesso
   bool _gravando = false; // ouvindo (gravação ativa, TRAVADA até enviar/X)
+  // Ditado CONTÍNUO (textos longos): o reconhecedor do Android para sozinho em
+  // pausa longa (~3s padrão) ou após dezenas de segundos — sem restart o texto
+  // truncava no meio da frase. `_paradaManual` distingue "sistema parou" (=
+  // recomeça sozinho) de "usuário parou" (enviar/X/limpar = não recomeça).
+  // `_textoBase` acumula o já ditado entre sessões (o recognizer zera o texto
+  // a cada restart — sem acumular, o recomeço apagaria o início).
+  bool _paradaManual = false;
+  String _textoBase = '';
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
   final List<String> _imagensB64 = []; // imagens anexadas (visão), máx. 3
@@ -134,7 +142,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     try {
       if (!_sttOk) {
         try {
-          _sttOk = await _stt.initialize();
+          _sttOk = await _stt.initialize(
+            onStatus: _aoStatusStt,
+            onError: _aoErroStt,
+          );
         } catch (_) {
           _sttOk = false;
         }
@@ -455,6 +466,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     SyncService.instance.removeListener(_aoMudarAuth);
     _foco.removeListener(_aoMudarFocoCaixa);
     _tick?.cancel();
+    _paradaManual = true; // impede restart do ditado ao sair
     _stt.cancel();
     _subStream?.cancel(); // o stream segue vivo no ChatService e salva ao fim
     _tts.stop();
@@ -543,14 +555,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ───────── Botão de gravação (voz nativa do Android → texto → envia) ─────────
-  /// SEGURAR inicia e TRAVA a gravação (soltar o dedo NÃO para — por isso texto
-  /// longo não envia sozinho quando a caixa cresce e o botão desloca). Inicializa
-  /// o reconhecedor na 1ª vez (pede permissão do microfone). Transcreve ao vivo.
+  /// SEGURAR inicia e TRAVA a gravação (soltar o dedo NÃO para). O ditado é
+  /// CONTÍNUO: o Android para sozinho em pausas/teto de sessão — o `_aoStatusStt`
+  /// recomeça automaticamente acumulando em `_textoBase`. A parada é explícita
+  /// (toque em enviar, X ou limpar). Transcreve ao vivo.
   Future<void> _micStart() async {
     if (_enviando || _gravando) return;
     // Feedback IMEDIATO (antes de qualquer await): o botão fica vermelho na hora,
     // mesmo na 1ª vez (quando o STT ainda está inicializando). Sem isso o segurar
     // parecia "não fazer nada" e o usuário soltava.
+    _paradaManual = false;
+    _textoBase = '';
     _ctrl.clear();
     if (mounted) {
       setState(() {
@@ -564,26 +579,47 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!_sttOk) {
       try {
         _sttOk = await _stt.initialize(
-          onError: (_) {
-            if (mounted) setState(() => _gravando = false);
-          },
+          onStatus: _aoStatusStt,
+          onError: _aoErroStt,
         );
       } catch (_) {
         _sttOk = false;
       }
       if (!_sttOk) {
+        _paradaManual = true;
         if (mounted) setState(() => _gravando = false);
         _snack('Reconhecimento de voz indisponível neste aparelho');
         return;
       }
+    } else {
+      // Garante os handlers atuais (o pré-aquecimento pode ter registrado outros).
+      try {
+        await _stt.initialize(
+          onStatus: _aoStatusStt,
+          onError: _aoErroStt,
+        );
+      } catch (_) {}
     }
     // Travado: mesmo que o dedo já tenha soltado durante a inicialização/permissão,
     // a gravação continua — a parada é explícita (toque em enviar ou X).
     _prepararVozOffline(); // garante a voz da resposta pronta (silenciosa)
+    _ouvirUmaVez();
+  }
+
+  /// Uma sessão de escuta (o sistema pode encerrar sozinho — ver `_aoStatusStt`).
+  /// `listenFor` longo evita o teto de ~30s; `pauseFor` longo tolera pausas para
+  /// pensar no meio de frases longas; `cancelOnError:false` não morre em falha
+  /// transitória (o restart cuida).
+  Future<void> _ouvirUmaVez() async {
+    if (!_gravando || _paradaManual || !mounted) return;
     try {
       await _stt.listen(
         onResult: (r) {
-          _ctrl.text = r.recognizedWords;
+          final atual = r.recognizedWords.trim();
+          final combinado = _textoBase.isEmpty
+              ? atual
+              : (atual.isEmpty ? _textoBase : '$_textoBase $atual');
+          _ctrl.text = combinado;
           _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
           // Caixa: mostra sempre o fim do que foi capturado (últimas linhas).
           _rolarCaixaFim();
@@ -593,18 +629,51 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         listenOptions: SpeechListenOptions(
           partialResults: true,
           listenMode: ListenMode.dictation,
-          cancelOnError: true,
+          cancelOnError: false,
+          listenFor: Duration(seconds: 120),
+          pauseFor: Duration(seconds: 8),
           localeId: 'pt_BR',
         ),
       );
     } catch (_) {
-      if (mounted) setState(() => _gravando = false);
+      // Falha ao (re)começar: o status vai tentar de novo; se era parada manual,
+      // o flag impede o restart.
     }
+  }
+
+  /// Status do reconhecedor: `done`/`notListening` com gravação ativa e sem
+  /// parada manual = o sistema encerrou a sessão sozinho (pausa/teto) → comita
+  /// o parcial como base e recomeça para o ditado continuar de onde parou.
+  void _aoStatusStt(String s) {
+    if (!_gravando || _paradaManual || !mounted) return;
+    if (s == 'done' || s == 'notListening') {
+      if (_ctrl.text.trim().isNotEmpty) _textoBase = _ctrl.text.trim();
+      // Pequeno respiro antes de reabrir (evita loop apertado em erro contínuo).
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_gravando && !_paradaManual && mounted) _ouvirUmaVez();
+      });
+    }
+  }
+
+  /// Erro do reconhecedor: transitório ignora (o status recomeça); permanente
+  /// (sem permissão/mic) encerra com aviso.
+  void _aoErroStt(dynamic e) {
+    try {
+      final perm = (e as dynamic).permanent as bool?;
+      if (perm == true) {
+        _paradaManual = true;
+        if (mounted) setState(() => _gravando = false);
+        _snack('Reconhecimento de voz indisponível neste aparelho');
+      }
+      // Transitório: não mexe no `_gravando` — o `_aoStatusStt` recomeça.
+    } catch (_) {}
   }
 
   /// TOQUE no enviar com gravação ativa → para de ouvir e ENVIA.
   Future<void> _micStop() async {
     if (!_gravando) return;
+    _paradaManual = true; // impede o auto-restart do `_aoStatusStt`
+    _textoBase = '';
     try {
       await _stt.stop();
     } catch (_) {}
@@ -617,6 +686,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// X com gravação ativa → para de ouvir SEM enviar (mantém o texto p/ editar).
   Future<void> _micCancel() async {
     if (!_gravando) return;
+    _paradaManual = true;
+    _textoBase = '';
     try {
       await _stt.cancel();
     } catch (_) {}
@@ -628,6 +699,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// anexo + imagens). Se estava gravando, para primeiro sem enviar. Mantém o
   /// foco na caixa p/ continuar digitando/ditando na sequência.
   Future<void> _limparCaixa() async {
+    _paradaManual = true;
+    _textoBase = '';
     if (_gravando) {
       try {
         await _stt.cancel();
