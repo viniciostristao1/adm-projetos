@@ -96,12 +96,14 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 
 ---
 
-## 6. Entrada por voz — DUAS formas
-A barra de entrada tem: **[anexar] [campo de texto] [🎤 gravar] [enviar]**. O botão **enviar** manual continua sempre disponível p/ texto digitado.
+## 6. Entrada por voz / texto — UM BOTÃO SÓ
+A barra de entrada é **[anexar] [campo de texto] [botão único]**. O botão faz as duas coisas pelo gesto (`chat_screen.dart`, no `_barraEntrada` — `GestureDetector` + `FloatingActionButton.small`):
+- **TOQUE curto** (`FAB.onPressed`) → envia o **texto digitado**. Põe `_modoAudio=false` → resposta vem em **texto** (sem voz; toque o alto-falante p/ ouvir).
+- **SEGURAR** (`onLongPressStart`→`_micStart`; `onLongPressEnd`→`_micStop`) → **grava por voz** (botão fica vermelho, ícone 🎤), transcreve ao vivo; ao **SOLTAR**, para e **envia na hora**, e a resposta vem **FALANDO** (`_micStart` põe `_modoAudio=true` → voz→voz).
 
-**(a) Botão de GRAVAÇÃO no app (push-to-talk)** — `speech_to_text` (reconhecimento NATIVO do Android, motor do Google, mesmo do Gboard; **instantâneo**, não usa o teclado). `_micStart`/`_micStop` em `chat_screen.dart`: **segura** o 🎤 (fica vermelho), fala, **solta → envia na hora** (`_stt.stop()` + 350 ms p/ o resultado final → `_enviar`). Usar o mic liga o modo áudio (resposta em voz). Permissão RECORD_AUDIO + `<queries>` do `RecognitionService` no `AndroidManifest.xml`. Transcreve ao vivo no campo. (Pontuação: o motor do Google pontua pouco — mas a IA entende sem; ver §4 nota.)
+A voz de entrada é o reconhecimento **NATIVO do Android** (`speech_to_text`; motor do Google, mesmo do Gboard; **instantâneo**, não usa o teclado). `_stt.stop()` + ~350 ms p/ o resultado final → `_enviar`. Permissão `RECORD_AUDIO` + `<queries>` do `RecognitionService` no `AndroidManifest.xml`. Trata soltar durante o init (`_micSegurando`). Pontuação: o motor do Google pontua pouco — mas a IA entende sem (ver §4 nota).
 
-**(b) Teclado de voz (Dictate/Whisper ou Gboard) + auto-enviar** — o teclado do sistema insere o texto; o app só vê o TEXTO. **Modo áudio** (segurar o botão de enviar → ícone 🎤) liga (i) **auto-play** da resposta e (ii) **auto-enviar** (`_aoDigitarVoz` + `_autoSendTimer`): quando o texto para de mudar por **~0,4 s**, ENVIA sozinho. Tempo tunável. Dictate dá Whisper+pontuação on-device, porém transcreve mais devagar; Gboard é instantâneo mas pontua menos.
+**Regra de auto-play:** segue o MÉTODO de entrada — falou (🎤) → responde falando; digitou (toque) → responde em texto. Não há mais um "modo áudio" persistente nem auto-enviar-por-pausa (removidos; o botão único cobre tudo). Teclado de voz (Dictate/Gboard) ainda funciona: você digita por voz e dá o **toque curto** p/ enviar.
 
 ---
 

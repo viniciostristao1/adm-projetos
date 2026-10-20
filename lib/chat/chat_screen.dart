@@ -41,7 +41,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _enviando = false;
   bool _carregando = true;
   Timer? _tick; // atualiza o contador do "pensando"
-  Timer? _autoSendTimer; // modo áudio: envia sozinho quando a ditado por voz pausa
   // Botão de GRAVAÇÃO (push-to-talk) com o reconhecimento de voz NATIVO do Android
   // (motor do Google, mesmo do Gboard — instantâneo): fala→texto no app, sem teclado;
   // ao SOLTAR, envia na hora. Não depende do teclado de voz (Dictate/Gboard).
@@ -98,7 +97,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     // A conclusão da voz neural é gerida pelo streaming em `_falar` (o listener
     // global zerava o _lendoIdx no fim de CADA frase, cortando a leitura).
-    _ctrl.addListener(_aoDigitarVoz); // auto-enviar no modo áudio
     _carregar();
   }
 
@@ -408,7 +406,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     SyncService.instance.removeListener(_aoMudarAuth);
     _tick?.cancel();
-    _autoSendTimer?.cancel();
     _stt.cancel();
     _subStream?.cancel(); // o stream segue vivo no ChatService e salva ao fim
     _tts.stop();
@@ -480,26 +477,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  /// MODO ÁUDIO hands-free: ao ditar por voz (teclado/Whisper), quando o texto
-  /// para de mudar por ~1,5s (você soltou o microfone), envia sozinho. Fora do
-  /// modo áudio não faz nada (aí você envia no botão, como sempre).
-  void _aoDigitarVoz() {
-    _autoSendTimer?.cancel();
-    // Durante a gravação pelo botão de mic, o envio é no SOLTAR (não por pausa).
-    if (_gravando) return;
-    if (!_modoAudio || _enviando || _ctrl.text.trim().isEmpty) return;
-    // Curto (~0,4s): manda quase na hora que você solta o mic, só esperando o
-    // teclado de voz terminar de inserir o texto. Tunável.
-    _autoSendTimer = Timer(const Duration(milliseconds: 400), () {
-      if (mounted &&
-          _modoAudio &&
-          !_enviando &&
-          _ctrl.text.trim().isNotEmpty) {
-        _enviar();
-      }
-    });
-  }
-
   // ───────── Botão de gravação (voz nativa do Android → texto → envia) ─────────
   /// Começa a ouvir (segurou o botão). Inicializa o reconhecedor na 1ª vez (pede
   /// permissão do microfone). Transcreve ao vivo no campo de texto.
@@ -557,7 +534,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _enviar() async {
-    _autoSendTimer?.cancel();
     if (_enviando) return;
     final texto = capitalizarFrases(_ctrl.text.trim());
     final imgs = List<String>.from(_imagensB64);
@@ -1623,55 +1599,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            // Botão de GRAVAÇÃO (segure p/ falar, solte p/ enviar) — voz nativa do
-            // Android (motor do Google). Vermelho enquanto grava.
+            // UM BOTÃO SÓ:
+            //  • TOQUE curto  = envia o texto digitado (não fala a resposta).
+            //  • SEGURAR      = grava por voz (vermelho); ao SOLTAR, envia e a
+            //                   resposta vem FALANDO (voz→voz). Sem trocar de botão.
+            // O toque vai no FAB.onPressed; o segurar, no GestureDetector (não há
+            // tooltip no FAB, então o long-press chega aqui).
             GestureDetector(
-              onTapDown: (_) => _micStart(),
-              onTapUp: (_) => _micStop(),
-              onTapCancel: _micStop,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                child: Icon(
-                  _gravando ? Icons.mic : Icons.mic_none,
-                  size: 26,
-                  color: _gravando
-                      ? Colors.red
-                      : Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            // Segurar o botão ALTERNA o "modo áudio": a resposta da Muse toca
-            // sozinha (semi-conversação). No modo áudio o ícone vira microfone e
-            // o botão fica destacado. Tocar = enviar (como sempre).
-            // NÃO usar `tooltip:` no FAB: o Tooltip do Material captura o
-            // long-press (só aparecia a dica, o modo não alternava). Sem ele, o
-            // GestureDetector abaixo recebe o onLongPress.
-            GestureDetector(
-              onLongPress: () {
-                setState(() => _modoAudio = !_modoAudio);
-                if (_modoAudio) {
-                  _prepararVozOffline(); // baixa/carrega a voz no aparelho
-                } else {
-                  _pararFala();
-                  _autoSendTimer?.cancel();
-                }
-                _snack(_modoAudio
-                    ? '🎤 Modo áudio: dite por voz, solta o mic e ela ENVIA e RESPONDE falando'
-                    : 'Modo áudio desligado');
-              },
+              onLongPressStart: (_) => _micStart(),
+              onLongPressEnd: (_) => _micStop(),
+              onLongPressCancel: _micStop,
               child: FloatingActionButton.small(
                 heroTag: 'fab_chat_enviar',
-                onPressed: _enviando ? null : _enviar,
-                backgroundColor: _modoAudio
-                    ? Theme.of(context).colorScheme.tertiary
-                    : null,
-                foregroundColor: _modoAudio
-                    ? Theme.of(context).colorScheme.onTertiary
-                    : null,
+                onPressed: _enviando
+                    ? null
+                    : () {
+                        _modoAudio = false; // digitou → responde em texto (sem voz)
+                        _enviar();
+                      },
+                backgroundColor: _gravando ? Colors.red : null,
+                foregroundColor: _gravando ? Colors.white : null,
                 child: Icon(_enviando
                     ? Icons.hourglass_empty
-                    : (_modoAudio ? Icons.mic : Icons.send)),
+                    : (_gravando ? Icons.mic : Icons.send)),
               ),
             ),
           ]),
