@@ -50,3 +50,15 @@
 Me diga os favoritos pelo nome do arquivo (ex.: `assistente-03-degrade`,
 `recentes-02-solido-azul`, `estudos-04-bege`) — posso misturar estilos entre os
 três botões ou seguir um padrão único. Depois eu implemento no app.
+
+## Preenchidos na cor do tema + desenho preto (13–18)
+
+Cada botão preenchido com a cor do seu tema e o desenho em preto:
+
+![Grade Preenchidos](grade-preenchidos.png)
+
+| | Azul | Marrom (bege) | Terracota | Verde (ônix) | Cinza (Dark Game) | Laranja (escuro) |
+|---|---|---|---|---|---|---|
+| Recentes | ![13](recentes-13-preenchido-azul.svg) | ![14](recentes-14-preenchido-bege.svg) | ![15](recentes-15-preenchido-terracota.svg) | ![16](recentes-16-preenchido-onix.svg) | ![17](recentes-17-preenchido-neum.svg) | ![18](recentes-18-preenchido-escuro.svg) |
+| Assistente | ![13](assistente-13-preenchido-azul.svg) | ![14](assistente-14-preenchido-bege.svg) | ![15](assistente-15-preenchido-terracota.svg) | ![16](assistente-16-preenchido-onix.svg) | ![17](assistente-17-preenchido-neum.svg) | ![18](assistente-18-preenchido-escuro.svg) |
+| Estudos | ![13](estudos-13-preenchido-azul.svg) | ![14](estudos-14-preenchido-bege.svg) | ![15](estudos-15-preenchido-terracota.svg) | ![16](estudos-16-preenchido-onix.svg) | ![17](estudos-17-preenchido-neum.svg) | ![18](estudos-18-preenchido-escuro.svg) |
