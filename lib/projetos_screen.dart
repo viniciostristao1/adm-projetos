@@ -116,10 +116,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   }
 
   /// Abre o Muse (na última conversa) — App Shortcut "Muse". Pós-frame p/ garantir
-  /// o Navigator pronto mesmo em cold start pelo atalho.
+  /// o Navigator pronto mesmo em cold start pelo atalho. Enquanto empurra, mostra
+  /// loading no lugar da lista (sem isso o usuário vê a pasta dos projetos por
+  /// 1-2s com o "fantasma" do chat por baixo — cold start + Push demoram).
   void _abrirMuse() {
     if (!ChatConfig.habilitado || _museAberto) return;
     _museAberto = true; // trava já aqui (disparo duplo no MESMO frame)
+    if (mounted) setState(() {}); // esconde a lista já neste frame (vira loading)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) {
         _museAberto = false;
@@ -127,7 +130,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       }
       await Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const ChatScreen()));
-      _museAberto = false; // libera ao fechar o Muse (permite reabrir depois)
+      if (!mounted) return;
+      setState(() => _museAberto = false); // libera ao fechar (permite reabrir)
     });
   }
 
@@ -1279,7 +1283,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         tooltip: 'Novo projeto',
         child: const Icon(Icons.add),
       ),
-      body: Column(
+      body: _museAberto
+          // Atalho "Muse Spark" (segurar o ícone): esconde a lista enquanto o
+          // ChatScreen empilha — sem isso aparece a pasta dos projetos + fantasma.
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           if (_buscando)
             Padding(

@@ -1200,6 +1200,11 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   atualização programática (`_ctrl.text = ...`) não descia sozinha — após 5 linhas o texto novo
   ficava escondido embaixo. Fix: `ScrollController` próprio (`_caixaScroll`) + `_rolarCaixaFim`
   (jump ao fim) a cada parcial do ditado, no `onChanged` e no `onTap`.
+- **V0.1.141 — X limpar + atalho Muse sem fantasma:** (1) X dentro da caixa (`suffixIcon`,
+  `ValueListenableBuilder`) limpa texto+anexo+imagens; se gravando, para sem enviar e mantém
+  o foco. (2) Segurar o ícone → Muse: mostrava a lista de projetos por 1-2s com fantasma do
+  chat (cold start + push). Fix: `_museAberto` vira loading (`setState` imediato + body troca
+  p/ `CircularProgressIndicator`) até o `ChatScreen` empilhar.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

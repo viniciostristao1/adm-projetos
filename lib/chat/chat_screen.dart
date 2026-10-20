@@ -624,6 +624,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     setState(() => _gravando = false);
   }
 
+  /// X da caixa de mensagem → limpa tudo o que está escrito/ditado (texto +
+  /// anexo + imagens). Se estava gravando, para primeiro sem enviar. Mantém o
+  /// foco na caixa p/ continuar digitando/ditando na sequência.
+  Future<void> _limparCaixa() async {
+    if (_gravando) {
+      try {
+        await _stt.cancel();
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    setState(() {
+      _gravando = false;
+      _ctrl.clear();
+      _anexo = null;
+      _imagensB64.clear();
+    });
+    _rolarCaixaFim();
+    _foco.requestFocus();
+  }
+
   Future<void> _enviar() async {
     if (_enviando) return;
     final texto = capitalizarFrases(_ctrl.text.trim());
@@ -1707,6 +1727,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       borderRadius: BorderRadius.circular(22)),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  // X p/ limpar o que está escrito/ditado (texto + anexo + imagens).
+                  // ValueListenable mostra/esconde sem setState a cada tecla.
+                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _ctrl,
+                    builder: (context, v, child) {
+                      final temAlgo = v.text.isNotEmpty ||
+                          _anexo != null ||
+                          _imagensB64.isNotEmpty;
+                      if (!temAlgo) return const SizedBox.shrink();
+                      return IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        tooltip: 'Limpar',
+                        onPressed: _enviando ? null : _limparCaixa,
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
