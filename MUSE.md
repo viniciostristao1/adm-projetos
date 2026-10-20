@@ -137,7 +137,17 @@ Selecionável por conversa (menu). Em `chat_models.dart` (`ChatPreset`) e no `ap
 - **Coach (Calis)** — treinador do Calis Timer: lê o desempenho (Firestore) + `perfil.md`/ciência. Foco principal.
 - **Projetos** — discute os apps/projetos (usa `projetos.md`).
 - **Geral** — conversa livre/pessoal (usa `pessoal.md`).
-Também: **modelo** (rápido/caprichado — DeepSeek flash) e **tamanho** (longo/curto) por conversa.
+
+### Modelo de IA (gateway OpenCode Go) — qual está em uso
+O app manda o `model` por conversa; o proxy valida contra `MODELOS_OK` (`app.py`). Selecionável no menu **⋮ → Modelo** (`ChatModelo` em `chat_models.dart`):
+- **Rápido = `deepseek-v4-flash-vision-exp`** — **o PADRÃO** (com visão). Definido no `/opt/taskix-chat/.env` → `OPENCODE_GO_MODEL`.
+- **Caprichado = `deepseek-v4.1-flash`** — mais elaborado, um pouco mais lento. **Já dá p/ escolher** (o "escolher 2 modelos" que o usuário pediu já existe).
+- **Fallback = `deepseek-flash`** (`OPENCODE_FALLBACK`) — usado se o escolhido falhar.
+- `MAX_TOKENS=4000`, `REASONING_EFFORT=none` (desliga raciocínio oculto → ~metade do tempo).
+
+⚠️ **`muse-spark-1.3-contributor` NÃO funciona** neste gateway (testado 2026-10-12 **e de novo 2026-10-20**: `HTTP 400 ModelProtocolUnsupported` — é um endpoint de outro protocolo, não um modelo chat-completions; `muse-spark-1.3` dá "Model is unavailable"). Por isso a Muse usa **DeepSeek**. Para adicionar como 3ª opção, só se o gateway passar a expô-lo como chat-completions.
+
+Também: **tamanho** (longo/curto) por conversa.
 
 ---
 
