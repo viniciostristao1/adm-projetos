@@ -1191,6 +1191,11 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   (`Parar de ouvir/Enviar`) faz o `Tooltip` consumir o long-press e o `onLongPressStart` do
   `GestureDetector` nunca disparava (a própria V0.1.137 avisava "sem tooltip"). Fix: SEM tooltip
   no FAB + `behavior: translucent` + ícone volta a `mic` gravando / `send` parado.
+- **V0.1.139 — gravar de 1ª + teclado não cobre:** (1) Some o snack "voz offline pronta" (vira
+  pré-aquecimento silencioso em `initState` p/ STT+TTS); `_micStart` dá feedback imediato
+  (vermelho na hora, antes do `initialize`) — 1º segurar já grava, sem 2º clique. (2) Teclado/
+  caixa crescendo escondia o fim: `didChangeMetrics` + foco + `onTap/onChanged` chamam
+  `_rolarFim` (ditado usa `instantaneo`), última mensagem fica acima do teclado/caixa.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

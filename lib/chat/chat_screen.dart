@@ -98,7 +98,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     // A conclusão da voz neural é gerida pelo streaming em `_falar` (o listener
     // global zerava o _lendoIdx no fim de CADA frase, cortando a leitura).
+    _foco.addListener(_aoMudarFocoCaixa);
     _carregar();
+    // Pré-aquece em 2º plano (sem snack, sem bloquear): reconhecimento de voz +
+    // voz offline. Assim o 1º segurar já grava e a 1ª resposta já sai rápida.
+    // O microfone pode pedir permissão aqui; se negada, tentamos de novo no segurar.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _preAquecerVoz());
+  }
+
+  /// Foco na caixa de mensagem → rola a conversa p/ a última ficar acima do
+  /// teclado (o teclado encolhe a lista mas mantém o offset antigo, escondendo
+  /// o fim). O 2º scroll cobre a animação de abertura do teclado (~300ms).
+  void _aoMudarFocoCaixa() {
+    if (_foco.hasFocus) {
+      _rolarFim();
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted && _foco.hasFocus) _rolarFim();
+      });
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    // Teclado abriu/fechou ou a caixa cresceu (1→5 linhas): mantém o fim visível
+    // acima do teclado/caixa. Sem isso a última mensagem fica escondida atrás.
+    if (mounted && !_carregando) _rolarFim();
+  }
+
+  /// Prepara STT + voz offline sem snack e sem travar a UI (fire-and-forget).
+  Future<void> _preAquecerVoz() async {
+    try {
+      if (!_sttOk) {
+        try {
+          _sttOk = await _stt.initialize();
+        } catch (_) {
+          _sttOk = false;
+        }
+      }
+    } catch (_) {}
+    try {
+      // Não mostra "baixando/voz pronta": usa servidor como reserva silenciosa.
+      await TtsOnDevice.preparar();
+    } catch (_) {}
   }
 
   /// TTS em pt-BR, voz FEMININA já instalada (não baixa nada; se não houver, usa
@@ -178,15 +219,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return t;
   }
 
-  /// Prepara a voz on-device (baixa o modelo na 1ª vez). Chamado ao ligar o modo
-  /// áudio / tocar o alto-falante. Enquanto não fica pronta, usa a voz do servidor.
+  /// Prepara a voz on-device em silêncio (sem snack, sem bloquear). Enquanto não
+  /// fica pronta, a resposta usa a voz do servidor como reserva. Chamado ao
+  /// segurar p/ gravar / tocar no alto-falante. O pré-aquecimento real acontece
+  /// em `_preAquecerVoz()` (abertura da tela); aqui é só reforço.
   Future<void> _prepararVozOffline() async {
     if (TtsOnDevice.pronto) return;
-    if (await TtsOnDevice.precisaBaixar()) {
-      _snack('Baixando a voz offline (~67 MB, só 1 vez) — até lá uso a do servidor');
-    }
-    final ok = await TtsOnDevice.preparar();
-    if (mounted && ok) _snack('🎙️ Voz offline pronta — bem mais rápida!');
+    try {
+      await TtsOnDevice.preparar();
+    } catch (_) {}
   }
 
   /// Enfileira um trecho (frase/parágrafo) p/ falar e aciona os dois workers.
@@ -408,6 +449,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     SyncService.instance.removeListener(_aoMudarAuth);
+    _foco.removeListener(_aoMudarFocoCaixa);
     _tick?.cancel();
     _stt.cancel();
     _subStream?.cancel(); // o stream segue vivo no ChatService e salva ao fim
@@ -486,6 +528,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// o reconhecedor na 1ª vez (pede permissão do microfone). Transcreve ao vivo.
   Future<void> _micStart() async {
     if (_enviando || _gravando) return;
+    // Feedback IMEDIATO (antes de qualquer await): o botão fica vermelho na hora,
+    // mesmo na 1ª vez (quando o STT ainda está inicializando). Sem isso o segurar
+    // parecia "não fazer nada" e o usuário soltava.
+    _ctrl.clear();
+    if (mounted) {
+      setState(() {
+        _gravando = true;
+        _modoAudio = true; // usar o mic = conversa: a resposta toca em voz
+      });
+    } else {
+      _gravando = true;
+      _modoAudio = true;
+    }
     if (!_sttOk) {
       try {
         _sttOk = await _stt.initialize(
@@ -497,30 +552,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _sttOk = false;
       }
       if (!_sttOk) {
+        if (mounted) setState(() => _gravando = false);
         _snack('Reconhecimento de voz indisponível neste aparelho');
         return;
       }
     }
     // Travado: mesmo que o dedo já tenha soltado durante a inicialização/permissão,
     // a gravação continua — a parada é explícita (toque em enviar ou X).
-    _ctrl.clear();
-    setState(() {
-      _gravando = true;
-      _modoAudio = true; // usar o mic = conversa: a resposta toca em voz
-    });
-    _prepararVozOffline(); // garante a voz da resposta pronta
-    await _stt.listen(
-      onResult: (r) {
-        _ctrl.text = r.recognizedWords;
-        _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
-      },
-      listenOptions: SpeechListenOptions(
-        partialResults: true,
-        listenMode: ListenMode.dictation,
-        cancelOnError: true,
-        localeId: 'pt_BR',
-      ),
-    );
+    _prepararVozOffline(); // garante a voz da resposta pronta (silenciosa)
+    try {
+      await _stt.listen(
+        onResult: (r) {
+          _ctrl.text = r.recognizedWords;
+          _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+          // A caixa cresce (1→5 linhas) enquanto dita: mantém o fim visível.
+          _rolarFim(instantaneo: true);
+        },
+        listenOptions: SpeechListenOptions(
+          partialResults: true,
+          listenMode: ListenMode.dictation,
+          cancelOnError: true,
+          localeId: 'pt_BR',
+        ),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _gravando = false);
+    }
   }
 
   /// TOQUE no enviar com gravação ativa → para de ouvir e ENVIA.
@@ -1608,6 +1665,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.newline,
+                onTap: () => _rolarFim(),
+                // Digitando a caixa cresce (1→5 linhas) e o teclado pode cobrir o
+                // fim: mantém a última mensagem visível acima do teclado/caixa.
+                onChanged: (_) => _rolarFim(instantaneo: true),
                 decoration: InputDecoration(
                   hintText: _gravando
                       ? 'Ouvindo… toque em enviar para concluir'
