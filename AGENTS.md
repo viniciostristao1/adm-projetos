@@ -1183,6 +1183,10 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   auto-enviar-por-pausa, removidos). Ver MUSE.md §6.
 - **V0.1.136 — pronúncias app/foram:** `app`→"ép", `apps`→"éps", `foram`→"fôram" nos DOIS lados
   (`PRONUNCIA_FALA` no proxy + `_normalizarFala` no app). `\b` protege `WhatsApp`.
+- **V0.1.137 — voz longa não envia sozinha:** gravação TRAVADA (segurar inicia, soltar NÃO para).
+  Causa: a caixa crescia e o FAB deslocava de baixo do dedo → `onLongPressEnd/Cancel` → envio
+  parcial. Fix: `Row(end)` ancora o botão embaixo + `End/Cancel` viram no-op; concluir é TOQUE
+  no enviar, X cancela mantendo o texto p/ editar. Remove `_micSegurando`.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

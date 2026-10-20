@@ -41,13 +41,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _enviando = false;
   bool _carregando = true;
   Timer? _tick; // atualiza o contador do "pensando"
-  // Botão de GRAVAÇÃO (push-to-talk) com o reconhecimento de voz NATIVO do Android
-  // (motor do Google, mesmo do Gboard — instantâneo): fala→texto no app, sem teclado;
-  // ao SOLTAR, envia na hora. Não depende do teclado de voz (Dictate/Gboard).
+  // Botão de GRAVAÇÃO (push-to-talk TRAVADO) com o reconhecimento de voz NATIVO
+  // do Android (motor do Google, mesmo do Gboard — instantâneo): fala→texto no app.
+  // SEGURAR inicia e TRAVA (soltar NÃO para — o botão não foge mais do dedo quando
+  // a caixa cresce); TOQUE no enviar conclui e envia; X cancela mantendo o texto.
+  // Não depende do teclado de voz (Dictate/Gboard).
   final SpeechToText _stt = SpeechToText();
   bool _sttOk = false; // inicializado com sucesso
-  bool _gravando = false; // ouvindo (gravação ativa)
-  bool _micSegurando = false; // botão pressionado (p/ tratar soltar durante o init)
+  bool _gravando = false; // ouvindo (gravação ativa, TRAVADA até enviar/X)
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
   final List<String> _imagensB64 = []; // imagens anexadas (visão), máx. 3
@@ -480,11 +481,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ───────── Botão de gravação (voz nativa do Android → texto → envia) ─────────
-  /// Começa a ouvir (segurou o botão). Inicializa o reconhecedor na 1ª vez (pede
-  /// permissão do microfone). Transcreve ao vivo no campo de texto.
+  /// SEGURAR inicia e TRAVA a gravação (soltar o dedo NÃO para — por isso texto
+  /// longo não envia sozinho quando a caixa cresce e o botão desloca). Inicializa
+  /// o reconhecedor na 1ª vez (pede permissão do microfone). Transcreve ao vivo.
   Future<void> _micStart() async {
-    if (_enviando) return;
-    _micSegurando = true;
+    if (_enviando || _gravando) return;
     if (!_sttOk) {
       try {
         _sttOk = await _stt.initialize(
@@ -496,12 +497,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _sttOk = false;
       }
       if (!_sttOk) {
-        _micSegurando = false;
         _snack('Reconhecimento de voz indisponível neste aparelho');
         return;
       }
     }
-    if (!_micSegurando) return; // soltou durante a inicialização/permissão
+    // Travado: mesmo que o dedo já tenha soltado durante a inicialização/permissão,
+    // a gravação continua — a parada é explícita (toque em enviar ou X).
     _ctrl.clear();
     setState(() {
       _gravando = true;
@@ -522,9 +523,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  /// Soltou o botão → para de ouvir, deixa o resultado final assentar e ENVIA.
+  /// TOQUE no enviar com gravação ativa → para de ouvir e ENVIA.
   Future<void> _micStop() async {
-    _micSegurando = false;
     if (!_gravando) return;
     try {
       await _stt.stop();
@@ -533,6 +533,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() => _gravando = false);
     if (!_enviando && _ctrl.text.trim().isNotEmpty) _enviar();
+  }
+
+  /// X com gravação ativa → para de ouvir SEM enviar (mantém o texto p/ editar).
+  Future<void> _micCancel() async {
+    if (!_gravando) return;
+    try {
+      await _stt.cancel();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _gravando = false);
   }
 
   Future<void> _enviar() async {
@@ -1574,15 +1584,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ]),
               ),
             ),
-          Row(children: [
-            IconButton(
-              icon: Icon(Icons.attach_file,
-                  color: (_anexo != null || _imagensB64.isNotEmpty)
-                      ? Theme.of(context).colorScheme.primary
-                      : null),
-              tooltip: 'Anexar',
-              onPressed: _anexar,
-            ),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            if (_gravando)
+              IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: 'Cancelar gravação (mantém o texto)',
+                onPressed: _enviando ? null : _micCancel,
+              )
+            else
+              IconButton(
+                icon: Icon(Icons.attach_file,
+                    color: (_anexo != null || _imagensB64.isNotEmpty)
+                        ? Theme.of(context).colorScheme.primary
+                        : null),
+                tooltip: 'Anexar',
+                onPressed: _anexar,
+              ),
             Expanded(
               child: TextField(
                 controller: _ctrl,
@@ -1592,7 +1609,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
-                  hintText: 'Escreva sua mensagem…',
+                  hintText: _gravando
+                      ? 'Ouvindo… toque em enviar para concluir'
+                      : 'Escreva sua mensagem…',
                   isDense: true,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(22)),
@@ -1601,29 +1620,40 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            // UM BOTÃO SÓ:
-            //  • TOQUE curto  = envia o texto digitado (não fala a resposta).
-            //  • SEGURAR      = grava por voz (vermelho); ao SOLTAR, envia e a
-            //                   resposta vem FALANDO (voz→voz). Sem trocar de botão.
+            // UM BOTÃO SÓ (com TRAVA):
+            //  • TOQUE curto (sem gravar) = envia o texto digitado (não fala).
+            //  • SEGURAR = inicia e TRAVA a gravação (vermelho); soltar NÃO para.
+            //    Com gravando: TOQUE no botão conclui e envia (voz→voz); X cancela
+            //    mantendo o texto. A Row é ancorada embaixo (end) p/ a caixa crescer
+            //    para cima sem deslocar o botão de baixo do dedo.
             // O toque vai no FAB.onPressed; o segurar, no GestureDetector (não há
             // tooltip no FAB, então o long-press chega aqui).
             GestureDetector(
               onLongPressStart: (_) => _micStart(),
-              onLongPressEnd: (_) => _micStop(),
-              onLongPressCancel: _micStop,
+              // Travado de propósito: soltar/cancelar o gesto NÃO encerra.
+              onLongPressEnd: (_) {},
+              onLongPressCancel: () {},
               child: FloatingActionButton.small(
                 heroTag: 'fab_chat_enviar',
                 onPressed: _enviando
                     ? null
                     : () {
-                        _modoAudio = false; // digitou → responde em texto (sem voz)
-                        _enviar();
+                        if (_gravando) {
+                          _micStop(); // conclui a gravação travada e envia
+                        } else {
+                          _modoAudio =
+                              false; // digitou → responde em texto (sem voz)
+                          _enviar();
+                        }
                       },
                 backgroundColor: _gravando ? Colors.red : null,
                 foregroundColor: _gravando ? Colors.white : null,
+                tooltip: _gravando
+                    ? 'Parar de ouvir e enviar'
+                    : 'Enviar',
                 child: Icon(_enviando
                     ? Icons.hourglass_empty
-                    : (_gravando ? Icons.mic : Icons.send)),
+                    : (_gravando ? Icons.send : Icons.send)),
               ),
             ),
           ]),
