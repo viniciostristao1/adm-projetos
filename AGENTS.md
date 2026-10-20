@@ -1210,6 +1210,10 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   sobrescrevia `_ctrl.text`). Fix: ditado CONTÍNUO — `listenFor:120s` + `pauseFor:8s` (em
   `SpeechListenOptions`) + `cancelOnError:false`; `_aoStatusStt` recomeca sozinho acumulando
   em `_textoBase`; `_paradaManual` distingue sistema (recomeça) de usuário (enviar/X/limpar).
+- **V0.1.143 — transcrito não volta após envio:** o `stop()` entrega um onResult final DEPOIS
+  de limpar/enviar e ele repovoava a caixa vazia (aparecia no meio da resposta da Muse).
+  Fix: `_sessaoVoz` — cada segurar gera id novo, cada parada invalida; onResult/status com
+  id velho são descartados (o final dentro da janela de 350ms ainda vale).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

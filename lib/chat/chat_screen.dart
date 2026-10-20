@@ -61,6 +61,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // a cada restart — sem acumular, o recomeço apagaria o início).
   bool _paradaManual = false;
   String _textoBase = '';
+  // Sessão do ditado: cada SEGURAR gera um id novo e cada PARADA (enviar/X/
+  // limpar/sair/erro permanente) invalida o id atual. Resultado ATRASADO do STT
+  // (o `stop()` entrega um onResult final DEPOIS de limpar/enviar) com id velho
+  // é descartado — sem isso o transcrito voltava sozinho p/ a caixa vazia após
+  // o envio, quando a Muse já estava respondendo.
+  int _sessaoVoz = 0;
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
   final List<String> _imagensB64 = []; // imagens anexadas (visão), máx. 3
@@ -467,6 +473,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _foco.removeListener(_aoMudarFocoCaixa);
     _tick?.cancel();
     _paradaManual = true; // impede restart do ditado ao sair
+    _sessaoVoz++; // invalida resultados atrasados
     _stt.cancel();
     _subStream?.cancel(); // o stream segue vivo no ChatService e salva ao fim
     _tts.stop();
@@ -603,18 +610,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Travado: mesmo que o dedo já tenha soltado durante a inicialização/permissão,
     // a gravação continua — a parada é explícita (toque em enviar ou X).
     _prepararVozOffline(); // garante a voz da resposta pronta (silenciosa)
-    _ouvirUmaVez();
+    final sessao = ++_sessaoVoz; // id deste ditado (resultados velhos são descartados)
+    _ouvirUmaVez(sessao);
   }
 
   /// Uma sessão de escuta (o sistema pode encerrar sozinho — ver `_aoStatusStt`).
   /// `listenFor` longo evita o teto de ~30s; `pauseFor` longo tolera pausas para
   /// pensar no meio de frases longas; `cancelOnError:false` não morre em falha
-  /// transitória (o restart cuida).
-  Future<void> _ouvirUmaVez() async {
-    if (!_gravando || _paradaManual || !mounted) return;
+  /// transitória (o restart cuida). `sessao` invalida resultados atrasados de um
+  /// ditado já encerrado (ver `_sessaoVoz`).
+  Future<void> _ouvirUmaVez(int sessao) async {
+    if (sessao != _sessaoVoz || !_gravando || _paradaManual || !mounted) return;
     try {
       await _stt.listen(
         onResult: (r) {
+          if (sessao != _sessaoVoz || _paradaManual || !_gravando) return;
           final atual = r.recognizedWords.trim();
           final combinado = _textoBase.isEmpty
               ? atual
@@ -648,9 +658,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!_gravando || _paradaManual || !mounted) return;
     if (s == 'done' || s == 'notListening') {
       if (_ctrl.text.trim().isNotEmpty) _textoBase = _ctrl.text.trim();
+      final sessao = _sessaoVoz;
       // Pequeno respiro antes de reabrir (evita loop apertado em erro contínuo).
       Future.delayed(const Duration(milliseconds: 300), () {
-        if (_gravando && !_paradaManual && mounted) _ouvirUmaVez();
+        if (sessao == _sessaoVoz &&
+            _gravando &&
+            !_paradaManual &&
+            mounted) {
+          _ouvirUmaVez(sessao);
+        }
       });
     }
   }
@@ -662,6 +678,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final perm = (e as dynamic).permanent as bool?;
       if (perm == true) {
         _paradaManual = true;
+        _sessaoVoz++; // invalida resultados atrasados deste ditado
         if (mounted) setState(() => _gravando = false);
         _snack('Reconhecimento de voz indisponível neste aparelho');
       }
@@ -673,11 +690,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _micStop() async {
     if (!_gravando) return;
     _paradaManual = true; // impede o auto-restart do `_aoStatusStt`
-    _textoBase = '';
     try {
       await _stt.stop();
     } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 350));
+    // A partir daqui, qualquer onResult final atrasado do STT é descartado
+    // (sessão invalidada) — sem isso ele repovoava a caixa logo após o envio.
+    _sessaoVoz++;
+    _textoBase = '';
     if (!mounted) return;
     setState(() => _gravando = false);
     if (!_enviando && _ctrl.text.trim().isNotEmpty) _enviar();
@@ -687,6 +707,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _micCancel() async {
     if (!_gravando) return;
     _paradaManual = true;
+    _sessaoVoz++;
     _textoBase = '';
     try {
       await _stt.cancel();
@@ -700,6 +721,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// foco na caixa p/ continuar digitando/ditando na sequência.
   Future<void> _limparCaixa() async {
     _paradaManual = true;
+    _sessaoVoz++;
     _textoBase = '';
     if (_gravando) {
       try {
