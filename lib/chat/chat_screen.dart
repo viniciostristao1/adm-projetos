@@ -1626,9 +1626,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             //    Com gravando: TOQUE no botão conclui e envia (voz→voz); X cancela
             //    mantendo o texto. A Row é ancorada embaixo (end) p/ a caixa crescer
             //    para cima sem deslocar o botão de baixo do dedo.
-            // O toque vai no FAB.onPressed; o segurar, no GestureDetector (não há
-            // tooltip no FAB, então o long-press chega aqui).
+            // O toque vai no FAB.onPressed; o segurar, no GestureDetector.
+            // ⚠️ NÃO pôr tooltip no FAB: o Tooltip consome o long-press p/ exibir
+            // o balão e o onLongPressStart nunca dispara (bug da V0.1.137).
             GestureDetector(
+              behavior: HitTestBehavior.translucent,
               onLongPressStart: (_) => _micStart(),
               // Travado de propósito: soltar/cancelar o gesto NÃO encerra.
               onLongPressEnd: (_) {},
@@ -1648,12 +1650,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       },
                 backgroundColor: _gravando ? Colors.red : null,
                 foregroundColor: _gravando ? Colors.white : null,
-                tooltip: _gravando
-                    ? 'Parar de ouvir e enviar'
-                    : 'Enviar',
                 child: Icon(_enviando
                     ? Icons.hourglass_empty
-                    : (_gravando ? Icons.send : Icons.send)),
+                    : (_gravando ? Icons.mic : Icons.send)),
               ),
             ),
           ]),
