@@ -8,6 +8,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 import '../storage.dart';
 import '../sync_service.dart';
@@ -41,6 +42,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _carregando = true;
   Timer? _tick; // atualiza o contador do "pensando"
   Timer? _autoSendTimer; // modo áudio: envia sozinho quando a ditado por voz pausa
+  // Botão de GRAVAÇÃO (push-to-talk) com o reconhecimento de voz NATIVO do Android
+  // (motor do Google, mesmo do Gboard — instantâneo): fala→texto no app, sem teclado;
+  // ao SOLTAR, envia na hora. Não depende do teclado de voz (Dictate/Gboard).
+  final SpeechToText _stt = SpeechToText();
+  bool _sttOk = false; // inicializado com sucesso
+  bool _gravando = false; // ouvindo (gravação ativa)
+  bool _micSegurando = false; // botão pressionado (p/ tratar soltar durante o init)
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
   final List<String> _imagensB64 = []; // imagens anexadas (visão), máx. 3
@@ -401,6 +409,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     SyncService.instance.removeListener(_aoMudarAuth);
     _tick?.cancel();
     _autoSendTimer?.cancel();
+    _stt.cancel();
     _subStream?.cancel(); // o stream segue vivo no ChatService e salva ao fim
     _tts.stop();
     _vozNeural.dispose();
@@ -476,6 +485,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// modo áudio não faz nada (aí você envia no botão, como sempre).
   void _aoDigitarVoz() {
     _autoSendTimer?.cancel();
+    // Durante a gravação pelo botão de mic, o envio é no SOLTAR (não por pausa).
+    if (_gravando) return;
     if (!_modoAudio || _enviando || _ctrl.text.trim().isEmpty) return;
     // Curto (~0,4s): manda quase na hora que você solta o mic, só esperando o
     // teclado de voz terminar de inserir o texto. Tunável.
@@ -487,6 +498,62 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _enviar();
       }
     });
+  }
+
+  // ───────── Botão de gravação (voz nativa do Android → texto → envia) ─────────
+  /// Começa a ouvir (segurou o botão). Inicializa o reconhecedor na 1ª vez (pede
+  /// permissão do microfone). Transcreve ao vivo no campo de texto.
+  Future<void> _micStart() async {
+    if (_enviando) return;
+    _micSegurando = true;
+    if (!_sttOk) {
+      try {
+        _sttOk = await _stt.initialize(
+          onError: (_) {
+            if (mounted) setState(() => _gravando = false);
+          },
+        );
+      } catch (_) {
+        _sttOk = false;
+      }
+      if (!_sttOk) {
+        _micSegurando = false;
+        _snack('Reconhecimento de voz indisponível neste aparelho');
+        return;
+      }
+    }
+    if (!_micSegurando) return; // soltou durante a inicialização/permissão
+    _ctrl.clear();
+    setState(() {
+      _gravando = true;
+      _modoAudio = true; // usar o mic = conversa: a resposta toca em voz
+    });
+    _prepararVozOffline(); // garante a voz da resposta pronta
+    await _stt.listen(
+      onResult: (r) {
+        _ctrl.text = r.recognizedWords;
+        _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+      },
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        listenMode: ListenMode.dictation,
+        cancelOnError: true,
+        localeId: 'pt_BR',
+      ),
+    );
+  }
+
+  /// Soltou o botão → para de ouvir, deixa o resultado final assentar e ENVIA.
+  Future<void> _micStop() async {
+    _micSegurando = false;
+    if (!_gravando) return;
+    try {
+      await _stt.stop();
+    } catch (_) {}
+    await Future.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+    setState(() => _gravando = false);
+    if (!_enviando && _ctrl.text.trim().isNotEmpty) _enviar();
   }
 
   Future<void> _enviar() async {
@@ -1556,7 +1623,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            // Botão de GRAVAÇÃO (segure p/ falar, solte p/ enviar) — voz nativa do
+            // Android (motor do Google). Vermelho enquanto grava.
+            GestureDetector(
+              onTapDown: (_) => _micStart(),
+              onTapUp: (_) => _micStop(),
+              onTapCancel: _micStop,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                child: Icon(
+                  _gravando ? Icons.mic : Icons.mic_none,
+                  size: 26,
+                  color: _gravando
+                      ? Colors.red
+                      : Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
             // Segurar o botão ALTERNA o "modo áudio": a resposta da Muse toca
             // sozinha (semi-conversação). No modo áudio o ícone vira microfone e
             // o botão fica destacado. Tocar = enviar (como sempre).

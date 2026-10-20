@@ -1173,6 +1173,10 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   COMPLETO p/ qualquer IA/agente — voz/repo/download, onde mudar VELOCIDADE e PRONÚNCIA (sempre 2
   lugares), sílaba tônica, Dictate+auto-enviar, memória/conhecimento/modos, checklist de contribuição.
   **➜ Ao mexer na Muse, comece pelo `MUSE.md`.**
+- **V0.1.133/134 — pronúncias + botão de GRAVAÇÃO no app:** arrego→"arrêgo", kg→"quilos",
+  despedidas naturais, auto-enviar 0,4s. **V0.1.134:** botão 🎤 push-to-talk na barra de entrada
+  (`speech_to_text`, voz nativa do Android/Google = instantânea; `_micStart`/`_micStop`; segura-fala-
+  solta-envia). Mantém o botão de enviar manual. Perm. RECORD_AUDIO + queries RecognitionService.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

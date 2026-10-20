@@ -96,10 +96,12 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 
 ---
 
-## 6. Digitação por voz (Dictate) + auto-enviar
-- O usuário digita por voz com o **teclado Dictate** (Whisper offline) — é um teclado do sistema; o app só recebe o TEXTO inserido (não "vê" o botão do mic).
-- **Modo áudio** (segurar o botão de enviar → ícone 🎤): liga (a) **auto-play** da resposta falando e (b) **auto-enviar**.
-- **Auto-enviar** (`_aoDigitarVoz` + `_autoSendTimer` em `chat_screen.dart`): no modo áudio, quando o texto para de mudar por **~0,6s** (você soltou o mic), ENVIA sozinho → semi-conversa hands-free (ditar → envia → responde falando). O tempo (600 ms) é tunável.
+## 6. Entrada por voz — DUAS formas
+A barra de entrada tem: **[anexar] [campo de texto] [🎤 gravar] [enviar]**. O botão **enviar** manual continua sempre disponível p/ texto digitado.
+
+**(a) Botão de GRAVAÇÃO no app (push-to-talk)** — `speech_to_text` (reconhecimento NATIVO do Android, motor do Google, mesmo do Gboard; **instantâneo**, não usa o teclado). `_micStart`/`_micStop` em `chat_screen.dart`: **segura** o 🎤 (fica vermelho), fala, **solta → envia na hora** (`_stt.stop()` + 350 ms p/ o resultado final → `_enviar`). Usar o mic liga o modo áudio (resposta em voz). Permissão RECORD_AUDIO + `<queries>` do `RecognitionService` no `AndroidManifest.xml`. Transcreve ao vivo no campo. (Pontuação: o motor do Google pontua pouco — mas a IA entende sem; ver §4 nota.)
+
+**(b) Teclado de voz (Dictate/Whisper ou Gboard) + auto-enviar** — o teclado do sistema insere o texto; o app só vê o TEXTO. **Modo áudio** (segurar o botão de enviar → ícone 🎤) liga (i) **auto-play** da resposta e (ii) **auto-enviar** (`_aoDigitarVoz` + `_autoSendTimer`): quando o texto para de mudar por **~0,4 s**, ENVIA sozinho. Tempo tunável. Dictate dá Whisper+pontuação on-device, porém transcreve mais devagar; Gboard é instantâneo mas pontua menos.
 
 ---
 
