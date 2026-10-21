@@ -1247,6 +1247,12 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   (2) Removido o X à esquerda da caixa durante o ditado (estreitava a caixa): agora
   TOCAR na caixa para a gravação mantendo o texto (dica no hint); enviar segue
   concluindo e enviando.
+- **V0.1.152 — botões nº 04 terracota no topo do projeto:** no tema Terracota, os 5
+  botões da parte superior direita (Muse, Pastas/Abas, PDF, Copiar, Excluir) viram
+  plaquinhas fundo escuro `#0C0C0D` + desenho terracota (ideia 04 da galeria
+  `topo/`); demais temas seguem com IconButton padrão. `_BotaoTopo`/`_TopoPainter`
+  (`CustomPainter`, geometria 96x96 dos SVGs; "PDF" via `TextPainter`). Sem
+  dependência nova.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
