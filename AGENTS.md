@@ -1255,6 +1255,12 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   dependência nova.
 - **V0.1.153 — plaquinhas do topo mais largas:** `_BotaoTopo` 34→40px de largura
   (altura 34 mantida).
+- **V0.1.154 — bege/enviar preto + topo unificado + prateleira maior:** (1) tema Bege:
+  botão de enviar PRETO (fundo `#000`, ícone branco; gravando segue vermelho). (2) Os 5
+  botões do topo do projeto (Muse, Pastas, PDF, Copiar, Excluir) usam a plaquinha em
+  TODOS os temas (fundo escuro fixo + desenho na cor de acento do tema via `app.fab`;
+  helper `_botaoTopo` removido). (3) Prateleira: glifo 26/32→30/36 SEM aumentar a caixa
+  (padding 4/5→2/3, gap 3→2 — validado nos testes de widget).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

@@ -671,32 +671,10 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     );
   }
 
-  /// Botão do topo do projeto. No tema Terracota vira a plaquinha nº 04 da
-  /// galeria (`ideias_botoes/topo/`): fundo escuro + desenho terracota; nos
-  /// demais temas segue o IconButton padrão.
-  Widget _botaoTopo({
-    required bool terra,
-    required _GlifoTopo glifo,
-    required IconData icone,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    if (!terra) {
-      return IconButton(
-        icon: Icon(icone, size: 18),
-        tooltip: tooltip,
-        onPressed: onPressed,
-        visualDensity: VisualDensity.compact,
-      );
-    }
-    return _BotaoTopo(glifo: glifo, tooltip: tooltip, onPressed: onPressed);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final terra =
-        (Theme.of(context).extension<AppCores>() ?? AppCores.azul) ==
-            AppCores.claude;
+    // Cor do desenho = acento do tema ativo (cada tema pinta com a sua cor).
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     return Fundo(
       child: Scaffold(
         appBar: AppBar(
@@ -713,41 +691,34 @@ class _ProjetoScreenState extends State<ProjetoScreen>
             ),
             // Atalho para o Muse de dentro do projeto (só com o recurso ligado).
             if (ChatConfig.habilitado)
-              _botaoTopo(
-                terra: terra,
+              _BotaoTopo(
                 glifo: _GlifoTopo.muse,
-                icone: Icons.chat_bubble_outline,
+                cor: app.fab,
                 tooltip: 'Muse Spark (assistente)',
                 onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const ChatScreen())),
               ),
-            _botaoTopo(
-              terra: terra,
+            _BotaoTopo(
               glifo: _GlifoTopo.pastas,
-              icone: _modoPastas
-                  ? Icons.view_list_rounded
-                  : Icons.folder_outlined,
+              cor: app.fab,
               tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',
               onPressed: () => setState(() => _modoPastas = !_modoPastas),
             ),
-            _botaoTopo(
-              terra: terra,
+            _BotaoTopo(
               glifo: _GlifoTopo.pdf,
-              icone: Icons.picture_as_pdf_outlined,
+              cor: app.fab,
               tooltip: 'Exportar PDF do projeto',
               onPressed: () => exportarPdfProjeto(context, widget.projeto),
             ),
-            _botaoTopo(
-              terra: terra,
+            _BotaoTopo(
               glifo: _GlifoTopo.copiar,
-              icone: Icons.copy_outlined,
+              cor: app.fab,
               tooltip: 'Copiar tudo do projeto',
               onPressed: _copiarProjeto,
             ),
-            _botaoTopo(
-              terra: terra,
+            _BotaoTopo(
               glifo: _GlifoTopo.excluir,
-              icone: Icons.delete_outline,
+              cor: app.fab,
               tooltip: 'Excluir projeto',
               onPressed: _excluirProjeto,
             ),
@@ -2317,16 +2288,18 @@ Widget _menuSelecao(
 /// Qual desenho vai na plaquinha do topo do projeto (ideia 04 da galeria).
 enum _GlifoTopo { muse, pastas, pdf, copiar, excluir }
 
-/// Plaquinha nº 04 da galeria (`ideias_botoes/topo/*-04-terracota.svg`): fundo
-/// escuro + desenho terracota. Usada nos botões do topo do projeto quando o
-/// tema Terracota está ativo.
+/// Plaquinha nº 04 da galeria (`ideias_botoes/topo/`): fundo escuro + desenho na
+/// cor de acento do tema. Usada nos 5 botões do topo do projeto (Muse, Pastas,
+/// PDF, Copiar, Excluir) em TODOS os temas.
 class _BotaoTopo extends StatelessWidget {
   const _BotaoTopo({
     required this.glifo,
+    required this.cor,
     required this.tooltip,
     required this.onPressed,
   });
   final _GlifoTopo glifo;
+  final Color cor;
   final String tooltip;
   final VoidCallback onPressed;
 
@@ -2349,7 +2322,7 @@ class _BotaoTopo extends StatelessWidget {
             ),
             child: Center(
               child: CustomPaint(
-                painter: _TopoPainter(glifo, const Color(0xFFD97757)),
+                painter: _TopoPainter(glifo, cor),
                 size: const Size.square(22),
               ),
             ),

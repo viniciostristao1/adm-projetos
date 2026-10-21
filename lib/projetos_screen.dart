@@ -3082,15 +3082,15 @@ class _AcessosRapidos extends StatelessWidget {
     final raio = ehClaude ? 10.0 : 14.0;
 
     final conteudo = Padding(
-      // Altura da caixa é fixa (58/68): glifo + rótulo precisam caber com folga
-      // (sem isso dá RenderFlex overflow e quebra teste de widget). Glifo o maior
-      // possível dentro da folga (28/34).
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: compacto ? 4 : 5),
+      // Desenho o maior possível SEM aumentar a caixa (altura fixa 58/68):
+      // folga mínima em volta, resto vai p/ o glifo. Validar nos testes de
+      // widget (RenderFlex overflow reprova).
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: compacto ? 2 : 3),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _GlifoWidget(glifo, cor: cor, size: compacto ? 26 : 32),
-          const SizedBox(height: 3),
+          _GlifoWidget(glifo, cor: cor, size: compacto ? 30 : 36),
+          const SizedBox(height: 2),
           Text(
             rotulo,
             maxLines: 1,

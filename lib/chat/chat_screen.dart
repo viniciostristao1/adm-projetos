@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../diagnostico.dart';
+import '../cores.dart';
 import '../storage.dart';
 import '../sync_service.dart';
 import 'chat_models.dart';
@@ -1954,6 +1955,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _barraEntrada(BuildContext context) {
+    // Tema Bege: botão de enviar PRETO (fundo escuro + ícone claro).
+    final bege =
+        (Theme.of(context).extension<AppCores>() ?? AppCores.azul) ==
+            AppCores.bege;
     return SafeArea(
       top: false,
       child: Padding(
@@ -2083,8 +2088,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               _enviar();
                             }
                           },
-                    backgroundColor: _gravando ? Colors.red : null,
-                    foregroundColor: _gravando ? Colors.white : null,
+                    backgroundColor:
+                        _gravando ? Colors.red : (bege ? Colors.black : null),
+                    foregroundColor:
+                        _gravando ? Colors.white : (bege ? Colors.white : null),
                     child: Icon(
                       _enviando
                           ? Icons.hourglass_empty
