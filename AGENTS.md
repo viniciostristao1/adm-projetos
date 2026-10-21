@@ -1222,6 +1222,15 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   então cada tema pinta com a sua cor). `_GlifoAcesso`/`_GlifoPainter` (`CustomPainter`,
   mesma geometria 96x96 dos SVGs): relógio, robô com tiara de telemarketing, livro aberto.
   Sem dependência nova. Medida anti-overflow: glifo 24/28 + padding 6/8 (altura fixa 58/68).
+- **V0.1.146 — voz on-device em isolate + relatório de erros:** síntese sherpa sai da
+  thread da UI (fim do ANR/travamento ao ouvir) + `Diagnostico` (buffer local, menu ⋮ →
+  "Relatório de erros": enviar/compartilhar/limpar) + aquecimento mais cedo do Muse.
+- **V0.1.147 — falante pausa/retoma + sem crash:** o botão do alto-falante na resposta
+  agora PAUSA de verdade e RETOMA do mesmo ponto (player.pause/resume; trecho de fallback
+  do TTS é re-falado). Segurar o botão PARA de vez. Causa do "Taskix parou": `speak`/`play`/
+  `pause`/`resume`/`stop` sem try/catch (race no Android = exceção não-tratada) + toques
+  duplos concorrentes — tudo blindado (`_trocandoVoz`, try/catch com `Diagnostico.registrar`)
+  e pausa automática ao sair do app. Botão maior (18→26, área 4→10).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

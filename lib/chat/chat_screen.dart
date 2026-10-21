@@ -77,6 +77,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int? _lendoIdx; // índice da mensagem que está sendo lida (TTS)
   final AudioPlayer _vozNeural = AudioPlayer(); // MP3 da voz neural (/tts)
   bool _gerandoVoz = false; // buscando o áudio (mostra ampulheta)
+  // PAUSA da leitura (botão do alto-falante): pausa de verdade e retoma de onde
+  // parou (player.pause/resume). Diferente de parar (que zera a fila).
+  bool _pausado = false; // leitura pausada (retomável)
+  bool _pausaChunkTts = false; // o trecho pausado era do TTS do aparelho (re-fala ele)
+  bool _trocandoVoz = false; // troca play/pause/stop em voo (ignora toques duplos)
   // MODO ÁUDIO (segurar o botão enviar): a resposta da Muse toca sozinha, sem
   // tocar no alto-falante — semi-conversação (você dita no Gboard, ela responde
   // em texto + voz). Fica salvo só em memória (default desligado a cada abertura).
@@ -114,7 +119,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     SyncService.instance.addListener(_aoMudarAuth);
     _configTts();
     _tts.setCompletionHandler(() {
-      if (mounted) setState(() => _lendoIdx = null);
+      // Só limpa o ícone se a fila já acabou (sem isso, um trecho de fallback
+      // do TTS concluído no MEIO da fila apagava o ícone com a leitura rolando).
+      if (mounted &&
+          _vozTocarIdx >= _vozTextos.length &&
+          !_vozSintetizando) {
+        setState(() => _lendoIdx = null);
+      }
     });
     // A conclusão da voz neural é gerida pelo streaming em `_falar` (o listener
     // global zerava o _lendoIdx no fim de CADA frase, cortando a leitura).
@@ -190,6 +201,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Para qualquer leitura em curso (neural ou do aparelho) e invalida o stream.
+  /// Zera a fila (não é retomável — para pausar sem perder o ponto, ver `_pausarFala`).
   Future<void> _pararFala() async {
     _falaToken++; // invalida sínteses/reproduções em andamento
     _vozTextos.clear();
@@ -199,8 +211,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _vozTocando = false;
     _vozMsgIdx = null;
     _vozParag = '';
-    await _tts.stop();
-    await _vozNeural.stop();
+    _pausado = false;
+    _pausaChunkTts = false;
+    try {
+      await _tts.stop();
+    } catch (e, st) {
+      Diagnostico.registrar('voz-stop', e, st);
+    }
+    try {
+      await _vozNeural.stop();
+    } catch (e, st) {
+      Diagnostico.registrar('voz-stop', e, st);
+    }
   }
 
   /// Sintetiza um trecho: tenta NO APARELHO (sherpa-onnx/dii, rápido e offline) e,
@@ -278,18 +300,34 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// WORKER DE REPRODUÇÃO: toca os áudios já sintetizados, EM ORDEM.
+  /// Qualquer exceção de player/TTS é engolida (troca rápida play/stop/pause no
+  /// Android solta PlatformException — sem o try/catch o app CRASHA com o
+  /// "Taskix parou de funcionar").
   Future<void> _vozPlay() async {
     if (_vozTocando) return;
     _vozTocando = true;
     final token = _falaToken;
     while (_vozTocarIdx < _vozAudios.length) {
       if (token != _falaToken || !mounted) break;
+      // Pausado: estaciona aqui até retomar/parar (não toca o próximo trecho).
+      while (_pausado && token == _falaToken && mounted) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      if (token != _falaToken || !mounted) break;
       final i = _vozTocarIdx;
       final bytes = _vozAudios[i];
       _vozTocarIdx++;
       if (mounted && _gerandoVoz) setState(() => _gerandoVoz = false); // 1º áudio saiu
-      if (bytes == null) {
-        await _tts.speak(_vozTextos[i]); // neural falhou nesse trecho: TTS do aparelho
+      if (bytes == null || bytes.isEmpty) {
+        try {
+          // Teto de 60s por trecho: se o motor do aparelho travar, não prende
+          // a fila inteira (os trechos seguintes continuam).
+          await _tts
+              .speak(_vozTextos[i])
+              .timeout(const Duration(seconds: 60), onTimeout: () {});
+        } catch (e, st) {
+          Diagnostico.registrar('voz-tts', e, st);
+        }
         continue;
       }
       final done = Completer<void>();
@@ -297,13 +335,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (!done.isCompleted) done.complete();
       });
       try {
-        await _vozNeural.play(BytesSource(bytes));
+        try {
+          await _vozNeural.play(BytesSource(bytes));
+        } catch (e, st) {
+          Diagnostico.registrar('voz-play', e, st);
+          if (!done.isCompleted) done.complete(); // não trava a fila
+        }
         while (!done.isCompleted) {
           if (token != _falaToken || !mounted) break;
           await Future.delayed(const Duration(milliseconds: 100));
         }
       } finally {
-        await sub.cancel();
+        try {
+          await sub.cancel();
+        } catch (_) {}
       }
     }
     _vozTocando = false;
@@ -316,6 +361,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         setState(() {
           _lendoIdx = null;
           _gerandoVoz = false;
+          _pausado = false;
+          _pausaChunkTts = false;
         });
       }
       _vozMsgIdx = null;
@@ -332,13 +379,119 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           caseSensitive: false),
       '');
 
-  /// Lê (ou para) a resposta da Muse em voz alta. Sintetiza o texto INTEIRO de
-  /// uma vez (1 clipe) — a prosódia/pausas do Piper ficam naturais e consistentes,
-  /// sem as emendas que a leitura frase-a-frase criava entre pontos/parágrafos.
-  /// Cai para o TTS do aparelho se a voz neural falhar. Cancelável via `_falaToken`.
+  /// Lê a resposta da Muse em voz alta (ou pausa/retoma). Toca por PARÁGRAFO pela
+  /// fila produtor-consumidor: começa após o 1º parágrafo (não espera sintetizar
+  /// a mensagem inteira) e os seguintes já vêm prontos. A prosódia do Piper fica
+  /// natural, sem as emendas da leitura frase-a-frase. Cai para o TTS do aparelho
+  /// se a voz neural falhar. Toques duplos durante a troca são ignorados.
+  ///  • tocou em outra mensagem → para a atual e começa a nova;
+  ///  • tocou na que está tocando → PAUSA (retomável);
+  ///  • tocou na pausada → RETOMA de onde parou;
+  ///  • SEGUROU na que está tocando/pausada → PARA de vez.
   Future<void> _falar(int idx, String texto) async {
-    // Tocar na mesma mensagem que já está lendo = parar (toggle).
+    if (_trocandoVoz) return; // troca em voo: ignora o toque duplo
+    if (_lendoIdx == idx && _pausado) {
+      await _retomarFala();
+      return;
+    }
     if (_lendoIdx == idx) {
+      await _pausarFala();
+      return;
+    }
+    _trocandoVoz = true;
+    try {
+      await _pararFala();
+      TtsOnDevice.preparar(); // carrega a voz on-device (se ainda não) p/ o replay
+      if (mounted) {
+        setState(() {
+          _lendoIdx = idx;
+          _gerandoVoz = true; // buscando o 1º áudio
+        });
+      }
+      // Toca por PARÁGRAFO pela fila produtor-consumidor: começa após o 1º parágrafo
+      // (não espera sintetizar a mensagem inteira) e os seguintes já vêm prontos.
+      final pars = _semCarimbo(texto)
+          .split(RegExp(r'\n\s*\n'))
+          .map((p) => p.trim())
+          .where((p) => p.isNotEmpty)
+          .toList();
+      if (pars.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _lendoIdx = null;
+            _gerandoVoz = false;
+          });
+        }
+        return;
+      }
+      _vozMsgIdx = idx; // é um replay desta msg → limpa o ícone quando acabar
+      for (final p in pars) {
+        _enfileirarVoz(p);
+      }
+    } finally {
+      _trocandoVoz = false;
+    }
+  }
+
+  /// Pausa a leitura mantendo o ponto (retomável com `_retomarFala`). Não zera a
+  /// fila nem invalida a síntese adiantada — o worker estaciona no trecho atual.
+  Future<void> _pausarFala() async {
+    if (_trocandoVoz || _lendoIdx == null || _pausado) return;
+    _trocandoVoz = true;
+    try {
+      // Se o trecho atual é do TTS do aparelho (sem áudio neural), ele será
+      // interrompido pelo stop — na retomada esse trecho é re-falado do início.
+      final cur = _vozTocarIdx - 1;
+      _pausaChunkTts = cur >= 0 &&
+          cur < _vozAudios.length &&
+          (_vozAudios[cur] == null || _vozAudios[cur]!.isEmpty);
+      try {
+        await _vozNeural.pause();
+      } catch (e, st) {
+        Diagnostico.registrar('voz-pause', e, st);
+      }
+      try {
+        await _tts.stop();
+      } catch (e, st) {
+        Diagnostico.registrar('voz-pause', e, st);
+      }
+      if (mounted) setState(() => _pausado = true);
+    } finally {
+      _trocandoVoz = false;
+    }
+  }
+
+  /// Retoma a leitura exatamente de onde pausou.
+  Future<void> _retomarFala() async {
+    if (_trocandoVoz || _lendoIdx == null || !_pausado) return;
+    _trocandoVoz = true;
+    try {
+      if (_pausaChunkTts) {
+        // O trecho pausado era do TTS (foi parado): volta 1 posição p/ re-falá-lo.
+        final cur = _vozTocarIdx - 1;
+        if (cur >= 0 && cur < _vozTextos.length) {
+          _vozTocarIdx = cur;
+          _pausaChunkTts = false;
+          _vozPlay(); // garante o worker andando (pode ter terminado o loop)
+        }
+      } else {
+        try {
+          await _vozNeural.resume();
+        } catch (e, st) {
+          Diagnostico.registrar('voz-resume', e, st);
+        }
+      }
+      if (mounted) setState(() => _pausado = false);
+    } finally {
+      _trocandoVoz = false;
+    }
+  }
+
+  /// Para de vez a leitura da mensagem (segurar o botão do alto-falante).
+  Future<void> _pararReplay() async {
+    if (_trocandoVoz || _lendoIdx == null) return;
+    _trocandoVoz = true;
+    try {
       await _pararFala();
       if (mounted) {
         setState(() {
@@ -346,35 +499,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _gerandoVoz = false;
         });
       }
-      return;
-    }
-    await _pararFala();
-    TtsOnDevice.preparar(); // carrega a voz on-device (se ainda não) p/ o replay
-    if (mounted) {
-      setState(() {
-        _lendoIdx = idx;
-        _gerandoVoz = true; // buscando o 1º áudio
-      });
-    }
-    // Toca por PARÁGRAFO pela fila produtor-consumidor: começa após o 1º parágrafo
-    // (não espera sintetizar a mensagem inteira) e os seguintes já vêm prontos.
-    final pars = _semCarimbo(texto)
-        .split(RegExp(r'\n\s*\n'))
-        .map((p) => p.trim())
-        .where((p) => p.isNotEmpty)
-        .toList();
-    if (pars.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _lendoIdx = null;
-          _gerandoVoz = false;
-        });
-      }
-      return;
-    }
-    _vozMsgIdx = idx; // é um replay desta msg → limpa o ícone quando acabar
-    for (final p in pars) {
-      _enfileirarVoz(p);
+    } finally {
+      _trocandoVoz = false;
     }
   }
 
@@ -465,6 +591,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ChatStore.salvar(_conv);
         ChatStore.marcarUltima(_conv.id);
       }
+      // Saiu do app no meio da leitura: pausa (retomável ao voltar) em vez de
+      // deixar tocando sozinha ou cortar de vez.
+      if (_lendoIdx != null && !_pausado && !_trocandoVoz) _pausarFala();
     }
   }
 
@@ -477,8 +606,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _paradaManual = true; // impede restart do ditado ao sair
     _sessaoVoz++; // invalida resultados atrasados
     _stt.cancel();
+    _falaToken++; // invalida workers de voz em voo
+    _pausado = false;
     _subStream?.cancel(); // o stream segue vivo no ChatService e salva ao fim
-    _tts.stop();
+    try {
+      _tts.stop();
+    } catch (_) {}
     _vozNeural.dispose();
     _buscaCtrl.dispose();
     // Ao sair, salva a conversa atual e marca como a última (reabre nela depois).
@@ -1567,16 +1700,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           alignment: Alignment.centerRight,
                           child: InkWell(
                             onTap: () => _falar(idx, m.texto),
+                            // Segurar = parar de vez a leitura.
+                            onLongPress: () => _pararReplay(),
                             customBorder: const CircleBorder(),
                             child: Padding(
-                              padding: const EdgeInsets.all(4),
+                              padding: const EdgeInsets.all(10),
                               child: Icon(
                                 _lendoIdx == idx
                                     ? (_gerandoVoz
                                         ? Icons.hourglass_bottom_outlined
-                                        : Icons.stop_circle_outlined)
+                                        : (_pausado
+                                            ? Icons.play_circle_outline
+                                            : Icons.pause_circle_outline))
                                     : Icons.volume_up_outlined,
-                                size: 18,
+                                size: 26,
                                 color: cs.onSurfaceVariant,
                               ),
                             ),
