@@ -50,20 +50,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Botão de GRAVAÇÃO (push-to-talk TRAVADO) com o reconhecimento de voz NATIVO
   // do Android (motor do Google, mesmo do Gboard — instantâneo): fala→texto no app.
   // SEGURAR inicia e TRAVA (soltar NÃO para — o botão não foge mais do dedo quando
-  // a caixa cresce); TOQUE no enviar conclui e envia; X cancela mantendo o texto.
+  // a caixa cresce); TOQUE no enviar conclui e envia; TOQUE na caixa para a
+  // gravação mantendo o texto (p/ corrigir na hora, sem perder largura da caixa).
   // Não depende do teclado de voz (Dictate/Gboard).
   final SpeechToText _stt = SpeechToText();
   bool _sttOk = false; // inicializado com sucesso
-  bool _gravando = false; // ouvindo (gravação ativa, TRAVADA até enviar/X)
+  bool _gravando = false; // ouvindo (gravação ativa, TRAVADA até enviar/toque)
   // Ditado CONTÍNUO (textos longos): o reconhecedor do Android para sozinho em
   // pausa longa (~3s padrão) ou após dezenas de segundos — sem restart o texto
   // truncava no meio da frase. `_paradaManual` distingue "sistema parou" (=
-  // recomeça sozinho) de "usuário parou" (enviar/X/limpar = não recomeça).
+  // recomeça sozinho) de "usuário parou" (enviar/toque/limpar = não recomeça).
   // `_textoBase` acumula o já ditado entre sessões (o recognizer zera o texto
   // a cada restart — sem acumular, o recomeço apagaria o início).
   bool _paradaManual = false;
   String _textoBase = '';
-  // Sessão do ditado: cada SEGURAR gera um id novo e cada PARADA (enviar/X/
+  // Sessão do ditado: cada SEGURAR gera um id novo e cada PARADA (enviar/toque/
   // limpar/sair/erro permanente) invalida o id atual. Resultado ATRASADO do STT
   // (o `stop()` entrega um onResult final DEPOIS de limpar/enviar) com id velho
   // é descartado — sem isso o transcrito voltava sozinho p/ a caixa vazia após
@@ -240,6 +241,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _normalizarFala(String t) {
     t = t.replaceAllMapped(
         RegExp(r'(\d+)\s*[xX]\s*(\d+)'), (m) => '${m[1]} de ${m[2]}');
+    // Contagens hifenizadas de UM dígito ("4-7-8", "4-4") → "4, 7, 8" (pausa curta
+    // entre números, sem ler "menos"). Restrito a 1 dígito p/ não quebrar datas,
+    // telefones e intervalos.
+    t = t.replaceAllMapped(
+        RegExp(r'\b(\d(?:\s*-\s*\d)+)\b'),
+        (m) => m[1]!.replaceAll(RegExp(r'\s*-\s*'), ', '));
     // "kg" (unidade) → "quilo(s)": "2 kg"→"2 quilos", "1 kg"→"1 quilo".
     t = t.replaceAllMapped(RegExp(r'\b(\d+)\s*kg\b'),
         (m) => '${m[1]} quilo${m[1] == "1" ? "" : "s"}');
@@ -840,7 +847,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!_enviando && _ctrl.text.trim().isNotEmpty) _enviar();
   }
 
-  /// X com gravação ativa → para de ouvir SEM enviar (mantém o texto p/ editar).
+  /// Toque na caixa com gravação ativa → para de ouvir SEM enviar (mantém o texto
+  /// p/ editar). Equivale ao antigo X lateral (removido p/ não estreitar a caixa).
   Future<void> _micCancel() async {
     if (!_gravando) return;
     _paradaManual = true;
@@ -1975,15 +1983,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ),
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            if (_gravando)
-              Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: 'Cancelar gravação (mantém o texto)',
-                  onPressed: _enviando ? null : _micCancel,
-                ),
-              ),
             Expanded(
               child: TextField(
                 controller: _ctrl,
@@ -1996,6 +1995,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.newline,
                 onTap: () {
+                  // Gravando: tocar na caixa PARA a gravação mantendo o texto
+                  // (equivale ao antigo X lateral, sem comer largura da caixa).
+                  if (_gravando && !_enviando) _micCancel();
                   _rolarFim();
                   _rolarCaixaFim();
                 },
@@ -2007,7 +2009,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 },
                 decoration: InputDecoration(
                   hintText: _gravando
-                      ? 'Ouvindo… toque em enviar para concluir'
+                      ? 'Ouvindo… toque aqui p/ parar ou no enviar p/ concluir'
                       : 'Escreva sua mensagem…',
                   isDense: true,
                   border: OutlineInputBorder(
@@ -2036,9 +2038,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             // Coluna da direita: ANEXO (pequeno) em cima + ENVIAR (grande) embaixo.
             //  • TOQUE no enviar = envia o texto digitado (não fala a resposta).
             //  • SEGURAR o enviar = inicia e TRAVA a gravação (vermelho); soltar
-            //    NÃO para. Com gravando: TOQUE conclui e envia (voz→voz); o X à
-            //    esquerda cancela mantendo o texto. A Row é ancorada embaixo (end)
-            //    p/ a caixa crescer para cima sem deslocar o botão de baixo do dedo.
+            //    NÃO para. Com gravando: TOQUE no enviar conclui e envia (voz→voz);
+            //    TOQUE na caixa para a gravação mantendo o texto (sem X lateral,
+            //    p/ não estreitar a caixa). A Row é ancorada embaixo (end) p/ a caixa
+            //    crescer para cima sem deslocar o botão de baixo do dedo.
             // O toque vai no FAB.onPressed; o segurar, no GestureDetector.
             // ⚠️ NÃO pôr tooltip no FAB: o Tooltip consome o long-press p/ exibir
             // o balão e o onLongPressStart nunca dispara (bug da V0.1.137).

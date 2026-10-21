@@ -1241,6 +1241,12 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
 - **V0.1.150 — desenhos da prateleira maiores:** glifo 24/28→26/32 (máximo que cabe na
   altura fixa 58/68 sem overflow — validado nos testes de widget). Galeria `topo/` com
   30 sugestões p/ os botões de dentro do projeto (só visual, nada implementado).
+- **V0.1.151 — fala de contagens + fim do X lateral:** (1) contagens hifenizadas de 1
+  dígito ("4-7-8", "4-4") viram "4, 7, 8" na FALA (pausa curta, sem "menos") nos DOIS
+  lados; restrito a 1 dígito p/ preservar datas, telefones e intervalos.
+  (2) Removido o X à esquerda da caixa durante o ditado (estreitava a caixa): agora
+  TOCAR na caixa para a gravação mantendo o texto (dica no hint); enviar segue
+  concluindo e enviando.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
