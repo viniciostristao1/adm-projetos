@@ -96,8 +96,8 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 
 ---
 
-## 6. Entrada por voz / texto — UM BOTÃO SÓ
-A barra de entrada é **[anexar] [campo de texto] [botão único]**. O botão faz as duas coisas pelo gesto (`chat_screen.dart`, no `_barraEntrada` — `GestureDetector` + `FloatingActionButton.small`):
+## 6. Entrada por voz / texto — campo + coluna (anexo em cima, enviar embaixo)
+A barra de entrada é **[campo de texto, 3–5 linhas] [coluna: anexar pequeno em cima, botão único grande embaixo]**. O botão de enviar faz as duas coisas pelo gesto (`chat_screen.dart`, no `_barraEntrada` — `GestureDetector` + `FloatingActionButton` normal 56px, ícone 28):
 - **TOQUE curto** (`FAB.onPressed`) → envia o **texto digitado**. Põe `_modoAudio=false` → resposta vem em **texto** (sem voz; toque o alto-falante p/ ouvir).
 - **SEGURAR** (`onLongPressStart`→`_micStart`; `onLongPressEnd`→`_micStop`) → **grava por voz** (botão fica vermelho, ícone 🎤), transcreve ao vivo; ao **SOLTAR**, para e **envia na hora**, e a resposta vem **FALANDO** (`_micStart` põe `_modoAudio=true` → voz→voz).
 

@@ -1976,26 +1976,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             if (_gravando)
-              IconButton(
-                icon: const Icon(Icons.close),
-                tooltip: 'Cancelar gravação (mantém o texto)',
-                onPressed: _enviando ? null : _micCancel,
-              )
-            else
-              IconButton(
-                icon: Icon(Icons.attach_file,
-                    color: (_anexo != null || _imagensB64.isNotEmpty)
-                        ? Theme.of(context).colorScheme.primary
-                        : null),
-                tooltip: 'Anexar',
-                onPressed: _anexar,
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Cancelar gravação (mantém o texto)',
+                  onPressed: _enviando ? null : _micCancel,
+                ),
               ),
             Expanded(
               child: TextField(
                 controller: _ctrl,
                 focusNode: _foco,
                 scrollController: _caixaScroll,
-                minLines: 1,
+                // Altura inicial acompanha a coluna da direita (anexo + enviar):
+                // 3 linhas ≈ mesma altura total dos dois botões empilhados.
+                minLines: 3,
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.newline,
@@ -2037,40 +2033,64 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            // UM BOTÃO SÓ (com TRAVA):
-            //  • TOQUE curto (sem gravar) = envia o texto digitado (não fala).
-            //  • SEGURAR = inicia e TRAVA a gravação (vermelho); soltar NÃO para.
-            //    Com gravando: TOQUE no botão conclui e envia (voz→voz); X cancela
-            //    mantendo o texto. A Row é ancorada embaixo (end) p/ a caixa crescer
-            //    para cima sem deslocar o botão de baixo do dedo.
+            // Coluna da direita: ANEXO (pequeno) em cima + ENVIAR (grande) embaixo.
+            //  • TOQUE no enviar = envia o texto digitado (não fala a resposta).
+            //  • SEGURAR o enviar = inicia e TRAVA a gravação (vermelho); soltar
+            //    NÃO para. Com gravando: TOQUE conclui e envia (voz→voz); o X à
+            //    esquerda cancela mantendo o texto. A Row é ancorada embaixo (end)
+            //    p/ a caixa crescer para cima sem deslocar o botão de baixo do dedo.
             // O toque vai no FAB.onPressed; o segurar, no GestureDetector.
             // ⚠️ NÃO pôr tooltip no FAB: o Tooltip consome o long-press p/ exibir
             // o balão e o onLongPressStart nunca dispara (bug da V0.1.137).
-            GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onLongPressStart: (_) => _micStart(),
-              // Travado de propósito: soltar/cancelar o gesto NÃO encerra.
-              onLongPressEnd: (_) {},
-              onLongPressCancel: () {},
-              child: FloatingActionButton.small(
-                heroTag: 'fab_chat_enviar',
-                onPressed: _enviando
-                    ? null
-                    : () {
-                        if (_gravando) {
-                          _micStop(); // conclui a gravação travada e envia
-                        } else {
-                          _modoAudio =
-                              false; // digitou → responde em texto (sem voz)
-                          _enviar();
-                        }
-                      },
-                backgroundColor: _gravando ? Colors.red : null,
-                foregroundColor: _gravando ? Colors.white : null,
-                child: Icon(_enviando
-                    ? Icons.hourglass_empty
-                    : (_gravando ? Icons.mic : Icons.send)),
-              ),
+            const SizedBox(width: 6),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.attach_file,
+                      size: 20,
+                      color: (_anexo != null || _imagensB64.isNotEmpty)
+                          ? Theme.of(context).colorScheme.primary
+                          : null),
+                  tooltip: 'Anexar',
+                  padding: const EdgeInsets.all(6),
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  splashRadius: 16,
+                  onPressed:
+                      (_enviando || _gravando) ? null : () => _anexar(),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onLongPressStart: (_) => _micStart(),
+                  // Travado de propósito: soltar/cancelar o gesto NÃO encerra.
+                  onLongPressEnd: (_) {},
+                  onLongPressCancel: () {},
+                  child: FloatingActionButton(
+                    heroTag: 'fab_chat_enviar',
+                    onPressed: _enviando
+                        ? null
+                        : () {
+                            if (_gravando) {
+                              _micStop(); // conclui a gravação travada e envia
+                            } else {
+                              _modoAudio =
+                                  false; // digitou → responde em texto (sem voz)
+                              _enviar();
+                            }
+                          },
+                    backgroundColor: _gravando ? Colors.red : null,
+                    foregroundColor: _gravando ? Colors.white : null,
+                    child: Icon(
+                      _enviando
+                          ? Icons.hourglass_empty
+                          : (_gravando ? Icons.mic : Icons.send),
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ]),
         ]),

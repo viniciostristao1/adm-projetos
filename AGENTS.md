@@ -1234,6 +1234,10 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
 - **V0.1.148 — pronúncias hmm/clean/and:** `hmm`/`hm`→"hum" (só o som do "m", sem dizer
   "emi"), `clean`→"clin", `and`→"end" nos DOIS lados (`PRONUNCIA_FALA` no proxy +
   `_normalizarFala` no app). `\b` protege `WhatsApp`/`Android`.
+- **V0.1.149 — barra reorganizada:** coluna à direita com ANEXO pequeno (32px, ícone 20)
+  em cima + ENVIAR grande (FAB normal 56px, ícone 28) embaixo; caixa de texto com
+  `minLines: 3` p/ acompanhar a altura total. Anexar desabilita gravando/enviando; X de
+  cancelar segue à esquerda durante a gravação. (MUSE.md §6 atualizado.)
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
