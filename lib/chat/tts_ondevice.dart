@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
@@ -10,9 +12,17 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 /// modelo Piper "dii" (a mesma voz feminina da VPS). Elimina o gargalo do 1 vCPU
 /// da VPS e a rede → voz bem mais rápida, offline, e sem carga no servidor.
 ///
+/// ⚠️ A síntese (`tts.generate`) é uma chamada NATIVA SÍNCRONA que leva
+/// ~0,5–1s por parágrafo. ANTES rodava no isolate PRINCIPAL e travava a UI:
+/// não dava p/ rolar a conversa e, se o usuário tocasse "voltar" no meio, o
+/// Android acusava "Taskix não está respondendo" (ANR = UI thread presa >5s).
+/// Agora o motor vive num ISOLATE DEDICADO (`_isolateMain`): o `generate` roda
+/// fora da UI; o principal só manda o texto e recebe o WAV pronto via portas.
+///
 /// O modelo (~67 MB) é baixado 1x na 1ª vez e guardado no aparelho. Se qualquer
-/// passo falhar (sem modelo ainda, erro nativo, etc.), os métodos devolvem
-/// null/false e o chamador cai no /tts da VPS (reserva) — nunca quebra.
+/// passo falhar (sem modelo ainda, erro nativo, isolate não subiu, etc.), os
+/// métodos devolvem null/false e o chamador cai no /tts da VPS (reserva) — nunca
+/// quebra nem bloqueia a UI.
 class TtsOnDevice {
   static const _url =
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_BR-dii-high.tar.bz2';
@@ -20,12 +30,14 @@ class TtsOnDevice {
   static const _sub = 'vits-piper-pt_BR-dii-high'; // pasta que o .tar.bz2 cria
   static const double _lengthScale = 1.04; // velocidade da fala (↑ = mais lenta)
 
-  static sherpa.OfflineTts? _tts;
-  static bool _bindings = false;
-  static Future<bool>? _preparando; // garante 1 download/carregamento só
+  static SendPort? _req; // porta p/ pedir síntese ao isolate (null = não pronto)
+  static bool _falhou = false; // isolate não subiu → usa o servidor (não insiste)
+  static Future<bool>? _preparando; // garante 1 download/subida de isolate só
+  static int _seq = 0; // id incremental de cada pedido
+  static final Map<int, Completer<Uint8List?>> _pend = {}; // pedidos aguardando
 
-  /// Pronto p/ sintetizar no aparelho (modelo carregado)?
-  static bool get pronto => _tts != null;
+  /// Pronto p/ sintetizar no aparelho (isolate de voz no ar)?
+  static bool get pronto => _req != null;
 
   /// Ainda falta BAIXAR o modelo (p/ avisar do download só quando for o caso)?
   static Future<bool> precisaBaixar() async => !await _temModelo();
@@ -42,10 +54,11 @@ class TtsOnDevice {
         Directory('${d.path}/espeak-ng-data').existsSync();
   }
 
-  /// Garante o modelo baixado + o motor carregado. Idempotente (só 1 download
-  /// mesmo se chamado várias vezes). Devolve true se ficou pronto p/ falar.
+  /// Garante o modelo baixado + o isolate de voz no ar. Idempotente (só 1
+  /// download / 1 subida mesmo se chamado várias vezes). true = pronto p/ falar.
   static Future<bool> preparar() {
-    if (_tts != null) return Future.value(true);
+    if (_req != null) return Future.value(true);
+    if (_falhou) return Future.value(false);
     return _preparando ??=
         _prepararInterno().whenComplete(() => _preparando = null);
   }
@@ -54,64 +67,138 @@ class TtsOnDevice {
     try {
       final d = await _baseDir();
       if (!await _temModelo()) {
-        if (!await _baixar(d)) return false;
+        if (!await _baixar(d)) return false; // ainda sem modelo (download falhou)
       }
-      if (!_bindings) {
-        sherpa.initBindings();
-        _bindings = true;
+      // Sobe o isolate de síntese (uma vez). A 1ª mensagem dele é a porta de
+      // requisição; `null` significa que não conseguiu carregar o motor.
+      final pronto = Completer<SendPort?>();
+      final recv = ReceivePort();
+      recv.listen((msg) {
+        if (msg is SendPort) {
+          if (!pronto.isCompleted) pronto.complete(msg);
+        } else if (msg is List && msg.length == 2) {
+          final id = msg[0] as int;
+          final bytes = msg[1] as Uint8List?;
+          _pend.remove(id)?.complete(bytes);
+        } else {
+          if (!pronto.isCompleted) pronto.complete(null); // falha ao iniciar
+        }
+      });
+      await Isolate.spawn(
+        _isolateMain,
+        [
+          recv.sendPort,
+          '${d.path}/pt_BR-dii-high.onnx',
+          '${d.path}/tokens.txt',
+          '${d.path}/espeak-ng-data',
+          _lengthScale,
+        ],
+        onError: recv.sendPort, // erro não-tratado no spawn → destrava o Completer
+        errorsAreFatal: false,
+      );
+      final sp = await pronto.future
+          .timeout(const Duration(seconds: 30), onTimeout: () => null);
+      if (sp == null) {
+        recv.close();
+        _falhou = true;
+        return false;
       }
-      _tts = sherpa.OfflineTts(sherpa.OfflineTtsConfig(
+      _req = sp;
+      return true;
+    } catch (_) {
+      _falhou = true;
+      return false;
+    }
+  }
+
+  /// Sintetiza o texto NO ISOLATE de voz → WAV (Uint8List). null se não estiver
+  /// pronto ou falhar (o chamador cai no servidor). NÃO bloqueia a UI: o pesado
+  /// roda no isolate; aqui só se aguarda a resposta pela porta.
+  static Future<Uint8List?> sintetizar(String texto) {
+    final req = _req;
+    final t = texto.trim();
+    if (req == null || t.isEmpty) return Future.value(null);
+    final id = _seq++;
+    final c = Completer<Uint8List?>();
+    _pend[id] = c;
+    req.send([id, t]);
+    // Salvaguarda: nunca pendura o chamador pra sempre se a resposta sumir.
+    return c.future.timeout(const Duration(seconds: 20), onTimeout: () {
+      _pend.remove(id);
+      return null;
+    });
+  }
+
+  // ─────────────────────── roda NO ISOLATE de síntese ───────────────────────
+  // Carrega o motor uma vez e responde cada pedido [id, texto] com [id, wav|null].
+  static void _isolateMain(List args) {
+    final SendPort out = args[0] as SendPort;
+    sherpa.OfflineTts tts;
+    try {
+      sherpa.initBindings();
+      tts = sherpa.OfflineTts(sherpa.OfflineTtsConfig(
         model: sherpa.OfflineTtsModelConfig(
           vits: sherpa.OfflineTtsVitsModelConfig(
-            model: '${d.path}/pt_BR-dii-high.onnx',
-            tokens: '${d.path}/tokens.txt',
-            dataDir: '${d.path}/espeak-ng-data',
-            lengthScale: _lengthScale,
+            model: args[1] as String,
+            tokens: args[2] as String,
+            dataDir: args[3] as String,
+            lengthScale: args[4] as double,
           ),
           numThreads: 2,
           debug: false,
         ),
       ));
-      return true;
     } catch (_) {
-      _tts = null;
+      out.send(null); // não carregou → o principal cai no servidor
+      return;
+    }
+    final inbox = ReceivePort();
+    out.send(inbox.sendPort); // devolve a porta de requisição ao principal
+    inbox.listen((msg) {
+      if (msg is! List || msg.length != 2) return;
+      final id = msg[0] as int;
+      final texto = msg[1] as String;
+      Uint8List? bytes;
+      try {
+        final audio = tts.generate(text: texto, sid: 0, speed: 1.0);
+        if (audio.samples.isNotEmpty) {
+          bytes = _wav(audio.samples, audio.sampleRate);
+        }
+      } catch (_) {}
+      out.send([id, bytes]);
+    });
+  }
+
+  /// Baixa + descompacta o modelo. O HTTP, o BZip2/Tar (~67 MB) e a extração são
+  /// PESADOS: rodam num isolate efêmero (`Isolate.run`) p/ não travar a UI na 1ª
+  /// vez. Devolve true se o modelo ficou no lugar.
+  static Future<bool> _baixar(Directory modelDir) async {
+    try {
+      final destino = modelDir.parent.path; // <docs>/tts_dii
+      final ok = await Isolate.run(() => _baixarIsolado(_url, destino));
+      return ok && await _temModelo();
+    } catch (_) {
       return false;
     }
   }
 
-  static Future<bool> _baixar(Directory modelDir) async {
+  /// Corpo do download/descompactação — roda inteiro fora do isolate principal.
+  static Future<bool> _baixarIsolado(String url, String destino) async {
     try {
       final resp =
-          await http.get(Uri.parse(_url)).timeout(const Duration(minutes: 6));
+          await http.get(Uri.parse(url)).timeout(const Duration(minutes: 6));
       if (resp.statusCode != 200 || resp.bodyBytes.length < 1000000) {
         return false;
       }
       final tar = BZip2Decoder().decodeBytes(resp.bodyBytes);
       final arquivo = TarDecoder().decodeBytes(tar);
-      // extrai para <docs>/tts_dii/ (cria a subpasta vits-piper-pt_BR-dii-high/).
-      final destino = modelDir.parent; // <docs>/tts_dii
-      if (destino.existsSync()) destino.deleteSync(recursive: true);
-      destino.createSync(recursive: true);
-      extractArchiveToDisk(arquivo, destino.path);
-      return await _temModelo();
+      final dir = Directory(destino);
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+      dir.createSync(recursive: true);
+      extractArchiveToDisk(arquivo, destino);
+      return true;
     } catch (_) {
       return false;
-    }
-  }
-
-  /// Sintetiza o texto NO APARELHO → WAV (Uint8List). null se não estiver pronto
-  /// ou falhar (o chamador cai no servidor). Síntese roda no isolate principal
-  /// (~0,5–1s por parágrafo num celular moderno); ok porque corre adiantada à fala.
-  static Future<Uint8List?> sintetizar(String texto) async {
-    final tts = _tts;
-    final t = texto.trim();
-    if (tts == null || t.isEmpty) return null;
-    try {
-      final audio = tts.generate(text: t, sid: 0, speed: 1.0);
-      if (audio.samples.isEmpty) return null;
-      return _wav(audio.samples, audio.sampleRate);
-    } catch (_) {
-      return null;
     }
   }
 

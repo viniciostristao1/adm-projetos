@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import '../diagnostico.dart';
 import 'chat_config.dart';
 import 'chat_models.dart';
 import 'chat_store.dart';
@@ -170,6 +171,7 @@ class ChatService {
       final resp =
           await http.Client().send(req).timeout(const Duration(seconds: 190));
       if (resp.statusCode != 200) {
+        Diagnostico.registrar('muse', 'chat_stream HTTP ${resp.statusCode}');
         emit(MuseEvent('erro', 'HTTP ${resp.statusCode}'));
         return;
       }
@@ -187,6 +189,7 @@ class ChatService {
           continue;
         }
         if (obj['erro'] != null) {
+          Diagnostico.registrar('muse', 'servidor: ${obj['erro']}');
           emit(MuseEvent('erro', obj['erro'].toString()));
         } else if (obj['done'] == true) {
           replyFinal = (obj['reply'] as String?)?.trim();
@@ -207,13 +210,14 @@ class ChatService {
       } else {
         emit(const MuseEvent('erro', 'vazio'));
       }
-    } catch (_) {
+    } catch (e, st) {
       // Caiu no meio: salva o PARCIAL p/ não perder o que já veio.
       final parcial = full.toString().trim();
       if (parcial.isNotEmpty) {
         await ChatStore.anexarIa(id, parcial);
         emit(MuseEvent('done', parcial));
       } else {
+        Diagnostico.registrar('muse', 'chat_stream: $e', st);
         emit(const MuseEvent('erro', 'rede'));
       }
     } finally {
@@ -283,7 +287,8 @@ class ChatService {
         502 => 'A IA está indisponível agora. Tente em instantes.',
         _ => 'Erro ${r.statusCode}. Tente de novo.',
       });
-    } catch (_) {
+    } catch (e, st) {
+      Diagnostico.registrar('muse', 'chat: $e', st);
       return const ChatResult.falha(
           'Sem resposta (rede ou tempo esgotado). Tente de novo.');
     }

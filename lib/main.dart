@@ -1,8 +1,14 @@
+import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'barra_config.dart';
+import 'chat/chat_config.dart';
+import 'chat/chat_store.dart';
 import 'cores.dart';
+import 'diagnostico.dart';
 import 'lembretes.dart';
 import 'projetos_screen.dart';
 import 'storage.dart';
@@ -10,27 +16,48 @@ import 'sync_service.dart';
 import 'tema.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  temaController.carregar();
-  barraController.carregar();
-  // Salva na hora quando o app sai de primeiro plano (fechar/minimizar) —
-  // garante que o texto recém-digitado não se perca.
-  WidgetsBinding.instance.addObserver(_SalvadorDeVida());
-  // Firebase: se ainda não estiver configurado (sem google-services.json),
-  // o app continua funcionando 100% local.
-  try {
-    await Firebase.initializeApp();
-    await SyncService.instance.iniciar();
-  } catch (e) {
-    debugPrint('Firebase indisponível (modo local): $e');
-  }
-  // Lembretes (notificação local) — se falhar, o app segue sem o recurso.
-  try {
-    await LembretesService.instance.init();
-  } catch (e) {
-    debugPrint('Lembretes indisponíveis: $e');
-  }
-  runApp(const AdmProjetosApp());
+  // Tudo dentro de uma zona guardada p/ capturar erros não-tratados (async
+  // inclusive) num relatório que o usuário pode enviar/compartilhar (Diagnostico).
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    Diagnostico.carregar();
+    // Erros do framework (build/layout/gesture) e da plataforma vão ao relatório.
+    final anterior = FlutterError.onError;
+    FlutterError.onError = (details) {
+      anterior?.call(details);
+      Diagnostico.registrar(
+          'flutter', details.exceptionAsString(), details.stack);
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      Diagnostico.registrar('plataforma', error, stack);
+      return true; // tratado (não derruba o app)
+    };
+    temaController.carregar();
+    barraController.carregar();
+    // Salva na hora quando o app sai de primeiro plano (fechar/minimizar) —
+    // garante que o texto recém-digitado não se perca.
+    WidgetsBinding.instance.addObserver(_SalvadorDeVida());
+    // Pré-aquece o histórico do Muse CEDO (antes da 1ª tela) p/ a 1ª abertura do
+    // chat não piscar na tela de loading. Fire-and-forget; só com o chat ligado.
+    if (ChatConfig.habilitado) ChatStore.aquecer();
+    // Firebase: se ainda não estiver configurado (sem google-services.json),
+    // o app continua funcionando 100% local.
+    try {
+      await Firebase.initializeApp();
+      await SyncService.instance.iniciar();
+    } catch (e) {
+      debugPrint('Firebase indisponível (modo local): $e');
+    }
+    // Lembretes (notificação local) — se falhar, o app segue sem o recurso.
+    try {
+      await LembretesService.instance.init();
+    } catch (e) {
+      debugPrint('Lembretes indisponíveis: $e');
+    }
+    runApp(const AdmProjetosApp());
+  }, (error, stack) {
+    Diagnostico.registrar('zona', error, stack);
+  });
 }
 
 /// Salva os dados em qualquer mudança de ciclo de vida que tire o app da

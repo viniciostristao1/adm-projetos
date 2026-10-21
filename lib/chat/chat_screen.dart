@@ -8,8 +8,10 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../diagnostico.dart';
 import '../storage.dart';
 import '../sync_service.dart';
 import 'chat_models.dart';
@@ -1056,6 +1058,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _resumir();
       case 'renomear':
         _renomear(_conv);
+      case 'relatorio':
+        await _mostrarRelatorio();
       default:
         if (v.startsWith('m_')) {
           setState(() => _conv.modelo = ChatModelo.deId(v.substring(2)));
@@ -1069,6 +1073,58 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               : 'Respostas longas (tamanho completo)');
         }
     }
+  }
+
+  /// Mostra as falhas capturadas (Diagnostico) e deixa ENVIAR (ao proxy do
+  /// Muse), COMPARTILHAR (outro canal) ou LIMPAR. Ajuda a diagnosticar
+  /// travamentos/erros que o usuário encontrar.
+  Future<void> _mostrarRelatorio() async {
+    final texto = Diagnostico.texto();
+    final vazio = Diagnostico.vazio;
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Relatório de erros (${Diagnostico.quantidade})'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText(texto,
+                style: const TextStyle(fontSize: 12, height: 1.3)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: vazio
+                ? null
+                : () async {
+                    await Diagnostico.limpar();
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    _snack('Relatório limpo');
+                  },
+            child: const Text('Limpar'),
+          ),
+          TextButton(
+            onPressed: () => SharePlus.instance.share(ShareParams(
+                text: texto, subject: 'Taskix — relatório de erros')),
+            child: const Text('Compartilhar'),
+          ),
+          FilledButton(
+            onPressed: vazio
+                ? null
+                : () async {
+                    final ok = await Diagnostico.enviar();
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx);
+                    _snack(ok
+                        ? 'Relatório enviado. Obrigado!'
+                        : 'Falha ao enviar — tente Compartilhar.');
+                  },
+            child: const Text('Enviar'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ───────────────────────── Busca na conversa ─────────────────────────
@@ -1326,6 +1382,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _item('nova', Icons.add_comment_outlined, 'Nova conversa'),
               _item('resumo', Icons.summarize_outlined, 'Resumo da conversa'),
               _item('renomear', Icons.edit_outlined, 'Renomear conversa'),
+              _item('relatorio', Icons.bug_report_outlined, 'Relatório de erros'),
               const PopupMenuDivider(),
               for (final mdl in ChatModelo.values)
                 PopupMenuItem(
