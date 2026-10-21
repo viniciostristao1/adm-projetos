@@ -2990,7 +2990,10 @@ class _Vazio extends StatelessWidget {
 ///  • ASSISTENTE→ abre o chat da Muse (só quando o chat está habilitado).
 ///  • ESTUDOS   → abre (criando se preciso) o projeto "Estudos" em modo pastas,
 ///                onde o usuário cola mensagens da Muse / resumos de vídeos.
-/// Visual acompanha o tema (neumórfico via [Caixa3D] ou plano com borda).
+/// Visual da caixinha (V0.1.145, ideia 05 da galeria `ideias_botoes/`): fundo
+/// ESCURO fixo + desenho traçado na cor de acento do tema ([AppCores.fab]),
+/// ou seja, cada tema pinta o desenho com a sua cor. Desenhos: relógio
+/// (Recentes), robô com tiara de telemarketing (Assistente), livro (Estudos).
 class _AcessosRapidos extends StatelessWidget {
   const _AcessosRapidos({
     required this.ultimo,
@@ -3010,45 +3013,40 @@ class _AcessosRapidos extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final ehClaude = app == AppCores.claude;
-    // Bege/Ônix: a home é "sem caixa" e seu fundo é a própria cor do cartão;
-    // então as caixinhas usam [notaFim] para não sumirem no fundo.
-    final semCaixa = app == AppCores.bege || app == AppCores.onix;
     final compacto = temaController.compacto;
 
+    final tituloCor = app.textoUI.withValues(alpha: 0.55);
     final caixas = <Widget>[
       _caixa(
-        context,
-        app,
         ehClaude: ehClaude,
-        semCaixa: semCaixa,
         compacto: compacto,
         titulo: 'RECENTES',
-        icone: Icons.history,
+        tituloCor: tituloCor,
+        glifo: _GlifoAcesso.recentes,
+        cor: app.fab,
         rotulo: ultimo?.nome ?? 'nenhum ainda',
         habilitado: ultimo != null,
         onTap: onRecentes,
       ),
       if (mostrarMuse)
         _caixa(
-          context,
-          app,
           ehClaude: ehClaude,
-          semCaixa: semCaixa,
           compacto: compacto,
           titulo: 'ASSISTENTE',
-          icone: Icons.chat_bubble_outline,
+          tituloCor: tituloCor,
+          glifo: _GlifoAcesso.assistente,
+          cor: app.fab,
           rotulo: 'Muse',
           habilitado: true,
           onTap: onMuse,
         ),
       _caixa(
-        context,
-        app,
         ehClaude: ehClaude,
-        semCaixa: semCaixa,
         compacto: compacto,
         titulo: 'ESTUDOS',
-        icone: Icons.menu_book_outlined,
+        tituloCor: tituloCor,
+        glifo: _GlifoAcesso.estudos,
+        cor: app.fab,
         rotulo: 'notas',
         habilitado: true,
         onTap: onEstudos,
@@ -3069,28 +3067,28 @@ class _AcessosRapidos extends StatelessWidget {
     );
   }
 
-  Widget _caixa(
-    BuildContext context,
-    AppCores app, {
+  Widget _caixa({
     required bool ehClaude,
-    required bool semCaixa,
     required bool compacto,
     required String titulo,
-    required IconData icone,
+    required Color tituloCor,
+    required _GlifoAcesso glifo,
+    required Color cor,
     required String rotulo,
     required bool habilitado,
     required VoidCallback onTap,
   }) {
-    final rotuloCor = app.textoUI.withValues(alpha: 0.55);
     final altura = compacto ? 58.0 : 68.0;
     final raio = ehClaude ? 10.0 : 14.0;
 
     final conteudo = Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: compacto ? 8 : 10),
+      // Altura da caixa é fixa (58/68): glifo + rótulo precisam caber com folga
+      // (sem isso dá RenderFlex overflow e quebra teste de widget).
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: compacto ? 6 : 8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icone, size: compacto ? 20 : 22, color: app.fab),
+          _GlifoWidget(glifo, cor: cor, size: compacto ? 24 : 28),
           SizedBox(height: compacto ? 4 : 5),
           Text(
             rotulo,
@@ -3100,38 +3098,27 @@ class _AcessosRapidos extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: compacto ? 11 : 12,
-              color: app.projetoTxt,
+              // Caixinha de fundo escuro fixo → texto claro fixo (legível em
+              // qualquer tema; a cor do tema vai no desenho, não no rótulo).
+              color: const Color(0xFFF0EEE9),
             ),
           ),
         ],
       ),
     );
 
-    Widget visual;
-    if (app.neumorfico) {
-      visual = Caixa3D(
-        cor: app.projetoCard,
-        corInicio: app.projetoCard,
-        corFim: app.projetoCardFim,
-        raio: 12,
-        child: SizedBox(height: altura, width: double.infinity, child: conteudo),
-      );
-    } else {
-      visual = Container(
-        height: altura,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: semCaixa ? app.notaFim : app.projetoCard,
-          borderRadius: BorderRadius.circular(raio),
-          border: ehClaude
-              ? const Border.fromBorderSide(
-                  BorderSide(color: Color(0xFF2A2A2B)),
-                )
-              : Border.all(color: app.projetoTxt.withValues(alpha: 0.08)),
-        ),
-        child: conteudo,
-      );
-    }
+    // Ideia 05 da galeria: fundo escuro fixo + filete sutil. O desenho leva a
+    // cor de acento do tema (`cor` = app.fab de cada tema).
+    Widget visual = Container(
+      height: altura,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C0C0D),
+        borderRadius: BorderRadius.circular(raio),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+      ),
+      child: conteudo,
+    );
 
     visual = Material(
       type: MaterialType.transparency,
@@ -3154,7 +3141,7 @@ class _AcessosRapidos extends StatelessWidget {
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
-              color: rotuloCor,
+              color: tituloCor,
             ),
           ),
         ),
@@ -3162,4 +3149,150 @@ class _AcessosRapidos extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Qual desenho vai na caixinha de acesso rápido (ideia 05 da galeria).
+enum _GlifoAcesso { recentes, assistente, estudos }
+
+/// Desenho traçado na cor do tema sobre o fundo escuro da caixinha.
+class _GlifoWidget extends StatelessWidget {
+  const _GlifoWidget(this.glifo, {required this.cor, required this.size});
+  final _GlifoAcesso glifo;
+  final Color cor;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _GlifoPainter(glifo, cor),
+      size: Size.square(size),
+    );
+  }
+}
+
+class _GlifoPainter extends CustomPainter {
+  _GlifoPainter(this.glifo, this.cor);
+  final _GlifoAcesso glifo;
+  final Color cor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Caixa lógica 96x96 (mesma geometria dos SVGs em `ideias_botoes/`).
+    final s = size.width / 96.0;
+    double repo(double v) => v * s;
+    final traco = Paint()
+      ..color = cor
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final cheio = Paint()
+      ..color = cor
+      ..style = PaintingStyle.fill;
+
+    switch (glifo) {
+      case _GlifoAcesso.recentes:
+        traco.strokeWidth = repo(6);
+        canvas.drawCircle(Offset(repo(48), repo(48)), repo(21), traco);
+        canvas.drawPath(
+          Path()
+            ..moveTo(repo(48), repo(48))
+            ..lineTo(repo(48), repo(33))
+            ..moveTo(repo(48), repo(48))
+            ..lineTo(repo(59), repo(53)),
+          traco,
+        );
+        canvas.drawCircle(Offset(repo(48), repo(48)), repo(3.6), cheio);
+
+      case _GlifoAcesso.assistente:
+        traco.strokeWidth = repo(5);
+        // Tiara do headset.
+        canvas.drawPath(
+          Path()
+            ..moveTo(repo(25), repo(38))
+            ..cubicTo(repo(25), repo(17), repo(71), repo(17), repo(71),
+                repo(38)),
+          traco,
+        );
+        // Concha no ouvido direito.
+        canvas.drawRRect(
+          RRect.fromLTRBR(repo(67), repo(32), repo(75), repo(46),
+              Radius.circular(repo(4))),
+          cheio,
+        );
+        // Haste do microfone até a boca.
+        canvas.drawPath(
+          Path()
+            ..moveTo(repo(71), repo(44))
+            ..cubicTo(repo(71), repo(56), repo(64), repo(60), repo(58),
+                repo(60)),
+          traco,
+        );
+        canvas.drawCircle(Offset(repo(56), repo(60)), repo(4), cheio);
+        // Cabeça do robô.
+        canvas.drawRRect(
+          RRect.fromLTRBR(repo(25), repo(32), repo(71), repo(66),
+              Radius.circular(repo(12))),
+          traco,
+        );
+        // Olhos.
+        canvas.drawCircle(Offset(repo(40), repo(48)), repo(4.4), cheio);
+        canvas.drawCircle(Offset(repo(56), repo(48)), repo(4.4), cheio);
+        // Sorriso.
+        final sorriso = traco..strokeWidth = repo(4);
+        canvas.drawPath(
+          Path()
+            ..moveTo(repo(38), repo(58))
+            ..quadraticBezierTo(
+                repo(44), repo(62), repo(50), repo(60)),
+          sorriso,
+        );
+
+      case _GlifoAcesso.estudos:
+        traco.strokeWidth = repo(5);
+        // Páginas.
+        canvas.drawPath(
+          Path()
+            ..moveTo(repo(48), repo(34))
+            ..cubicTo(repo(42), repo(30), repo(34), repo(29), repo(26),
+                repo(31))
+            ..lineTo(repo(26), repo(65))
+            ..cubicTo(repo(34), repo(63), repo(42), repo(64), repo(48),
+                repo(68))
+            ..close(),
+          traco,
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(repo(48), repo(34))
+            ..cubicTo(repo(54), repo(30), repo(62), repo(29), repo(70),
+                repo(31))
+            ..lineTo(repo(70), repo(65))
+            ..cubicTo(repo(62), repo(63), repo(54), repo(64), repo(48),
+                repo(68))
+            ..close(),
+          traco,
+        );
+        // Lombada.
+        canvas.drawLine(
+            Offset(repo(48), repo(34)), Offset(repo(48), repo(68)), traco);
+        // Linhas de texto.
+        final fino = traco..strokeWidth = repo(3);
+        canvas.drawPath(
+          Path()
+            ..moveTo(repo(31), repo(41))
+            ..lineTo(repo(44), repo(43))
+            ..moveTo(repo(31), repo(48))
+            ..lineTo(repo(44), repo(50))
+            ..moveTo(repo(52), repo(43))
+            ..lineTo(repo(65), repo(41))
+            ..moveTo(repo(52), repo(50))
+            ..lineTo(repo(65), repo(48)),
+          fino,
+        );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlifoPainter old) =>
+      old.glifo != glifo || old.cor != cor;
 }

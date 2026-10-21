@@ -1214,6 +1214,14 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   de limpar/enviar e ele repovoava a caixa vazia (aparecia no meio da resposta da Muse).
   Fix: `_sessaoVoz` — cada segurar gera id novo, cada parada invalida; onResult/status com
   id velho são descartados (o final dentro da janela de 350ms ainda vale).
+- **V0.1.144 — Muse abre sem flash:** pré-aquece o histórico (`ChatStore.aquecer()` no start
+  do app) + cache em memória de `listar()` validado pelo string do disco (só leitura; gravadores
+  seguem lendo o disco) — a 1ª abertura não pisca ~1s no loading.
+- **V0.1.145 — acessos com desenho 05 da galeria:** caixinhas RECENTES/ASSISTENTE/ESTUDOS
+  viram fundo escuro fixo (`#0C0C0D`) + desenho traçado na cor de acento do tema (`app.fab`,
+  então cada tema pinta com a sua cor). `_GlifoAcesso`/`_GlifoPainter` (`CustomPainter`,
+  mesma geometria 96x96 dos SVGs): relógio, robô com tiara de telemarketing, livro aberto.
+  Sem dependência nova. Medida anti-overflow: glifo 24/28 + padding 6/8 (altura fixa 58/68).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
