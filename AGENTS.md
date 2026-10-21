@@ -1231,6 +1231,9 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `pause`/`resume`/`stop` sem try/catch (race no Android = exceção não-tratada) + toques
   duplos concorrentes — tudo blindado (`_trocandoVoz`, try/catch com `Diagnostico.registrar`)
   e pausa automática ao sair do app. Botão maior (18→26, área 4→10).
+- **V0.1.148 — pronúncias hmm/clean/and:** `hmm`/`hm`→"hum" (só o som do "m", sem dizer
+  "emi"), `clean`→"clin", `and`→"end" nos DOIS lados (`PRONUNCIA_FALA` no proxy +
+  `_normalizarFala` no app). `\b` protege `WhatsApp`/`Android`.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
