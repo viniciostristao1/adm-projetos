@@ -1238,6 +1238,9 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   em cima + ENVIAR grande (FAB normal 56px, ícone 28) embaixo; caixa de texto com
   `minLines: 3` p/ acompanhar a altura total. Anexar desabilita gravando/enviando; X de
   cancelar segue à esquerda durante a gravação. (MUSE.md §6 atualizado.)
+- **V0.1.150 — desenhos da prateleira maiores:** glifo 24/28→26/32 (máximo que cabe na
+  altura fixa 58/68 sem overflow — validado nos testes de widget). Galeria `topo/` com
+  30 sugestões p/ os botões de dentro do projeto (só visual, nada implementado).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
