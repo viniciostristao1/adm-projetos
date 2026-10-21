@@ -2340,7 +2340,7 @@ class _BotaoTopo extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           onTap: onPressed,
           child: Container(
-            width: 34,
+            width: 40,
             height: 34,
             decoration: BoxDecoration(
               color: const Color(0xFF0C0C0D),

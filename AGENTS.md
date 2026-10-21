@@ -1253,6 +1253,8 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `topo/`); demais temas seguem com IconButton padrão. `_BotaoTopo`/`_TopoPainter`
   (`CustomPainter`, geometria 96x96 dos SVGs; "PDF" via `TextPainter`). Sem
   dependência nova.
+- **V0.1.153 — plaquinhas do topo mais largas:** `_BotaoTopo` 34→40px de largura
+  (altura 34 mantida).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
