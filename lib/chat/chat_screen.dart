@@ -643,8 +643,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // Rola o INTERIOR da caixa de mensagem até o fim (última linha visível).
-  // O TextField com maxLines:5 cria um scroll interno quando o ditado passa de
-  // 5 linhas; a atualização programática (_ctrl.text = ...) NÃO acompanha o
+  // O TextField com maxLines:10 cria um scroll interno quando o texto passa de
+  // 10 linhas; a atualização programática (_ctrl.text = ...) NÃO acompanha o
   // cursor sozinha — sem isto o texto novo desce para baixo da caixa e o usuário
   // não vê o que foi capturado. Chamado a cada parcial do ditado e ao digitar.
   void _rolarCaixaFim() {
@@ -765,15 +765,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// transitória (o restart cuida). `sessao` invalida resultados atrasados de um
   /// ditado já encerrado (ver `_sessaoVoz`).
   Future<void> _ouvirUmaVez(int sessao) async {
-    if (sessao != _sessaoVoz || !_gravando || _paradaManual || !mounted) return;
+    if (sessao != _sessaoVoz ||
+        !_gravando ||
+        _paradaManual ||
+        !mounted ||
+        _stt.isListening) {
+      return;
+    }
     try {
       await _stt.listen(
         onResult: (r) {
           if (sessao != _sessaoVoz || _paradaManual || !_gravando) return;
           final atual = r.recognizedWords.trim();
-          final combinado = _textoBase.isEmpty
-              ? atual
-              : (atual.isEmpty ? _textoBase : '$_textoBase $atual');
+          // Parcial vazio nunca apaga: no fim da sessão o reconhecedor costuma
+          // emitir um resultado vazio — sem este guarda ele ZERAVA a caixa e o
+          // `_aoStatusStt` comitava o vazio como base (ditado "recomeçava").
+          if (atual.isEmpty) return;
+          final combinado =
+              _textoBase.isEmpty ? atual : '$_textoBase $atual';
+          // Nunca encolhe: resultado atrasado/ revisado p/ menos não pode apagar
+          // o que já estava transcrito (a pausa p/ pensar não apaga nada).
+          if (combinado.length < _ctrl.text.length) return;
           _ctrl.text = combinado;
           _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
           // Caixa: mostra sempre o fim do que foi capturado (últimas linhas).
@@ -809,7 +821,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (sessao == _sessaoVoz &&
             _gravando &&
             !_paradaManual &&
-            mounted) {
+            mounted &&
+            !_stt.isListening) {
           _ouvirUmaVez(sessao);
         }
       });
@@ -1601,7 +1614,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         child: Text(
-          'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo}',
+          'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}',
+          textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1989,14 +2003,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Expanded(
-              child: TextField(
+              // Barra de rolagem sempre visível (estilo WhatsApp): mostra que há
+              // mais texto acima quando passa do limite, cortando pelo topo.
+              child: Scrollbar(
+                controller: _caixaScroll,
+                thumbVisibility: true,
+                thickness: 4,
+                radius: const Radius.circular(4),
+                child: TextField(
                 controller: _ctrl,
                 focusNode: _foco,
                 scrollController: _caixaScroll,
                 // Altura inicial acompanha a coluna da direita (anexo + enviar):
                 // 3 linhas ≈ mesma altura total dos dois botões empilhados.
+                // Teto de 10 linhas como no WhatsApp (corta pelo topo e rola).
                 minLines: 3,
-                maxLines: 5,
+                maxLines: 10,
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.newline,
                 onTap: () {
@@ -2037,6 +2059,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       );
                     },
                   ),
+                ),
                 ),
               ),
             ),

@@ -1261,6 +1261,13 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   TODOS os temas (fundo escuro fixo + desenho na cor de acento do tema via `app.fab`;
   helper `_botaoTopo` removido). (3) Prateleira: glifo 26/32→30/36 SEM aumentar a caixa
   (padding 4/5→2/3, gap 3→2 — validado nos testes de widget).
+- **V0.1.155 — ditado não apaga + banner com modelo + caixa WhatsApp:** (1) Pausa no
+  ditado apagava tudo: parcial vazio de fim de sessão zerava a caixa e o restart
+  comitava o vazio como base. Fix: parcial vazio ignorado + resultado nunca encolhe o
+  texto + sem restart duplo (`_stt.isListening`). (2) Banner do chat agora mostra
+  `Modo • Tamanho • Modelo` (ex.: "Modo Calis • Curto • Caprichado"), centralizado.
+  (3) Caixa estilo WhatsApp: `maxLines` 5→10 com `Scrollbar` sempre visível (corta pelo
+  topo, 10 linhas visíveis). (MUSE.md §6 atualizado.)
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
