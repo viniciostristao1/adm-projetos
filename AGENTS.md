@@ -1276,6 +1276,10 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   desenho branco (ideia 02 da galeria). `_placaTopo` (toque) e `_placaTopoMenu`
   (menus modo/⋮ via `child:`, sem o IconButton de 48px que estouraria os 34px).
   Título segue texto (nome da conversa, dinâmico).
+- **V0.1.158 — topo do chat igual ao de dentro do projeto:** plaquinhas deixam de ser
+  preenchidas e viram fundo escuro `#0C0C0D` + borda `#2A2A2B` + desenho na cor de
+  acento do tema (via `IconTheme`, sem cor fixa nos Icons) — mesmo estilo das de
+  dentro do projeto.
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

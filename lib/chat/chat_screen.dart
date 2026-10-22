@@ -1472,8 +1472,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ? _placaTopo(
                 tooltip: 'Fechar busca',
                 onTap: _fecharBusca,
-                filho: const Icon(Icons.arrow_back,
-                    color: Colors.white, size: 20),
+                filho: const Icon(Icons.arrow_back, size: 20),
               )
             : null,
         // Nome da conversa (ou campo de busca no modo busca).
@@ -1502,8 +1501,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   onTap: _conv.mensagens.isEmpty
                       ? null
                       : () => setState(() => _buscando = true),
-                  filho: const Icon(Icons.search,
-                      color: Colors.white, size: 20),
+                  filho: const Icon(Icons.search, size: 20),
                 ),
                 // Seletor de MODO (mostra o modo atual).
                 _placaTopoMenu<ChatPreset>(
@@ -1528,17 +1526,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                   ],
                   filho: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(_icone(_conv.preset),
-                        color: Colors.white, size: 20),
-                    const Icon(Icons.arrow_drop_down,
-                        color: Colors.white, size: 20),
+                    Icon(_icone(_conv.preset), size: 20),
+                    const Icon(Icons.arrow_drop_down, size: 20),
                   ]),
                 ),
                 _placaTopo(
                   tooltip: 'Conversas',
                   onTap: _abrirHistorico,
-                  filho: const Icon(Icons.history,
-                      color: Colors.white, size: 20),
+                  filho: const Icon(Icons.history, size: 20),
                 ),
                 // Menu: nova, resumo, renomear e MODELO de IA.
                 _placaTopoMenu<String>(
@@ -1581,8 +1576,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
             ],
-                  filho: const Icon(Icons.more_vert,
-                      color: Colors.white, size: 20),
+                  filho: const Icon(Icons.more_vert, size: 20),
                 ),
         ],
       ),
@@ -1594,8 +1588,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  /// Plaquinha cheia do topo do chat (ideia 02 "Preenchido" da galeria
-  /// `muse-topo/`): fundo na cor de acento do tema + desenho branco.
+  /// Plaquinha do topo do chat no estilo das de dentro do projeto (ideia 05 da
+  /// galeria): fundo escuro + desenho na cor de acento do tema. `filho` usa a
+  /// cor do `IconTheme` (não fixe cor nos Icons).
   Widget _placaTopo({
     required String tooltip,
     required VoidCallback? onTap,
@@ -1608,11 +1603,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       width: largura,
       height: 34,
       decoration: BoxDecoration(
-        color: cor,
+        color: const Color(0xFF0C0C0D),
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2A2A2B)),
       ),
       alignment: Alignment.center,
-      child: filho,
+      child: IconTheme(
+        data: const IconThemeData(size: 20).copyWith(color: cor),
+        child: filho,
+      ),
     );
     if (onTap == null) {
       return Opacity(
@@ -1651,17 +1650,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         width: largura,
         height: 34,
         decoration: BoxDecoration(
-          color: cor,
+          color: const Color(0xFF0C0C0D),
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF2A2A2B)),
         ),
         alignment: Alignment.center,
-        child: PopupMenuButton<T>(
-          tooltip: tooltip,
-          padding: EdgeInsets.zero,
-          initialValue: initialValue,
-          onSelected: onSelected,
-          itemBuilder: itemBuilder,
-          child: filho,
+        child: IconTheme(
+          data: const IconThemeData(size: 20).copyWith(color: cor),
+          child: PopupMenuButton<T>(
+            tooltip: tooltip,
+            padding: EdgeInsets.zero,
+            initialValue: initialValue,
+            onSelected: onSelected,
+            itemBuilder: itemBuilder,
+            child: filho,
+          ),
         ),
       ),
     );
