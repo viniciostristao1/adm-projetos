@@ -65,6 +65,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // a cada restart — sem acumular, o recomeço apagaria o início).
   bool _paradaManual = false;
   String _textoBase = '';
+  bool _reabrindoVoz = false; // debounce da reabertura ativa (erro transitório)
   // Sessão do ditado: cada SEGURAR gera um id novo e cada PARADA (enviar/toque/
   // limpar/sair/erro permanente) invalida o id atual. Resultado ATRASADO do STT
   // (o `stop()` entrega um onResult final DEPOIS de limpar/enviar) com id velho
@@ -858,7 +859,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     final paradoHa =
         DateTime.now().millisecondsSinceEpoch - _ultimoEventoVozAt;
-    if (paradoHa < 6000) return;
+    // 3s (era 6s): recupera mais rápido um encerramento silencioso do Android —
+    // o restart ativo do erro transitório (_reabrirVoz) cobre o caso comum da
+    // pausa curta; o vigia é só o backstop para a morte sem status nem erro.
+    if (paradoHa < 3000) return;
     Diagnostico.registrar('voz', 'watchdog: $paradoHa ms sem evento, recomeçando');
     try {
       await _stt.cancel();
@@ -909,9 +913,41 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _vigiaVoz = null;
         if (mounted) setState(() => _gravando = false);
         _snack('Reconhecimento de voz indisponível neste aparelho');
+      } else {
+        // Transitório = o caso da PAUSA CURTA: o reconhecedor nativo dispara
+        // no-match / speech-timeout e MORRE, mas com `cancelOnError:false` o
+        // plugin às vezes NÃO emite `done` → `_aoStatusStt` não recomeça e a
+        // captação ficava numa ZONA MORTA até o vigia (6s), truncando a fala.
+        // Agora reabrimos a escuta JÁ (acumulando em `_textoBase`), então uma
+        // pausa de 1–2s não interrompe o ditado. Ver _reabrirVoz.
+        _reabrirVoz(_sessaoVoz);
       }
-      // Transitório: não mexe no `_gravando` — o `_aoStatusStt` recomeça.
     } catch (_) {}
+  }
+
+  /// Reabre a escuta após o reconhecedor nativo encerrar numa pausa curta
+  /// (erro transitório). Cancela o estado preso (o `cancelOnError:false` pode
+  /// deixar `isListening` em true), guarda o parcial em `_textoBase` e volta a
+  /// ouvir — fechando a zona morta sem esperar o vigia. Debounced para não
+  /// empilhar reaberturas quando chegam vários erros seguidos.
+  Future<void> _reabrirVoz(int sessao) async {
+    if (_reabrindoVoz) return;
+    if (sessao != _sessaoVoz || !_gravando || _paradaManual || !mounted) return;
+    _reabrindoVoz = true;
+    if (_ctrl.text.trim().isNotEmpty) _textoBase = _ctrl.text.trim();
+    try {
+      await _stt.cancel();
+    } catch (_) {}
+    await Future.delayed(const Duration(milliseconds: 180));
+    _reabrindoVoz = false;
+    if (sessao == _sessaoVoz &&
+        _gravando &&
+        !_paradaManual &&
+        mounted &&
+        !_stt.isListening) {
+      Diagnostico.registrar('voz', 'reabrir (pausa/erro transitório)');
+      _ouvirUmaVez(sessao);
+    }
   }
 
   /// TOQUE no enviar com gravação ativa → para de ouvir e ENVIA.
@@ -1580,7 +1616,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 // Seletor de MODO (mostra o modo atual).
                 _placaTopoMenu<ChatPreset>(
                   tooltip: 'Modo',
-                  largura: 52,
                   initialValue: _conv.preset,
                   onSelected: (p) async {
                     setState(() => _conv.preset = p);
@@ -1599,10 +1634,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         ),
                       ),
                   ],
-                  filho: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(_icone(_conv.preset), size: 20),
-                    const Icon(Icons.arrow_drop_down, size: 20),
-                  ]),
+                  // Só a seta (o modo atual aparece marcado dentro do menu).
+                  filho: const Icon(Icons.arrow_drop_down, size: 22),
                 ),
                 _placaTopo(
                   tooltip: 'Conversas',
@@ -1662,9 +1695,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  /// Plaquinha do topo do chat no estilo das de dentro do projeto (ideia 05 da
-  /// galeria): fundo escuro + desenho na cor de acento do tema. `filho` usa a
-  /// cor do `IconTheme` (não fixe cor nos Icons).
+  /// Botão GHOST do topo do chat (sem caixa): só o desenho, na cor de ACENTO do
+  /// tema (terracota no Terracota) — diferente do home/projeto, que usam branco.
+  /// `filho` usa a cor do `IconTheme` (não fixe cor nos Icons).
   Widget _placaTopo({
     required String tooltip,
     required VoidCallback? onTap,
@@ -1676,11 +1709,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final tile = Container(
       width: largura,
       height: 34,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0C0C0D),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF2A2A2B)),
-      ),
       alignment: Alignment.center,
       child: IconTheme(
         data: const IconThemeData(size: 20).copyWith(color: cor),
@@ -1723,11 +1751,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       child: Container(
         width: largura,
         height: 34,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0C0C0D),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF2A2A2B)),
-        ),
         alignment: Alignment.center,
         child: IconTheme(
           data: const IconThemeData(size: 20).copyWith(color: cor),

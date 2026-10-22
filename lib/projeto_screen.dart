@@ -690,35 +690,39 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               ),
             ),
             // Atalho para o Muse de dentro do projeto (só com o recurso ligado).
+            // Muse em DESTAQUE (ação principal): chip preenchido na cor de acento.
             if (ChatConfig.habilitado)
               _BotaoTopo(
                 glifo: _GlifoTopo.muse,
                 cor: app.fab,
+                destaque: true,
+                corGlifoDestaque: app.fabIcone,
                 tooltip: 'Muse Spark (assistente)',
                 onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const ChatScreen())),
               ),
+            // Demais: GHOST (desenho em branco/texto da UI, sem caixa).
             _BotaoTopo(
               glifo: _GlifoTopo.pastas,
-              cor: app.fab,
+              cor: app.textoUI,
               tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',
               onPressed: () => setState(() => _modoPastas = !_modoPastas),
             ),
             _BotaoTopo(
               glifo: _GlifoTopo.pdf,
-              cor: app.fab,
+              cor: app.textoUI,
               tooltip: 'Exportar PDF do projeto',
               onPressed: () => exportarPdfProjeto(context, widget.projeto),
             ),
             _BotaoTopo(
               glifo: _GlifoTopo.copiar,
-              cor: app.fab,
+              cor: app.textoUI,
               tooltip: 'Copiar tudo do projeto',
               onPressed: _copiarProjeto,
             ),
             _BotaoTopo(
               glifo: _GlifoTopo.excluir,
-              cor: app.fab,
+              cor: app.textoUI,
               tooltip: 'Excluir projeto',
               onPressed: _excluirProjeto,
             ),
@@ -2288,23 +2292,31 @@ Widget _menuSelecao(
 /// Qual desenho vai na plaquinha do topo do projeto (ideia 04 da galeria).
 enum _GlifoTopo { muse, pastas, pdf, copiar, excluir }
 
-/// Plaquinha nº 04 da galeria (`ideias_botoes/topo/`): fundo escuro + desenho na
-/// cor de acento do tema. Usada nos 5 botões do topo do projeto (Muse, Pastas,
-/// PDF, Copiar, Excluir) em TODOS os temas.
+/// Botão do topo do projeto. Dois modos:
+///  • GHOST (padrão): só o desenho, sem caixa — usado em Pastas/PDF/Copiar/Excluir
+///    com `cor` = texto da UI (branco no Terracota).
+///  • DESTAQUE (`destaque: true`): chip preenchido na cor de acento — usado na Muse
+///    (ação principal), com o desenho em `corGlifoDestaque` (cor sobre o acento).
+/// Vale em TODOS os temas (as cores vêm do tema).
 class _BotaoTopo extends StatelessWidget {
   const _BotaoTopo({
     required this.glifo,
     required this.cor,
     required this.tooltip,
     required this.onPressed,
+    this.destaque = false,
+    this.corGlifoDestaque,
   });
   final _GlifoTopo glifo;
   final Color cor;
   final String tooltip;
   final VoidCallback onPressed;
+  final bool destaque;
+  final Color? corGlifoDestaque;
 
   @override
   Widget build(BuildContext context) {
+    final corGlifo = destaque ? (corGlifoDestaque ?? Colors.black) : cor;
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -2315,14 +2327,15 @@ class _BotaoTopo extends StatelessWidget {
           child: Container(
             width: 40,
             height: 34,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0C0C0D),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF2A2A2B)),
-            ),
+            decoration: destaque
+                ? BoxDecoration(
+                    color: cor,
+                    borderRadius: BorderRadius.circular(10),
+                  )
+                : null,
             child: Center(
               child: CustomPaint(
-                painter: _TopoPainter(glifo, cor),
+                painter: _TopoPainter(glifo, corGlifo),
                 size: const Size.square(22),
               ),
             ),

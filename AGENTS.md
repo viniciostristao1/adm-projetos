@@ -1289,6 +1289,20 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   treinos documentados em `pessoal.md` da Muse (só VPS, sem restart).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
+- **V0.1.160 — ditado tolera pausa curta DE VERDADE + botões ghost:** (1) **VOZ (bug do usuário:
+  pausa de 1–2s truncava a fala):** a v0.1.159 só recomeçava no status `done`, mas com
+  `cancelOnError:false` o reconhecedor nativo MORRE numa pausa curta (no-match/speech-timeout) SEM
+  emitir `done` → `_aoStatusStt` não recomeçava e a captação ficava numa **zona morta** até o vigia
+  (6s). Fix em `chat_screen.dart`: `_aoErroStt` no caso transitório agora REABRE a escuta na hora
+  (`_reabrirVoz`: cancela o estado preso que o `cancelOnError:false` deixa, guarda o parcial em
+  `_textoBase`, re-`listen`; debounced por `_reabrindoVoz`); e o vigia caiu de **6s→3s** (backstop).
+  Pausar p/ respirar não corta mais. (2) **BOTÕES GHOST (escolha do usuário na galeria-Artifact,
+  tema Terracota):** topo da **Muse** deixa de ser plaquinha preenchida (reverte 157/158) → GHOST na
+  cor de **ACENTO** do tema (terracota no Terracota; branco é só home/projeto) via
+  `_placaTopo`/`_placaTopoMenu` sem caixa/borda; **seletor de MODO = só a seta** (▾, o modo aparece
+  marcado dentro do menu). Topo do **PROJETO**: `_BotaoTopo` ganha `destaque` — **Muse = chip de
+  acento** (ação principal; glifo em `fabIcone`), os outros ghost na cor de texto (`textoUI`). Home
+  inalterado (já era ghost). Analyze/dart não rodam na VPS → checagem manual + build no CI.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
