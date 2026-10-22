@@ -1280,6 +1280,13 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   preenchidas e viram fundo escuro `#0C0C0D` + borda `#2A2A2B` + desenho na cor de
   acento do tema (via `IconTheme`, sem cor fixa nos Icons) — mesmo estilo das de
   dentro do projeto.
+- **V0.1.159 — ditado à prova de pausa + vigia anti-mic-morto:** lido o fonte do
+  plugin (7.5.0): o Android impõe pausa de 1–3s e pode encerrar a sessão SEM status
+  (mic morto com botão vermelho). Blindagem: (1) retry do `listen` em 1s se falhar;
+  (2) vigia a cada 2s — 6s sem evento com gravação ativa = `cancel` + recomeço;
+  (3) trilha de `Diagnostico` (só metadados: status, tamanhos, erros — sem o texto
+  ditado) p/ investigar no aparelho via Relatório de erros. Medos/inseguranças nos
+  treinos documentados em `pessoal.md` da Muse (só VPS, sem restart).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

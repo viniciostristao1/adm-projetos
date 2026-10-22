@@ -71,6 +71,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // é descartado — sem isso o transcrito voltava sozinho p/ a caixa vazia após
   // o envio, quando a Muse já estava respondendo.
   int _sessaoVoz = 0;
+  // Vigia anti-mic-morto: o Android pode encerrar a sessão SEM avisar via status
+  // (aí o botão fica vermelho mas nada mais é transcrito). A cada 2s confere se
+  // houve evento recente do reconhecedor; sem evento há 6s, força um recomeço
+  // limpo (cancel + listen). `_ultimoEventoVozAt` é carimbado em todo onResult
+  // e status. Só anda com gravação ativa.
+  Timer? _vigiaVoz;
+  int _ultimoEventoVozAt = 0;
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
   final List<String> _imagensB64 = []; // imagens anexadas (visão), máx. 3
@@ -617,6 +624,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _tick?.cancel();
     _paradaManual = true; // impede restart do ditado ao sair
     _sessaoVoz++; // invalida resultados atrasados
+    _vigiaVoz?.cancel();
+    _vigiaVoz = null;
     _stt.cancel();
     _falaToken++; // invalida workers de voz em voo
     _pausado = false;
@@ -721,6 +730,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _paradaManual = false;
     _textoBase = '';
     _ctrl.clear();
+    _ultimoEventoVozAt = DateTime.now().millisecondsSinceEpoch;
+    _vigiaVoz?.cancel();
     if (mounted) {
       setState(() {
         _gravando = true;
@@ -758,6 +769,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // a gravação continua — a parada é explícita (toque em enviar ou X).
     _prepararVozOffline(); // garante a voz da resposta pronta (silenciosa)
     final sessao = ++_sessaoVoz; // id deste ditado (resultados velhos são descartados)
+    Diagnostico.registrar('voz', 'inicio');
+    _vigiaVoz = Timer.periodic(
+        const Duration(seconds: 2), (_) => _vigiarVoz(sessao));
     _ouvirUmaVez(sessao);
   }
 
@@ -765,7 +779,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// `listenFor` longo evita o teto de ~30s; `pauseFor` longo tolera pausas para
   /// pensar no meio de frases longas; `cancelOnError:false` não morre em falha
   /// transitória (o restart cuida). `sessao` invalida resultados atrasados de um
-  /// ditado já encerrado (ver `_sessaoVoz`).
+  /// ditado já encerrado (ver `_sessaoVoz`). Falha ao abrir = 1 retry em 1s (o
+  /// vigia cobre o resto).
   Future<void> _ouvirUmaVez(int sessao) async {
     if (sessao != _sessaoVoz ||
         !_gravando ||
@@ -778,7 +793,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       await _stt.listen(
         onResult: (r) {
           if (sessao != _sessaoVoz || _paradaManual || !_gravando) return;
+          _ultimoEventoVozAt = DateTime.now().millisecondsSinceEpoch;
           final atual = r.recognizedWords.trim();
+          if (r.finalResult) {
+            // Só metadados (sem o texto falado): o relatório pode ser
+            // compartilhado sem expor o conteúdo ditado.
+            Diagnostico.registrar(
+                'voz', 'final len=${atual.length} base=${_textoBase.length}');
+          }
           // Parcial vazio nunca apaga: no fim da sessão o reconhecedor costuma
           // emitir um resultado vazio — sem este guarda ele ZERAVA a caixa e o
           // `_aoStatusStt` comitava o vazio como base (ditado "recomeçava").
@@ -804,18 +826,60 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           localeId: 'pt_BR',
         ),
       );
-    } catch (_) {
-      // Falha ao (re)começar: o status vai tentar de novo; se era parada manual,
-      // o flag impede o restart.
+    } catch (e, st) {
+      // Falha ao (re)começar (reconhecedor ocupado encerrando a sessão
+      // anterior): 1 retry em 1s; o vigia (`_vigiarVoz`) cobre o resto.
+      Diagnostico.registrar('voz', 'listen-falhou: $e', st);
+      final s2 = sessao;
+      Future.delayed(const Duration(seconds: 1), () {
+        if (s2 == _sessaoVoz &&
+            _gravando &&
+            !_paradaManual &&
+            mounted &&
+            !_stt.isListening) {
+          _ouvirUmaVez(s2);
+        }
+      });
     }
+  }
+
+  /// Vigia anti-mic-morto (a cada 2s com gravação ativa): sem nenhum evento do
+  /// reconhecedor há 6s, a sessão travou em silêncio (o Android encerrou sem
+  /// status e o botão segue vermelho sem transcrever). Força recomeço limpo:
+  /// cancela (o que atualiza o `isListening` travado) e escuta de novo.
+  Future<void> _vigiarVoz(int sessao) async {
+    if (sessao != _sessaoVoz ||
+        !_gravando ||
+        _paradaManual ||
+        !mounted) {
+      _vigiaVoz?.cancel();
+      _vigiaVoz = null;
+      return;
+    }
+    final paradoHa =
+        DateTime.now().millisecondsSinceEpoch - _ultimoEventoVozAt;
+    if (paradoHa < 6000) return;
+    Diagnostico.registrar('voz', 'watchdog: $paradoHa ms sem evento, recomeçando');
+    try {
+      await _stt.cancel();
+    } catch (e, st) {
+      Diagnostico.registrar('voz', 'watchdog-cancel: $e', st);
+    }
+    await Future.delayed(const Duration(milliseconds: 300));
+    _ouvirUmaVez(sessao);
   }
 
   /// Status do reconhecedor: `done`/`notListening` com gravação ativa e sem
   /// parada manual = o sistema encerrou a sessão sozinho (pausa/teto) → comita
   /// o parcial como base e recomeça para o ditado continuar de onde parou.
   void _aoStatusStt(String s) {
+    _ultimoEventoVozAt = DateTime.now().millisecondsSinceEpoch;
     if (!_gravando || _paradaManual || !mounted) return;
     if (s == 'done' || s == 'notListening') {
+      // Metadados p/ diagnóstico (sem o texto): ajuda a ver no relatório se o
+      // restart está acontecendo a cada pausa.
+      Diagnostico.registrar(
+          'voz', 'status=$s base=${_textoBase.length}c caixa=${_ctrl.text.length}c');
       if (_ctrl.text.trim().isNotEmpty) _textoBase = _ctrl.text.trim();
       final sessao = _sessaoVoz;
       // Pequeno respiro antes de reabrir (evita loop apertado em erro contínuo).
@@ -834,11 +898,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Erro do reconhecedor: transitório ignora (o status recomeça); permanente
   /// (sem permissão/mic) encerra com aviso.
   void _aoErroStt(dynamic e) {
+    _ultimoEventoVozAt = DateTime.now().millisecondsSinceEpoch;
     try {
       final perm = (e as dynamic).permanent as bool?;
+      Diagnostico.registrar('voz', 'erro perm=$perm: $e');
       if (perm == true) {
         _paradaManual = true;
         _sessaoVoz++; // invalida resultados atrasados deste ditado
+        _vigiaVoz?.cancel();
+        _vigiaVoz = null;
         if (mounted) setState(() => _gravando = false);
         _snack('Reconhecimento de voz indisponível neste aparelho');
       }
@@ -850,6 +918,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _micStop() async {
     if (!_gravando) return;
     _paradaManual = true; // impede o auto-restart do `_aoStatusStt`
+    _vigiaVoz?.cancel();
+    _vigiaVoz = null;
     try {
       await _stt.stop();
     } catch (_) {}
@@ -870,6 +940,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _paradaManual = true;
     _sessaoVoz++;
     _textoBase = '';
+    _vigiaVoz?.cancel();
+    _vigiaVoz = null;
     try {
       await _stt.cancel();
     } catch (_) {}
@@ -884,6 +956,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _paradaManual = true;
     _sessaoVoz++;
     _textoBase = '';
+    _vigiaVoz?.cancel();
+    _vigiaVoz = null;
     if (_gravando) {
       try {
         await _stt.cancel();
