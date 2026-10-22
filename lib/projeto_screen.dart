@@ -2325,8 +2325,8 @@ class _BotaoTopo extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           onTap: onPressed,
           child: Container(
-            width: 40,
-            height: 34,
+            width: 44,
+            height: 40,
             decoration: destaque
                 ? BoxDecoration(
                     color: cor,
@@ -2336,7 +2336,7 @@ class _BotaoTopo extends StatelessWidget {
             child: Center(
               child: CustomPaint(
                 painter: _TopoPainter(glifo, corGlifo),
-                size: const Size.square(22),
+                size: const Size.square(26),
               ),
             ),
           ),

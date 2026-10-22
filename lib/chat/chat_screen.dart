@@ -66,6 +66,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _paradaManual = false;
   String _textoBase = '';
   bool _reabrindoVoz = false; // debounce da reabertura ativa (erro transitório)
+  // Reconhecimento ON-DEVICE (como a digitação por voz do Gboard): tolera pausas
+  // muito melhor (o motor offline contínuo não encerra a cada silêncio curto) e
+  // recomeça instantâneo. Se o aparelho não tiver o modelo pt_BR offline, o
+  // `listen` falha com erro permanente → caímos p/ o reconhecedor em rede (abaixo).
+  bool _onDevice = true;
+  // Zera a cada captação com texto; se só vierem erros (modelo quebrado), passamos
+  // da contagem e caímos p/ a rede — mas um on-device que FUNCIONA nunca é rebaixado.
+  int _errosOnDeviceSemTexto = 0;
   // Sessão do ditado: cada SEGURAR gera um id novo e cada PARADA (enviar/toque/
   // limpar/sair/erro permanente) invalida o id atual. Resultado ATRASADO do STT
   // (o `stop()` entrega um onResult final DEPOIS de limpar/enviar) com id velho
@@ -524,6 +532,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Recomeça a leitura desta mensagem do INÍCIO — mesmo que já esteja tocando ou
+  /// pausada. Botão dedicado à esquerda do alto-falante: o alto-falante continua
+  /// sendo tocar/pausar; este sempre reinicia do zero.
+  Future<void> _recomecarFala(int idx, String texto) async {
+    if (_trocandoVoz) return;
+    if (_lendoIdx != null) await _pararReplay(); // zera fila/estado atual
+    _pausado = false; // garante começar do zero (não "retomar" de onde parou)
+    await _falar(idx, texto);
+  }
+
   /// No MODO ÁUDIO, dispara a leitura automática da última resposta da Muse.
   void _autoFalar() {
     if (!_modoAudio || _conv.mensagens.isEmpty) return;
@@ -806,6 +824,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // emitir um resultado vazio — sem este guarda ele ZERAVA a caixa e o
           // `_aoStatusStt` comitava o vazio como base (ditado "recomeçava").
           if (atual.isEmpty) return;
+          _errosOnDeviceSemTexto = 0; // captou texto → on-device está saudável
           final combinado =
               _textoBase.isEmpty ? atual : '$_textoBase $atual';
           // Nunca encolhe: resultado atrasado/ revisado p/ menos não pode apagar
@@ -822,6 +841,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           partialResults: true,
           listenMode: ListenMode.dictation,
           cancelOnError: false,
+          onDevice: _onDevice, // offline contínuo (estilo Gboard); cai p/ rede se faltar modelo
           listenFor: Duration(seconds: 120),
           pauseFor: Duration(seconds: 8),
           localeId: 'pt_BR',
@@ -905,7 +925,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _ultimoEventoVozAt = DateTime.now().millisecondsSinceEpoch;
     try {
       final perm = (e as dynamic).permanent as bool?;
-      Diagnostico.registrar('voz', 'erro perm=$perm: $e');
+      Diagnostico.registrar('voz', 'erro perm=$perm onDevice=$_onDevice: $e');
+      // Fallback on-device→REDE: o offline não está disponível (erro permanente =
+      // sem modelo pt_BR) ou só dá erro sem captar nada → desliga o on-device e
+      // segue gravando na rede, sem interromper o usuário. Um on-device que capta
+      // texto zera o contador e nunca é rebaixado.
+      if (_onDevice && (perm == true || ++_errosOnDeviceSemTexto >= 4)) {
+        _onDevice = false;
+        Diagnostico.registrar('voz', 'on-device off → rede');
+        _reabrirVoz(_sessaoVoz);
+        return;
+      }
       if (perm == true) {
         _paradaManual = true;
         _sessaoVoz++; // invalida resultados atrasados deste ditado
@@ -1578,13 +1608,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 8,
-        leading: _buscando
-            ? _placaTopo(
-                tooltip: 'Fechar busca',
-                onTap: _fecharBusca,
-                filho: const Icon(Icons.arrow_back, size: 20),
-              )
-            : null,
+        // Voltar SEMPRE na cor de acento do tema (terracota), como os demais —
+        // no modo busca o mesmo botão fecha a busca.
+        leading: _placaTopo(
+          tooltip: _buscando ? 'Fechar busca' : 'Voltar',
+          onTap: _buscando
+              ? _fecharBusca
+              : () => Navigator.of(context).maybePop(),
+          filho: const Icon(Icons.arrow_back, size: 24),
+        ),
         // Nome da conversa (ou campo de busca no modo busca).
         title: _buscando
             ? TextField(
@@ -1611,7 +1643,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   onTap: _conv.mensagens.isEmpty
                       ? null
                       : () => setState(() => _buscando = true),
-                  filho: const Icon(Icons.search, size: 20),
+                  filho: const Icon(Icons.search, size: 24),
                 ),
                 // Seletor de MODO (mostra o modo atual).
                 _placaTopoMenu<ChatPreset>(
@@ -1635,12 +1667,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                   ],
                   // Só a seta (o modo atual aparece marcado dentro do menu).
-                  filho: const Icon(Icons.arrow_drop_down, size: 22),
+                  filho: const Icon(Icons.arrow_drop_down, size: 26),
                 ),
                 _placaTopo(
                   tooltip: 'Conversas',
                   onTap: _abrirHistorico,
-                  filho: const Icon(Icons.history, size: 20),
+                  filho: const Icon(Icons.history, size: 24),
                 ),
                 // Menu: nova, resumo, renomear e MODELO de IA.
                 _placaTopoMenu<String>(
@@ -1683,7 +1715,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
             ],
-                  filho: const Icon(Icons.more_vert, size: 20),
+                  filho: const Icon(Icons.more_vert, size: 24),
                 ),
         ],
       ),
@@ -1702,16 +1734,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     required String tooltip,
     required VoidCallback? onTap,
     required Widget filho,
-    double largura = 34,
+    double largura = 40,
   }) {
     final cor =
         (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
     final tile = Container(
       width: largura,
-      height: 34,
+      height: 40,
       alignment: Alignment.center,
       child: IconTheme(
-        data: const IconThemeData(size: 20).copyWith(color: cor),
+        data: const IconThemeData(size: 24).copyWith(color: cor),
         child: filho,
       ),
     );
@@ -1742,7 +1774,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     required List<PopupMenuEntry<T>> Function(BuildContext) itemBuilder,
     required Widget filho,
     T? initialValue,
-    double largura = 34,
+    double largura = 40,
   }) {
     final cor =
         (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
@@ -1750,10 +1782,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       message: tooltip,
       child: Container(
         width: largura,
-        height: 34,
+        height: 40,
         alignment: Alignment.center,
         child: IconTheme(
-          data: const IconThemeData(size: 20).copyWith(color: cor),
+          data: const IconThemeData(size: 24).copyWith(color: cor),
           child: PopupMenuButton<T>(
             tooltip: tooltip,
             padding: EdgeInsets.zero,
@@ -1907,25 +1939,40 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             child: texto),
                         Align(
                           alignment: Alignment.centerRight,
-                          child: InkWell(
-                            onTap: () => _falar(idx, m.texto),
-                            // Segurar = parar de vez a leitura.
-                            onLongPress: () => _pararReplay(),
-                            customBorder: const CircleBorder(),
-                            child: Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Icon(
-                                _lendoIdx == idx
-                                    ? (_gerandoVoz
-                                        ? Icons.hourglass_bottom_outlined
-                                        : (_pausado
-                                            ? Icons.play_circle_outline
-                                            : Icons.pause_circle_outline))
-                                    : Icons.volume_up_outlined,
-                                size: 26,
-                                color: cs.onSurfaceVariant,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Recomeçar a leitura do INÍCIO desta mensagem.
+                              InkWell(
+                                onTap: () => _recomecarFala(idx, m.texto),
+                                customBorder: const CircleBorder(),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Icon(Icons.replay,
+                                      size: 24, color: cs.onSurfaceVariant),
+                                ),
                               ),
-                            ),
+                              // Alto-falante: tocar = play/pausa; segurar = parar.
+                              InkWell(
+                                onTap: () => _falar(idx, m.texto),
+                                onLongPress: () => _pararReplay(),
+                                customBorder: const CircleBorder(),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Icon(
+                                    _lendoIdx == idx
+                                        ? (_gerandoVoz
+                                            ? Icons.hourglass_bottom_outlined
+                                            : (_pausado
+                                                ? Icons.play_circle_outline
+                                                : Icons.pause_circle_outline))
+                                        : Icons.volume_up_outlined,
+                                    size: 26,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

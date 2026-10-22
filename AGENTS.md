@@ -1303,6 +1303,18 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   marcado dentro do menu). Topo do **PROJETO**: `_BotaoTopo` ganha `destaque` — **Muse = chip de
   acento** (ação principal; glifo em `fabIcone`), os outros ghost na cor de texto (`textoUI`). Home
   inalterado (já era ghost). Analyze/dart não rodam na VPS → checagem manual + build no CI.
+- **V0.1.161 — voz on-device (estilo Gboard) + botões maiores + voltar terracota + recomeçar fala:**
+  (1) **VOZ:** relato "no Gboard consigo pausar e continua captando". O Gboard usa reconhecimento
+  **ON-DEVICE contínuo** (não encerra a cada silêncio curto); ativado `SpeechListenOptions.onDevice`
+  (`_onDevice=true`) no `_ouvirUmaVez`. **Fallback seguro:** se o aparelho não tem o modelo pt_BR
+  offline (erro permanente) ou só dá erro sem captar nada (4×, contador `_errosOnDeviceSemTexto` que
+  ZERA a cada texto captado → não rebaixa um on-device que funciona), desliga o on-device e segue na
+  REDE sem interromper. (2) **BOTÕES MAIORES:** projeto `_BotaoTopo` 40×34/glifo22 → 44×40/glifo26;
+  Muse `_placaTopo`/`_placaTopoMenu` 34×34/ícone20 → 40×40/ícone24 (seta do modo 22→26). (3)
+  **VOLTAR da Muse** agora é `_placaTopo` (ghost na cor de ACENTO/terracota) em vez do back branco
+  padrão — mesmo botão fecha a busca no modo busca. (4) **RECOMEÇAR A FALA:** na bolha da Muse, à
+  ESQUERDA do alto-falante, botão `Icons.replay` (`_recomecarFala`) que toca a mensagem do INÍCIO
+  mesmo se já tocando/pausada; o alto-falante segue tocar/pausar (segurar = parar).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
