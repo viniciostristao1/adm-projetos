@@ -73,7 +73,10 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 | delay | `delei` | idem |
 | halter / halteres | `altér` / `altéres` | tônica no "é", sem o "h" |
 | rep / reps | `repetição` / `repetições` | expandir abreviação |
-| arrego / arregos | `arrêgo` / `arrêgos` | tônica na 2ª sílaba (ê fechado) |
+ | arrego / arregos | `arrêgo` / `arrêgos` | tônica na 2ª sílaba (ê fechado) |
+ | schopenhauer | `chopenrráuer` | nome próprio alemão aportuguesado |
+ | nietzsche | `níti` | simplificado a pedido do usuário |
+ | haha (risada) | `rá rá rá` | risada soletrada com pausas |
 
 **Para ADICIONAR uma palavra:** inclua a mesma entrada nos DOIS lugares:
 - `app.py`: `PRONUNCIA_FALA = { …, "palavra": "grafía_que_soa_certo" }` → `systemctl restart taskix-chat`.

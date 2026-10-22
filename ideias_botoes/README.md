@@ -69,6 +69,24 @@ no app** — é só para você escolher.
 
 Me diga os favoritos (ex.: `topo-muse-04-terracota`) e eu implemento.
 
+## Topo do chat da Muse — Voltar · Título · Lupa · Modo · Conversas · Menu
+
+Sugestões para refinar a barra superior do chat (botões, fonte do título e cor).
+6 estilos para cada elemento. **Nada foi implementado no app.**
+
+![Grade Topo do chat](muse-topo/grade-muse-topo.png)
+
+| | 01 · Traço | 02 · Preenchido | 03 · Degradê | 04 · Terracota | 05 · Neon | 06 · Borda |
+|---|---|---|---|---|---|---|
+| Voltar | ![v1](muse-topo/muse-voltar-01-traco.svg) | ![v2](muse-topo/muse-voltar-02-solido.svg) | ![v3](muse-topo/muse-voltar-03-degrade.svg) | ![v4](muse-topo/muse-voltar-04-terracota.svg) | ![v5](muse-topo/muse-voltar-05-neon.svg) | ![v6](muse-topo/muse-voltar-06-borda.svg) |
+| Título | ![t1](muse-topo/muse-titulo-01-traco.svg) | ![t2](muse-topo/muse-titulo-02-solido.svg) | ![t3](muse-topo/muse-titulo-03-degrade.svg) | ![t4](muse-topo/muse-titulo-04-terracota.svg) | ![t5](muse-topo/muse-titulo-05-neon.svg) | ![t6](muse-topo/muse-titulo-06-borda.svg) |
+| Lupa | ![l1](muse-topo/muse-lupa-01-traco.svg) | ![l2](muse-topo/muse-lupa-02-solido.svg) | ![l3](muse-topo/muse-lupa-03-degrade.svg) | ![l4](muse-topo/muse-lupa-04-terracota.svg) | ![l5](muse-topo/muse-lupa-05-neon.svg) | ![l6](muse-topo/muse-lupa-06-borda.svg) |
+| Modo | ![m1](muse-topo/muse-modo-01-traco.svg) | ![m2](muse-topo/muse-modo-02-solido.svg) | ![m3](muse-topo/muse-modo-03-degrade.svg) | ![m4](muse-topo/muse-modo-04-terracota.svg) | ![m5](muse-topo/muse-modo-05-neon.svg) | ![m6](muse-topo/muse-modo-06-borda.svg) |
+| Conversas | ![c1](muse-topo/muse-conversas-01-traco.svg) | ![c2](muse-topo/muse-conversas-02-solido.svg) | ![c3](muse-topo/muse-conversas-03-degrade.svg) | ![c4](muse-topo/muse-conversas-04-terracota.svg) | ![c5](muse-topo/muse-conversas-05-neon.svg) | ![c6](muse-topo/muse-conversas-06-borda.svg) |
+| Menu | ![n1](muse-topo/muse-menu-01-traco.svg) | ![n2](muse-topo/muse-menu-02-solido.svg) | ![n3](muse-topo/muse-menu-03-degrade.svg) | ![n4](muse-topo/muse-menu-04-terracota.svg) | ![n5](muse-topo/muse-menu-05-neon.svg) | ![n6](muse-topo/muse-menu-06-borda.svg) |
+
+Me diga os favoritos (ex.: `muse-lupa-04-terracota`) e eu implemento.
+
 ## Preenchidos na cor do tema + desenho preto (13–18)
 
 Cada botão preenchido com a cor do seu tema e o desenho em preto:

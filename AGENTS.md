@@ -1268,6 +1268,9 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `Modo • Tamanho • Modelo` (ex.: "Modo Calis • Curto • Caprichado"), centralizado.
   (3) Caixa estilo WhatsApp: `maxLines` 5→10 com `Scrollbar` sempre visível (corta pelo
   topo, 10 linhas visíveis). (MUSE.md §6 atualizado.)
+- **V0.1.156 — pronúncias schopenhauer/nietzsche/haha:** `schopenhauer`→"chopenrráuer",
+  `nietzsche`→"níti", `haha`→"rá rá rá" nos DOIS lados (proxy + on-device; MUSE.md §4).
+  Galeria `muse-topo/` com 36 sugestões p/ a barra do chat (só visual).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

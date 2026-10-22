@@ -266,6 +266,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       'foram': 'fôram',
       'hmm': 'hum', 'hm': 'hum',
       'clean': 'clin', 'and': 'end',
+      'schopenhauer': 'chopenrráuer', 'nietzsche': 'níti',
+      'haha': 'rá rá rá',
     };
     mapa.forEach((p, g) {
       t = t.replaceAllMapped(
