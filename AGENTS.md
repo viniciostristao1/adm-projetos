@@ -1271,6 +1271,11 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
 - **V0.1.156 — pronúncias schopenhauer/nietzsche/haha:** `schopenhauer`→"chopenrráuer",
   `nietzsche`→"níti", `haha`→"rá rá rá" nos DOIS lados (proxy + on-device; MUSE.md §4).
   Galeria `muse-topo/` com 36 sugestões p/ a barra do chat (só visual).
+- **V0.1.157 — topo do chat Preenchido:** botões do topo (voltar, lupa, modo,
+  conversas, menu ⋮) viram plaquinhas preenchidas na cor de acento do tema +
+  desenho branco (ideia 02 da galeria). `_placaTopo` (toque) e `_placaTopoMenu`
+  (menus modo/⋮ via `child:`, sem o IconButton de 48px que estouraria os 34px).
+  Título segue texto (nome da conversa, dinâmico).
   Se o stream falhar ANTES de qualquer frase, cai no envio normal (`enviarNaConversa`, robusto). O
   toque manual no alto-falante continua em **clipe único liso**. `/chat` segue intacto (reserva).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —

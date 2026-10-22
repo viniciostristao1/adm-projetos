@@ -1469,10 +1469,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       appBar: AppBar(
         titleSpacing: 8,
         leading: _buscando
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
+            ? _placaTopo(
                 tooltip: 'Fechar busca',
-                onPressed: _fecharBusca)
+                onTap: _fecharBusca,
+                filho: const Icon(Icons.arrow_back,
+                    color: Colors.white, size: 20),
+              )
             : null,
         // Nome da conversa (ou campo de busca no modo busca).
         title: _buscando
@@ -1495,49 +1497,54 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         actions: _buscando
             ? _acoesBusca()
             : [
-                IconButton(
+                _placaTopo(
                   tooltip: 'Buscar na conversa',
-                  icon: const Icon(Icons.search),
-                  onPressed: _conv.mensagens.isEmpty
+                  onTap: _conv.mensagens.isEmpty
                       ? null
                       : () => setState(() => _buscando = true),
+                  filho: const Icon(Icons.search,
+                      color: Colors.white, size: 20),
                 ),
                 // Seletor de MODO (mostra o modo atual).
-          PopupMenuButton<ChatPreset>(
-            tooltip: 'Modo',
-            initialValue: _conv.preset,
-            onSelected: (p) async {
-              setState(() => _conv.preset = p);
-              if (!_conv.vazia) await ChatStore.salvar(_conv);
-            },
-            itemBuilder: (_) => [
-              for (final p in ChatPreset.values)
-                PopupMenuItem(
-                  value: p,
-                  child: ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(_icone(p)),
-                    title: Text(p.rotulo),
-                    subtitle: Text(p.descricao),
-                  ),
+                _placaTopoMenu<ChatPreset>(
+                  tooltip: 'Modo',
+                  largura: 52,
+                  initialValue: _conv.preset,
+                  onSelected: (p) async {
+                    setState(() => _conv.preset = p);
+                    if (!_conv.vazia) await ChatStore.salvar(_conv);
+                  },
+                  itemBuilder: (_) => [
+                    for (final p in ChatPreset.values)
+                      PopupMenuItem(
+                        value: p,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(_icone(p)),
+                          title: Text(p.rotulo),
+                          subtitle: Text(p.descricao),
+                        ),
+                      ),
+                  ],
+                  filho: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(_icone(_conv.preset),
+                        color: Colors.white, size: 20),
+                    const Icon(Icons.arrow_drop_down,
+                        color: Colors.white, size: 20),
+                  ]),
                 ),
-            ],
-            icon: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(_icone(_conv.preset)),
-              const Icon(Icons.arrow_drop_down),
-            ]),
-          ),
-          IconButton(
-            tooltip: 'Conversas',
-            icon: const Icon(Icons.history),
-            onPressed: _abrirHistorico,
-          ),
-          // Menu: nova, resumo, renomear e MODELO de IA.
-          PopupMenuButton<String>(
-            tooltip: 'Mais',
-            onSelected: _acaoMenu,
-            itemBuilder: (_) => [
+                _placaTopo(
+                  tooltip: 'Conversas',
+                  onTap: _abrirHistorico,
+                  filho: const Icon(Icons.history,
+                      color: Colors.white, size: 20),
+                ),
+                // Menu: nova, resumo, renomear e MODELO de IA.
+                _placaTopoMenu<String>(
+                  tooltip: 'Mais',
+                  onSelected: _acaoMenu,
+                  itemBuilder: (_) => [
               _item('nova', Icons.add_comment_outlined, 'Nova conversa'),
               _item('resumo', Icons.summarize_outlined, 'Resumo da conversa'),
               _item('renomear', Icons.edit_outlined, 'Renomear conversa'),
@@ -1574,7 +1581,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
             ],
-          ),
+                  filho: const Icon(Icons.more_vert,
+                      color: Colors.white, size: 20),
+                ),
         ],
       ),
       body: _carregando
@@ -1582,6 +1591,79 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           : logado
               ? _conversa(context)
               : _conviteLogin(context),
+    );
+  }
+
+  /// Plaquinha cheia do topo do chat (ideia 02 "Preenchido" da galeria
+  /// `muse-topo/`): fundo na cor de acento do tema + desenho branco.
+  Widget _placaTopo({
+    required String tooltip,
+    required VoidCallback? onTap,
+    required Widget filho,
+    double largura = 34,
+  }) {
+    final cor =
+        (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
+    final tile = Container(
+      width: largura,
+      height: 34,
+      decoration: BoxDecoration(
+        color: cor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      alignment: Alignment.center,
+      child: filho,
+    );
+    if (onTap == null) {
+      return Opacity(
+          opacity: 0.45, child: Tooltip(message: tooltip, child: tile));
+    }
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: tile,
+        ),
+      ),
+    );
+  }
+
+  /// Variante da plaquinha para botões de menu (Modo ⋮ / Mais ⋮): o próprio
+  /// `PopupMenuButton` desenha a plaquinha como fundo (via `child`), mantendo
+  /// o ripple e o comportamento de menu. Sem ela o `icon:` padrão forçaria um
+  /// IconButton de 48px que estouraria a plaquinha de 34px.
+  Widget _placaTopoMenu<T>({
+    required String tooltip,
+    required void Function(T) onSelected,
+    required List<PopupMenuEntry<T>> Function(BuildContext) itemBuilder,
+    required Widget filho,
+    T? initialValue,
+    double largura = 34,
+  }) {
+    final cor =
+        (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: largura,
+        height: 34,
+        decoration: BoxDecoration(
+          color: cor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        alignment: Alignment.center,
+        child: PopupMenuButton<T>(
+          tooltip: tooltip,
+          padding: EdgeInsets.zero,
+          initialValue: initialValue,
+          onSelected: onSelected,
+          itemBuilder: itemBuilder,
+          child: filho,
+        ),
+      ),
     );
   }
 
