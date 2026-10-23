@@ -1315,6 +1315,19 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   padrão — mesmo botão fecha a busca no modo busca. (4) **RECOMEÇAR A FALA:** na bolha da Muse, à
   ESQUERDA do alto-falante, botão `Icons.replay` (`_recomecarFala`) que toca a mensagem do INÍCIO
   mesmo se já tocando/pausada; o alto-falante segue tocar/pausar (segurar = parar).
+- **V0.1.162 — reverte on-device + pronúncias (Schopenhauer no início / fati / nietzschiano):**
+  (1) **VOZ:** o `onDevice` da v0.1.161 PIOROU no aparelho do usuário (cortava até ao respirar) →
+  **revertido** (volta ao reconhecedor em rede da v0.1.160, que era o melhor estado do recognizer do
+  app). Conclusão: o reconhecedor nativo one-shot do `speech_to_text` NÃO alcança o ditado contínuo do
+  Gboard (motor SODA). Para pausas bem longas, o caminho é o **mic do próprio Gboard** na caixa de
+  texto (tocar na caixa → mic do teclado). (2) **PRONÚNCIA — "Schopenhauer" na 1ª palavra saía errada
+  (r fraco) e no meio certa:** causa = quando a síntese do 1º trecho vinha vazia (Piper frio), o
+  fallback do **flutter_tts** falava `_vozTextos[i]` **CRU, sem `_normalizarFala`** (chat_screen.dart
+  `_vozPlay`). Fix: normalizar também nesse fallback. Diagnóstico feito rodando o **espeak-ng** da VPS
+  (`-x`): "Schopenhauer" cru → `sS,upyn^aU'er` (fraco) vs "chopenrráuer" → `...R'...` (R forte). (3)
+  **Novas pronúncias** nos DOIS dicionários (cliente `_normalizarFala` + servidor `PRONUNCIA_FALA` em
+  `/opt/taskix-chat/app.py`, serviço `taskix-chat` reiniciado): `fati→fáti`, `nietzschiano→nitiano`,
+  `nietzscheano→nitiano` (verificado no espeak: `fáti`=`f'ati`, `nitiano`=`n,iti'&~nU`).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 

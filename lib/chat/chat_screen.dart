@@ -66,14 +66,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _paradaManual = false;
   String _textoBase = '';
   bool _reabrindoVoz = false; // debounce da reabertura ativa (erro transitório)
-  // Reconhecimento ON-DEVICE (como a digitação por voz do Gboard): tolera pausas
-  // muito melhor (o motor offline contínuo não encerra a cada silêncio curto) e
-  // recomeça instantâneo. Se o aparelho não tiver o modelo pt_BR offline, o
-  // `listen` falha com erro permanente → caímos p/ o reconhecedor em rede (abaixo).
-  bool _onDevice = true;
-  // Zera a cada captação com texto; se só vierem erros (modelo quebrado), passamos
-  // da contagem e caímos p/ a rede — mas um on-device que FUNCIONA nunca é rebaixado.
-  int _errosOnDeviceSemTexto = 0;
+  // (v0.1.161 testou reconhecimento ON-DEVICE p/ tolerar pausas longas como o
+  // Gboard, mas no aparelho do usuário PIOROU — cortava até ao respirar — então
+  // foi revertido na v0.1.162. Pausas bem longas = usar o mic do Gboard na caixa.)
   // Sessão do ditado: cada SEGURAR gera um id novo e cada PARADA (enviar/toque/
   // limpar/sair/erro permanente) invalida o id atual. Resultado ATRASADO do STT
   // (o `stop()` entrega um onResult final DEPOIS de limpar/enviar) com id velho
@@ -283,6 +278,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       'hmm': 'hum', 'hm': 'hum',
       'clean': 'clin', 'and': 'end',
       'schopenhauer': 'chopenrráuer', 'nietzsche': 'níti',
+      'nietzschiano': 'nitiano', 'nietzscheano': 'nitiano',
+      'fati': 'fáti',
       'haha': 'rá rá rá',
     };
     mapa.forEach((p, g) {
@@ -350,8 +347,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         try {
           // Teto de 60s por trecho: se o motor do aparelho travar, não prende
           // a fila inteira (os trechos seguintes continuam).
+          // NORMALIZA aqui também: sem isso o fallback do flutter_tts falava o
+          // texto CRU (ex.: "Schopenhauer" na 1ª palavra, antes do Piper esquentar,
+          // saía "chopenráuer" fraco; no meio já vinha sintetizado e correto).
           await _tts
-              .speak(_vozTextos[i])
+              .speak(_normalizarFala(_vozTextos[i]))
               .timeout(const Duration(seconds: 60), onTimeout: () {});
         } catch (e, st) {
           Diagnostico.registrar('voz-tts', e, st);
@@ -824,7 +824,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // emitir um resultado vazio — sem este guarda ele ZERAVA a caixa e o
           // `_aoStatusStt` comitava o vazio como base (ditado "recomeçava").
           if (atual.isEmpty) return;
-          _errosOnDeviceSemTexto = 0; // captou texto → on-device está saudável
           final combinado =
               _textoBase.isEmpty ? atual : '$_textoBase $atual';
           // Nunca encolhe: resultado atrasado/ revisado p/ menos não pode apagar
@@ -841,7 +840,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           partialResults: true,
           listenMode: ListenMode.dictation,
           cancelOnError: false,
-          onDevice: _onDevice, // offline contínuo (estilo Gboard); cai p/ rede se faltar modelo
           listenFor: Duration(seconds: 120),
           pauseFor: Duration(seconds: 8),
           localeId: 'pt_BR',
@@ -925,17 +923,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _ultimoEventoVozAt = DateTime.now().millisecondsSinceEpoch;
     try {
       final perm = (e as dynamic).permanent as bool?;
-      Diagnostico.registrar('voz', 'erro perm=$perm onDevice=$_onDevice: $e');
-      // Fallback on-device→REDE: o offline não está disponível (erro permanente =
-      // sem modelo pt_BR) ou só dá erro sem captar nada → desliga o on-device e
-      // segue gravando na rede, sem interromper o usuário. Um on-device que capta
-      // texto zera o contador e nunca é rebaixado.
-      if (_onDevice && (perm == true || ++_errosOnDeviceSemTexto >= 4)) {
-        _onDevice = false;
-        Diagnostico.registrar('voz', 'on-device off → rede');
-        _reabrirVoz(_sessaoVoz);
-        return;
-      }
+      Diagnostico.registrar('voz', 'erro perm=$perm: $e');
       if (perm == true) {
         _paradaManual = true;
         _sessaoVoz++; // invalida resultados atrasados deste ditado
