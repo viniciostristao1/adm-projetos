@@ -66,7 +66,7 @@ void main() {
       var chamado = 0;
       final r = await ChatActions.executarTodos(
         '[[ACAO:lembrete | texto=X | quando=2020-01-01 09:00]]',
-        agendar: (_, __) async {
+        agendar: (texto, quando) async {
           chamado++;
           return true;
         },
@@ -98,11 +98,11 @@ void main() {
       final r = await ChatActions.executarTodos(
         'Oi [[ACAO:lembrete | texto=X | quando=2999-01-02 09:00]]',
         completo: false,
-        agendar: (_, __) async {
+        agendar: (texto, quando) async {
           agendou = true;
           return true;
         },
-        salvar: (_, __) async => salvou = true,
+        salvar: (proj, texto) async => salvou = true,
       );
       expect(agendou, isFalse);
       expect(salvou, isFalse);
@@ -126,11 +126,11 @@ void main() {
       final r = await ChatActions.executarTodos(
         '[[ACAO:lembrete | texto=$longo | quando=2999-01-02 09:00]]\n'
         '[[ACAO:nota | texto=  ]]',
-        agendar: (_, __) async {
+        agendar: (texto, quando) async {
           n++;
           return true;
         },
-        salvar: (_, __) async => n++,
+        salvar: (proj, texto) async => n++,
       );
       expect(n, 0);
       expect(r.confirmacoes, isEmpty);
@@ -139,7 +139,7 @@ void main() {
     test('falha na execução vira aviso (não lança)', () async {
       final r = await ChatActions.executarTodos(
         '[[ACAO:nota | texto=x]]',
-        salvar: (_, __) async => throw StateError('disco'),
+        salvar: (proj, texto) async => throw StateError('disco'),
       );
       expect(r.confirmacoes.single, contains('Não consegui'));
     });
