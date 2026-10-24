@@ -86,6 +86,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int _ultimoEventoVozAt = 0;
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
+  bool _dicaDitarMostrada = false; // dica do "ditar no teclado" (1x por sessão)
   final List<String> _imagensB64 = []; // imagens anexadas (visão), máx. 3
   static const int _maxImagens = 3;
   final FlutterTts _tts = FlutterTts();
@@ -1020,6 +1021,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (_) {}
     if (!mounted) return;
     setState(() => _gravando = false);
+  }
+
+  /// Atalho "DITAR NO TECLADO": foca a caixa e abre o teclado para o usuário
+  /// usar o MICROFONE do próprio teclado (ex.: Gboard) — reconhecimento contínuo
+  /// que tolera PAUSAS LONGAS, diferente do segurar-enviar (recognizer do app,
+  /// que corta em pausa curta). Na 1ª vez por sessão, uma dica aponta o mic.
+  Future<void> _ditarNoTeclado() async {
+    if (_gravando && !_enviando) await _micCancel(); // sai do ditado do app
+    _foco.requestFocus();
+    try {
+      await SystemChannels.textInput.invokeMethod('TextInput.show');
+    } catch (_) {}
+    if (!_dicaDitarMostrada) {
+      _dicaDitarMostrada = true;
+      _snack('Toque no microfone 🎤 do seu teclado para ditar — ele aceita pausas longas.');
+    }
   }
 
   /// X da caixa de mensagem → limpa tudo o que está escrito/ditado (texto +
@@ -2344,6 +2361,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Ditar no teclado: abre o teclado p/ usar o MIC dele (Gboard),
+                // que aguenta pausas longas (o segurar-enviar é o recognizer do app).
+                IconButton(
+                  icon: const Icon(Icons.keyboard_outlined, size: 20),
+                  tooltip: 'Ditar no teclado (pausas longas)',
+                  padding: const EdgeInsets.all(6),
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  splashRadius: 16,
+                  onPressed: _enviando ? null : _ditarNoTeclado,
+                ),
+                const SizedBox(height: 8),
                 IconButton(
                   icon: Icon(Icons.attach_file,
                       size: 20,

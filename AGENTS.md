@@ -1354,6 +1354,14 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   da V0.1.163 (commits/changelog em 163, pubspec parado em 162). Agora bumpar sem a entrada do
   changelog (ou vice-versa) **falha o CI**. §12 reescrito: versão nos TRÊS lugares com o mesmo N.
   (3) Corrigido o dessync da V0.1.163 (pubspec 0.1.162→0.1.163).
+- **V0.1.165 — atalho "ditar no teclado" (pausas longas):** botão de teclado
+  (`Icons.keyboard_outlined`) na coluna do compositor da Muse, acima do anexar
+  (`chat_screen.dart`). Chama `_ditarNoTeclado()`: foca a caixa + abre o teclado
+  (`SystemChannels.textInput 'TextInput.show'`) p/ o usuário usar o **MIC do próprio
+  teclado** (Gboard) — reconhecimento contínuo que aguenta pausas longas, ao
+  contrário do segurar-enviar (recognizer one-shot do app, que corta em pausa
+  curta — ver [[feedback_taskix_ditado_pausa_zona_morta]]). Na 1ª vez por sessão,
+  `_snack` aponta onde fica o mic. Só UI; não mexe no recognizer do app.
 - **Tempo em Lajeado/RS (servidor, sem APK novo):** novo `tempo.py` no proxy
   (Open-Meteo, sem chave): atual+máx do dia+chuva por turno (manhã/tarde/noite).
   Entra sob pergunta explícita (qualquer hora, com guarda anti-"tempo"=duração)
