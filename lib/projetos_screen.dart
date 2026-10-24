@@ -1995,10 +1995,24 @@ class _ConfigSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // (A alça de arraste vem do showModalBottomSheet showDragHandle.)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 4, 12, 8),
-              child: Text('Configurações',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            // Título + número da versão na MESMA linha (versão em fonte menor).
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  const Text('Configurações',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 8),
+                  Text(appVersao,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: dim)),
+                ],
+              ),
             ),
 
             // ================= Tema =================

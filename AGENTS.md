@@ -1346,6 +1346,14 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `[[ACAO:lembrete|nota...]]` (proxy `_ACAO`, coach/geral/projetos) + `lib/chat/chat_actions.dart`
   (parse/execução/limpeza, máx. 2 por resposta, sem executar parcial) interceptado no reply
   final (`_rodar`/`enviar`, SnackBar de confirmação); `test/chat_actions_test.dart`.
+- **V0.1.164 — versão em Configurações + guardrail de versão (nenhuma IA se perde):** (1) **Número da
+  versão em Configurações:** `appVersao` na MESMA linha do título "Configurações", em fonte menor
+  (12px) e cor suave (`projetos_screen.dart`, sheet de config). (2) **Guardrail anti-dessync:**
+  `test/versao_test.dart` ganhou um 3º teste que amarra o `pubspec` à **entrada mais nova** do
+  changelog (`- **V0.1.N` em §6) — antes só comparava `versao.dart`↔`pubspec` e deixou passar o furo
+  da V0.1.163 (commits/changelog em 163, pubspec parado em 162). Agora bumpar sem a entrada do
+  changelog (ou vice-versa) **falha o CI**. §12 reescrito: versão nos TRÊS lugares com o mesmo N.
+  (3) Corrigido o dessync da V0.1.163 (pubspec 0.1.162→0.1.163).
 - **Tempo em Lajeado/RS (servidor, sem APK novo):** novo `tempo.py` no proxy
   (Open-Meteo, sem chave): atual+máx do dia+chuva por turno (manhã/tarde/noite).
   Entra sob pergunta explícita (qualquer hora, com guarda anti-"tempo"=duração)
@@ -1600,10 +1608,17 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 A cada publicação de APK:
 
-1. **Incrementar** SÓ o `version:` no `pubspec.yaml` (`0.1.162+162` →
-   `0.1.163+163`) e rodar `dart tool/gerar_versao.dart` (regenera o
-   `lib/versao.dart`; o CI também gera a cada build — fonte única, sem
-   dessync). `test/versao_test.dart` trava a consistência no commit.
+1. **Versão em TRÊS lugares, com o MESMO número N** (fonte única = `pubspec.yaml`):
+   1. **Bumpar** o `version:` do `pubspec.yaml` (`0.1.163+163` → `0.1.164+164`).
+   2. **Regenerar** `lib/versao.dart` com `dart tool/gerar_versao.dart` (o CI
+      também gera a cada build).
+   3. **Adicionar** a entrada do changelog em §6, no formato EXATO
+      `- **V0.1.N — <resumo>:** …` (o `N` tem de ser o mesmo do pubspec).
+   ⚠️ **`test/versao_test.dart` ENFORCE os três:** `versao.dart`↔`pubspec` **e**
+   `pubspec`↔**entrada mais nova** `- **V0.1.N` do AGENTS.md. Se você bumpar o
+   pubspec e esquecer o changelog (ou vice-versa), o `flutter test` do CI
+   **falha** — então nenhuma IA se perde no número (foi o furo da V0.1.163: commits
+   em V0.1.163 com pubspec parado em 0.1.162; o teste antigo só via versao.dart↔pubspec e passava).
 2. A versão aparece no topo da tela principal (ao lado de "ADM-projetos") —
    o usuário confirma que está rodando o APK certo.
 3. **Informar o número da versão na resposta do chat** (ex.: "Versão publicada: **V0.1.23**").
