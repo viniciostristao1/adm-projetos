@@ -1359,6 +1359,11 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   Entra sob pergunta explícita (qualquer hora, com guarda anti-"tempo"=duração)
   ou automático na 2ª msg da manhã (05–12h, 1x/dia). Cache 90 min + estado em
   `/var/lib/taskix-chat/tempo.json`. Testes em `tests_tempo.py`.
+- **Placar do tempo (servidor, sem APK novo):** `tempo.py` salva o palpite do
+  dia dos 3 modelos (ECMWF/GFS/ICON) e apura o anterior (temp: menor erro na
+  máxima; chuva: mais turnos certos, >0,2 mm) contra o best_match. Placar
+  semanal vai às segundas e sob "qual modelo acertou mais?"; a Muse sempre
+  cita a fonte (Open-Meteo).
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
