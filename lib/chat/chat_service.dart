@@ -6,22 +6,27 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
 import '../diagnostico.dart';
+import 'chat_actions.dart';
 import 'chat_config.dart';
 import 'chat_models.dart';
 import 'chat_store.dart';
 
 /// Resultado de um envio: ou a resposta da IA, ou uma mensagem de erro amigável.
+/// `acoes` traz as confirmações de ações executadas (lembrete/nota criados).
 class ChatResult {
   final String? reply;
   final String? erro;
-  const ChatResult.ok(this.reply) : erro = null;
-  const ChatResult.falha(this.erro) : reply = null;
+  final List<String> acoes;
+  const ChatResult.ok(this.reply, [this.acoes = const []]) : erro = null;
+  const ChatResult.falha(this.erro)
+      : reply = null,
+        acoes = const [];
   bool get sucesso => reply != null;
 }
 
 /// Evento do envio em STREAMING (frase a frase).
 /// tipo: 'frase' (uma frase pronta) | 'done' (fim; `texto` = resposta inteira,
-/// JÁ salva no store) | 'erro' (falhou; `texto` = motivo).
+/// JÁ salva no store) | 'acao' (confirmação de ação executada) | 'erro'.
 class MuseEvent {
   final String tipo;
   final String texto;
@@ -33,9 +38,12 @@ class MuseEvent {
 /// aqui só vai o ID token do Firebase do usuário logado (o servidor só aceita a
 /// conta do dono). Ver `AGENTS.md` (módulo de chat) e o proxy `/opt/taskix-chat`.
 class ChatService {
-  /// Voz neural da VPS (MP3 pt-BR, voz feminina). Devolve os bytes do áudio ou
-  /// null em qualquer falha (o chamador cai para o TTS local do aparelho).
-  static Future<Uint8List?> audioNeural(String texto) async {
+  /// Voz neural da VPS (MP3 pt-BR). `voz` ('dii'/'faber'/voz Edge) e
+  /// `velocidade` (lengthScale) são opcionais — ausentes = padrão do servidor.
+  /// Devolve os bytes do áudio ou null em qualquer falha (o chamador cai para
+  /// o TTS local do aparelho).
+  static Future<Uint8List?> audioNeural(String texto,
+      {String? voz, double? velocidade}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
     String token;
@@ -46,6 +54,9 @@ class ChatService {
     }
     if (token.isEmpty) return null;
     try {
+      final body = <String, dynamic>{'texto': texto};
+      if (voz != null) body['voz'] = voz;
+      if (velocidade != null) body['velocidade'] = velocidade;
       final r = await http
           .post(
             Uri.parse('${ChatConfig.url}/tts'),
@@ -53,7 +64,7 @@ class ChatService {
               'content-type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({'texto': texto}),
+            body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 60));
       if (r.statusCode == 200 && r.bodyBytes.isNotEmpty) return r.bodyBytes;
@@ -205,17 +216,26 @@ class ChatService {
           ? replyFinal
           : full.toString().trim();
       if (reply.isNotEmpty) {
-        await ChatStore.anexarIa(id, reply); // mesmo save do envio normal
-        emit(MuseEvent('done', reply));
+        // Completo (veio `done` do servidor) = executa as ações; parcial
+        // reconstruído = só limpa (o fallback reenvia e executa de novo).
+        final completo = replyFinal != null && replyFinal.isNotEmpty;
+        final exec = await ChatActions.executarTodos(reply, completo: completo);
+        await ChatStore.anexarIa(id, exec.texto); // mesmo save do envio normal
+        emit(MuseEvent('done', exec.texto));
+        for (final c in exec.confirmacoes) {
+          emit(MuseEvent('acao', c));
+        }
       } else {
         emit(const MuseEvent('erro', 'vazio'));
       }
     } catch (e, st) {
-      // Caiu no meio: salva o PARCIAL p/ não perder o que já veio.
+      // Caiu no meio: salva o PARCIAL p/ não perder o que já veio (sem
+      // executar ações — o fallback reenvia do zero e executa lá).
       final parcial = full.toString().trim();
       if (parcial.isNotEmpty) {
-        await ChatStore.anexarIa(id, parcial);
-        emit(MuseEvent('done', parcial));
+        final limpo = ChatActions.limpar(parcial);
+        await ChatStore.anexarIa(id, limpo);
+        emit(MuseEvent('done', limpo));
       } else {
         Diagnostico.registrar('muse', 'chat_stream: $e', st);
         emit(const MuseEvent('erro', 'rede'));
@@ -278,7 +298,10 @@ class ChatService {
       if (r.statusCode == 200) {
         final reply =
             (jsonDecode(utf8.decode(r.bodyBytes))['reply'] as String?)?.trim();
-        if (reply != null && reply.isNotEmpty) return ChatResult.ok(reply);
+        if (reply != null && reply.isNotEmpty) {
+          final exec = await ChatActions.executarTodos(reply);
+          return ChatResult.ok(exec.texto, exec.confirmacoes);
+        }
         return const ChatResult.falha('A IA não respondeu. Tente de novo.');
       }
       return ChatResult.falha(switch (r.statusCode) {

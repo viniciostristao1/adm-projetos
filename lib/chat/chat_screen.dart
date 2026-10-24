@@ -15,7 +15,9 @@ import '../diagnostico.dart';
 import '../cores.dart';
 import '../storage.dart';
 import '../sync_service.dart';
+import '../voz_config.dart';
 import 'chat_models.dart';
+import 'chat_actions.dart';
 import 'chat_service.dart';
 import 'chat_store.dart';
 import 'tts_ondevice.dart';
@@ -239,13 +241,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Sintetiza um trecho: tenta NO APARELHO (sherpa-onnx/dii, rápido e offline) e,
-  /// se não estiver pronto/falhar, cai no /tts da VPS (reserva).
+  /// se não estiver pronto/falhar, cai no /tts da VPS (reserva). Respeita a voz e
+  /// o ritmo das Configurações (+ "devagar" desta conversa). A masculina (faber)
+  /// só existe no servidor — pula o on-device direto.
   Future<Uint8List?> _sintetizarTrecho(String texto) async {
-    if (TtsOnDevice.pronto) {
-      final b = await TtsOnDevice.sintetizar(_normalizarFala(texto));
+    final v = vozController.velocidade +
+        (_conv.falaDevagar ? VozController.devagarDelta : 0.0);
+    if (!vozController.masculina && TtsOnDevice.pronto) {
+      final b = await TtsOnDevice.sintetizar(_normalizarFala(texto),
+          velocidade: v);
       if (b != null) return b;
     }
-    return ChatService.audioNeural(texto); // servidor aplica a própria normalização
+    // Servidor aplica a própria normalização.
+    return ChatService.audioNeural(texto,
+        voz: vozController.masculina ? 'faber' : null, velocidade: v);
+  }
+
+  /// Taxa do TTS do aparelho (último fallback): 0.5 é o padrão; acompanha o
+  /// ritmo configurado (lengthScale maior = fala mais devagar = taxa menor).
+  double _taxaFalaTts() {
+    final v = vozController.velocidade +
+        (_conv.falaDevagar ? VozController.devagarDelta : 0.0);
+    return (0.5 * VozController.velocidadePadrao / v).clamp(0.1, 1.0).toDouble();
   }
 
   /// Normalização de fala do CLIENTE (p/ a síntese on-device, que não passa pelo
@@ -350,6 +367,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // NORMALIZA aqui também: sem isso o fallback do flutter_tts falava o
           // texto CRU (ex.: "Schopenhauer" na 1ª palavra, antes do Piper esquentar,
           // saía "chopenráuer" fraco; no meio já vinha sintetizado e correto).
+          // A taxa acompanha o ritmo configurado (+ "devagar" da conversa).
+          await _tts.setSpeechRate(_taxaFalaTts());
           await _tts
               .speak(_normalizarFala(_vozTextos[i]))
               .timeout(const Duration(seconds: 60), onTimeout: () {});
@@ -1115,11 +1134,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         case 'frase':
           recebeu = true;
           if (mesma) {
+            // O bloco [[ACAO:...]] não aparece nem é falado (só executa no fim).
+            final limpa = ChatActions.limpar(e.texto);
+            if (limpa.isEmpty) break;
             // Texto ao vivo: parágrafos preservados (quebra dupla ao fim de parágrafo).
             setState(() {
               _streamTexto = _streamTexto.isEmpty
-                  ? e.texto
-                  : '$_streamTexto$_proxSep${e.texto}';
+                  ? limpa
+                  : '$_streamTexto$_proxSep$limpa';
               _proxSep = e.fimParagrafo ? '\n\n' : ' ';
             });
             _rolarFim();
@@ -1128,7 +1150,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             // curta/título NÃO é falada sozinha (ela "secaria" antes do próximo
             // ficar pronto, criando o vão); junta com o próximo numa fala só.
             if (_modoAudio) {
-              _vozParag = _vozParag.isEmpty ? e.texto : '$_vozParag ${e.texto}';
+              _vozParag = _vozParag.isEmpty ? limpa : '$_vozParag $limpa';
               if (e.fimParagrafo && _vozParag.trim().length >= 80) {
                 _enfileirarVoz(_vozParag.trim());
                 _vozParag = '';
@@ -1138,6 +1160,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         case 'done':
           _tick?.cancel();
           if (mesma) finalizar();
+        case 'acao':
+          // Confirmação de ação executada (lembrete/nota criados).
+          if (mesma) _snack(e.texto);
         case 'erro':
           _tick?.cancel();
           if (!recebeu) {
@@ -1194,6 +1219,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
       _rolarFim(inicioResposta: true);
       _autoFalar();
+      for (final a in res.acoes) {
+        _snack(a);
+      }
     } else {
       setState(() {
         _conv.mensagens = [..._conv.mensagens, ChatMessage.ia('⚠️ ${res.erro}')];
@@ -1347,6 +1375,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _renomear(_conv);
       case 'relatorio':
         await _mostrarRelatorio();
+      case 'devagar':
+        setState(() => _conv.falaDevagar = !_conv.falaDevagar);
+        await ChatStore.salvar(_conv);
+        _snack(_conv.falaDevagar
+            ? 'Fala devagar ativada nesta conversa'
+            : 'Fala devagar desativada');
       default:
         if (v.startsWith('m_')) {
           setState(() => _conv.modelo = ChatModelo.deId(v.substring(2)));
@@ -1702,6 +1736,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     subtitle: Text(tam.descricao),
                   ),
                 ),
+              const PopupMenuDivider(),
+              // Fala devagar SÓ nesta conversa (soma ao ritmo das Configurações).
+              PopupMenuItem(
+                value: 'devagar',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_conv.falaDevagar
+                      ? Icons.check
+                      : Icons.speed_outlined),
+                  title: const Text('Fala devagar'),
+                  subtitle: const Text('Respostas faladas mais devagar (só aqui)'),
+                ),
+              ),
             ],
                   filho: const Icon(Icons.more_vert, size: 24),
                 ),
@@ -1818,7 +1866,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         child: Text(
-          'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}',
+          'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}${_conv.falaDevagar ? ' • Devagar' : ''}',
           textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 12,

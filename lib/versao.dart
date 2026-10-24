@@ -1,5 +1,5 @@
-/// Versão exibida no topo da tela principal (ao lado de "ADM-projetos").
-///
-/// ⚠️ FLUXO DE RELEASE (ver AGENTS.md): a cada publicação, INCREMENTAR esta
-/// constante E informar o novo número na resposta ao usuário.
-const String appVersao = 'V0.1.159';
+// GERADO AUTOMATICAMENTE — não editar à mão.
+// Fonte única: `version:` do pubspec.yaml via `dart tool/gerar_versao.dart`
+// (o CI gera a cada build; rode localmente após bumpar o pubspec).
+// Exibida no topo da tela principal (ao lado de "Taskix").
+const String appVersao = 'V0.1.162';

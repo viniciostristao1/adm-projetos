@@ -30,8 +30,9 @@ Checklist OBRIGATÓRIO antes de publicar uma versão nova:
 4. **Testes de regressão de dados** — `flutter test` deve passar com o
    `test/backup_test.dart` (11 testes que cobrem .bak, snapshots, reparo,
    guarda anti-esvaziamento). NÃO remover esses testes ao refatorar.
-5. **Bump de versão** — sempre incrementar `appVersao` (`lib/versao.dart`) e
-   `version:` (`pubspec.yaml`) ao publicar (fluxo na seção 12).
+5. **Bump de versão** — sempre incrementar o `version:` do `pubspec.yaml` e
+   regenerar `lib/versao.dart` (`dart tool/gerar_versao.dart`) ao publicar
+   (fluxo na seção 12; `test/versao_test.dart` garante).
 
 > Histórico do incidente que originou esta regra: um usuário perdeu todo o
 > conteúdo após atualizar o app — o arquivo de dados foi sobrescrito em algum
@@ -80,7 +81,12 @@ lib/
 ├── sync_service.dart    # SyncService (Firebase Firestore) — nuvem 100% MANUAL (por botão)
 ├── lembretes.dart       # LembretesService (flutter_local_notifications) — lembretes rápidos
 │                        #   com notificação local do Android (item 5, V0.1.54)
-└── versao.dart          # const appVersao (exibida no topo; bump a cada release)
+├── versao.dart          # GERADO pelo CI a partir do `version:` do pubspec.yaml
+│                        # (`dart tool/gerar_versao.dart`) — NÃO editar à mão (ver §12)
+├── voz_config.dart      # VozController (velocidade 0.85–1.25 + voz dii/faber,
+│                        # `voz_velocidade_v1`/`voz_id_v1`) — seção "Voz da Muse"
+│                        # nas Configurações; "Fala devagar" por conversa (menu ⋮
+│                        # da Muse, `Conversa.falaDevagar` soma +0.16)
 ```
 
 ---
@@ -1326,8 +1332,20 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `_vozPlay`). Fix: normalizar também nesse fallback. Diagnóstico feito rodando o **espeak-ng** da VPS
   (`-x`): "Schopenhauer" cru → `sS,upyn^aU'er` (fraco) vs "chopenrráuer" → `...R'...` (R forte). (3)
   **Novas pronúncias** nos DOIS dicionários (cliente `_normalizarFala` + servidor `PRONUNCIA_FALA` em
-  `/opt/taskix-chat/app.py`, serviço `taskix-chat` reiniciado): `fati→fáti`, `nietzschiano→nitiano`,
+  `/opt/taskix-chat/app.py`, serviço `taskix-chat` reiniciado): `fati→fáti`,   `nietzschiano→nitiano`,
   `nietzscheano→nitiano` (verificado no espeak: `fáti`=`f'ati`, `nitiano`=`n,iti'&~nU`).
+- **V0.1.163 — voz configurável + versão gerada:** (1) **Voz na UI:** `VozController`
+  (`lib/voz_config.dart`, `voz_velocidade_v1` 0.85–1.25 + `voz_id_v1` dii/faber) com seção
+  "Voz da Muse" nas Configurações (slider de ritmo + Feminina/Masculina) e **"Fala devagar"
+  por conversa** (menu ⋮, `Conversa.falaDevagar`, soma +0.16 ao lengthScale). On-device aceita
+  velocidade por pedido (o isolate recria o motor sem derrubar a fila); faber pula o on-device
+  e o `/tts` usa o modelo faber + `--length_scale` (faixa 0.7–1.4); fallback `flutter_tts`
+  acompanha o ritmo. (2) **Versão gerada:** `lib/versao.dart` sai do `version:` do pubspec
+  (`dart tool/gerar_versao.dart`, CI gera a cada build) + `test/versao_test.dart` trava —
+  fim do dessync (V0.1.159 vs 0.1.162). (3) **Ações por voz no chat:** bloco
+  `[[ACAO:lembrete|nota...]]` (proxy `_ACAO`, coach/geral/projetos) + `lib/chat/chat_actions.dart`
+  (parse/execução/limpeza, máx. 2 por resposta, sem executar parcial) interceptado no reply
+  final (`_rodar`/`enviar`, SnackBar de confirmação); `test/chat_actions_test.dart`.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
@@ -1363,7 +1381,7 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
 # Análise estática
 flutter analyze
 
-# Testes (117 testes)
+# Testes (158 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -1426,7 +1444,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (117 testes)
+## 10. Testes (158 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -1535,6 +1553,20 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Um projeto inválido não derruba os demais (carregamento tolerante)
 - Principal ilegível é preservado em `.corrompido` (1ª cópia, nunca sobrescrita)
 
+### `test/versao_test.dart` (2 testes — V0.1.163)
+- `versao.dart == version do pubspec` (trava o dessync; manda rodar o gerador)
+- `versao.dart` avisa que é gerado
+
+### `test/voz_config_test.dart` (3 testes — V0.1.163)
+- Defaults (1.04×, dii) sem nada salvo
+- Roundtrip + faixas/vozes inválidas caem no seguro
+- `Conversa.falaDevagar`: default false, JSON antigo sem a chave compatível
+
+### `test/chat_actions_test.dart` (11 testes — V0.1.163)
+- Parse (válidos, case-insensitive, desconhecido/quebrado ignorados), limpeza
+- Execução com fakes (sucesso, passado rejeitado, default Estudos, parcial não
+  executa, máx. 2, gigante/vazio ignorados, falha vira aviso)
+
 ---
 
 ## 11. Restrições e Cuidados
@@ -1547,7 +1579,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 117 testes devem passar.
+- **Sempre rodar `flutter test`** — 158 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 - **VPS com pouca RAM — trabalho leve (incidente 2026-10-12: swap 100%, PSI alto após
@@ -1563,8 +1595,10 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 A cada publicação de APK:
 
-1. **Incrementar** `appVersao` em `lib/versao.dart` (ex.: `V0.1.22` → `V0.1.23`)
-   e o `version:` no `pubspec.yaml` (`0.1.22+22` → `0.1.23+23`).
+1. **Incrementar** SÓ o `version:` no `pubspec.yaml` (`0.1.162+162` →
+   `0.1.163+163`) e rodar `dart tool/gerar_versao.dart` (regenera o
+   `lib/versao.dart`; o CI também gera a cada build — fonte única, sem
+   dessync). `test/versao_test.dart` trava a consistência no commit.
 2. A versão aparece no topo da tela principal (ao lado de "ADM-projetos") —
    o usuário confirma que está rodando o APK certo.
 3. **Informar o número da versão na resposta do chat** (ex.: "Versão publicada: **V0.1.23**").

@@ -28,7 +28,16 @@ class TtsOnDevice {
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_BR-dii-high.tar.bz2';
   static const _pasta = 'tts_dii'; // sob o diretório de documentos do app
   static const _sub = 'vits-piper-pt_BR-dii-high'; // pasta que o .tar.bz2 cria
-  static const double _lengthScale = 1.04; // velocidade da fala (↑ = mais lenta)
+  // Velocidade da fala (lengthScale: MAIOR = mais lenta). O dono é o
+  // VozController (`voz_velocidade_v1`, padrão 1.04); aqui fica só o valor em
+  // uso — o isolate RECRIA o motor se um pedido chegar com outra velocidade
+  // (sem derrubar nada, sem vazar isolate).
+  static double _velocidade = 1.04;
+
+  /// Ajusta a velocidade dos próximos pedidos (o isolate se adapta sozinho).
+  static void definirVelocidade(double v) {
+    if (v.isFinite) _velocidade = v;
+  }
 
   static SendPort? _req; // porta p/ pedir síntese ao isolate (null = não pronto)
   static bool _falhou = false; // isolate não subiu → usa o servidor (não insiste)
@@ -91,7 +100,7 @@ class TtsOnDevice {
           '${d.path}/pt_BR-dii-high.onnx',
           '${d.path}/tokens.txt',
           '${d.path}/espeak-ng-data',
-          _lengthScale,
+          _velocidade,
         ],
         onError: recv.sendPort, // erro não-tratado no spawn → destrava o Completer
         errorsAreFatal: false,
@@ -114,14 +123,14 @@ class TtsOnDevice {
   /// Sintetiza o texto NO ISOLATE de voz → WAV (Uint8List). null se não estiver
   /// pronto ou falhar (o chamador cai no servidor). NÃO bloqueia a UI: o pesado
   /// roda no isolate; aqui só se aguarda a resposta pela porta.
-  static Future<Uint8List?> sintetizar(String texto) {
+  static Future<Uint8List?> sintetizar(String texto, {double? velocidade}) {
     final req = _req;
     final t = texto.trim();
     if (req == null || t.isEmpty) return Future.value(null);
     final id = _seq++;
     final c = Completer<Uint8List?>();
     _pend[id] = c;
-    req.send([id, t]);
+    req.send([id, t, velocidade ?? _velocidade]);
     // Salvaguarda: nunca pendura o chamador pra sempre se a resposta sumir.
     return c.future.timeout(const Duration(seconds: 20), onTimeout: () {
       _pend.remove(id);
@@ -130,37 +139,65 @@ class TtsOnDevice {
   }
 
   // ─────────────────────── roda NO ISOLATE de síntese ───────────────────────
-  // Carrega o motor uma vez e responde cada pedido [id, texto] com [id, wav|null].
+  // Carrega o motor uma vez e responde cada pedido [id, texto, velocidade] com
+  // [id, wav|null]. Se a velocidade mudar entre pedidos, o motor é RECRIADO
+  // (sem derrubar o isolate nem a fila).
   static void _isolateMain(List args) {
     final SendPort out = args[0] as SendPort;
-    sherpa.OfflineTts tts;
+    final String modelo = args[1] as String;
+    final String tokens = args[2] as String;
+    final String dataDir = args[3] as String;
+    double vel = (args[4] as num).toDouble();
+    sherpa.OfflineTts? abrir(double v) {
+      try {
+        return sherpa.OfflineTts(sherpa.OfflineTtsConfig(
+          model: sherpa.OfflineTtsModelConfig(
+            vits: sherpa.OfflineTtsVitsModelConfig(
+              model: modelo,
+              tokens: tokens,
+              dataDir: dataDir,
+              lengthScale: v,
+            ),
+            numThreads: 2,
+            debug: false,
+          ),
+        ));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    sherpa.OfflineTts? tts;
     try {
       sherpa.initBindings();
-      tts = sherpa.OfflineTts(sherpa.OfflineTtsConfig(
-        model: sherpa.OfflineTtsModelConfig(
-          vits: sherpa.OfflineTtsVitsModelConfig(
-            model: args[1] as String,
-            tokens: args[2] as String,
-            dataDir: args[3] as String,
-            lengthScale: args[4] as double,
-          ),
-          numThreads: 2,
-          debug: false,
-        ),
-      ));
+      tts = abrir(vel);
     } catch (_) {
+      tts = null;
+    }
+    if (tts == null) {
       out.send(null); // não carregou → o principal cai no servidor
       return;
     }
     final inbox = ReceivePort();
     out.send(inbox.sendPort); // devolve a porta de requisição ao principal
     inbox.listen((msg) {
-      if (msg is! List || msg.length != 2) return;
+      if (msg is! List || (msg.length != 2 && msg.length != 3)) return;
       final id = msg[0] as int;
       final texto = msg[1] as String;
+      if (msg.length == 3) {
+        final v = (msg[2] as num?)?.toDouble();
+        if (v != null && v.isFinite && v != vel) {
+          final novo = abrir(v);
+          if (novo != null) {
+            tts = novo;
+            vel = v;
+          }
+        }
+      }
+      final motor = tts;
       Uint8List? bytes;
       try {
-        final audio = tts.generate(text: texto, sid: 0, speed: 1.0);
+        final audio = motor!.generate(text: texto, sid: 0, speed: 1.0);
         if (audio.samples.isNotEmpty) {
           bytes = _wav(audio.samples, audio.sampleRate);
         }

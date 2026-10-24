@@ -14,6 +14,7 @@ import 'projetos_screen.dart';
 import 'storage.dart';
 import 'sync_service.dart';
 import 'tema.dart';
+import 'voz_config.dart';
 
 Future<void> main() async {
   // Tudo dentro de uma zona guardada p/ capturar erros não-tratados (async
@@ -34,6 +35,7 @@ Future<void> main() async {
     };
     temaController.carregar();
     barraController.carregar();
+    vozController.carregar();
     // Salva na hora quando o app sai de primeiro plano (fechar/minimizar) —
     // garante que o texto recém-digitado não se perca.
     WidgetsBinding.instance.addObserver(_SalvadorDeVida());

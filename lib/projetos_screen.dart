@@ -23,6 +23,7 @@ import 'storage.dart';
 import 'sync_service.dart';
 import 'tema.dart';
 import 'versao.dart';
+import 'voz_config.dart';
 
 const Map<String, Color> mapaCoresPasta = {
   'azul': Color(0xFF3B82F6),
@@ -2081,6 +2082,61 @@ class _ConfigSheet extends StatelessWidget {
                 _dica(
                   'Compacto aproxima os cartões e deixa mais conteúdo por '
                   'tela (vale também para as caixinhas do projeto).',
+                  dim,
+                ),
+              ],
+            ),
+
+            // ================= Voz da Muse =================
+            _sec(
+              icone: Icons.record_voice_over_outlined,
+              titulo: 'Voz da Muse',
+              subtitulo:
+                  '${vozController.rotuloVelocidade} · ${vozController.rotuloVoz}',
+              children: [
+                ListenableBuilder(
+                  listenable: vozController,
+                  builder: (context, _) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const Text('Ritmo'),
+                            Expanded(
+                              child: Slider(
+                                value: vozController.velocidade,
+                                min: VozController.velocidadeMin,
+                                max: VozController.velocidadeMax,
+                                divisions: 40,
+                                label: vozController.rotuloVelocidade,
+                                onChanged: (v) =>
+                                    vozController.definirVelocidade(v),
+                              ),
+                            ),
+                            Text(vozController.rotuloVelocidade),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                                value: 'dii', label: Text('Feminina')),
+                            ButtonSegment(
+                                value: 'faber', label: Text('Masculina')),
+                          ],
+                          selected: {vozController.vozId},
+                          showSelectedIcon: false,
+                          onSelectionChanged: (s) =>
+                              vozController.definirVoz(s.first),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                _dica(
+                  'Maior = fala mais devagar (vale no aparelho e no servidor). '
+                  'Feminina sai no aparelho, offline; masculina vem do servidor.',
                   dim,
                 ),
               ],

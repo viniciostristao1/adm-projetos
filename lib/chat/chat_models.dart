@@ -98,6 +98,8 @@ class Conversa {
   ChatTamanho tamanho;
   List<ChatMessage> mensagens;
   DateTime atualizadaEm;
+  /// Fala devagar SÓ nesta conversa (soma ao ritmo das Configurações).
+  bool falaDevagar;
 
   Conversa({
     required this.id,
@@ -107,6 +109,7 @@ class Conversa {
     required this.atualizadaEm,
     this.modelo = ChatModelo.rapido,
     this.tamanho = ChatTamanho.longo,
+    this.falaDevagar = false,
   });
 
   factory Conversa.nova(ChatPreset preset) => Conversa(
@@ -135,6 +138,7 @@ class Conversa {
         'preset': preset.id,
         'modelo': modelo.id,
         'tamanho': tamanho.id,
+        'falaDevagar': falaDevagar,
         'atualizadaEm': atualizadaEm.millisecondsSinceEpoch,
         'mensagens': mensagens.map((m) => m.toJson()).toList(),
       };
@@ -145,6 +149,7 @@ class Conversa {
         preset: ChatPreset.deId(j['preset'] as String?),
         modelo: ChatModelo.deId(j['modelo'] as String?),
         tamanho: ChatTamanho.deId(j['tamanho'] as String?),
+        falaDevagar: (j['falaDevagar'] as bool?) ?? false,
         atualizadaEm: DateTime.fromMillisecondsSinceEpoch(
             (j['atualizadaEm'] as num?)?.toInt() ?? 0),
         mensagens: ((j['mensagens'] as List?) ?? const [])

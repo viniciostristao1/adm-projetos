@@ -37,6 +37,11 @@ jobs:
       - name: Dependências
         run: flutter pub get
 
+      - name: Versão (gerar lib/versao.dart a partir do pubspec)
+        # Fonte única = `version:` do pubspec.yaml. O topo do app nunca mais
+        # sai dessincronizado (ex.: V0.1.159 exibida com pubspec em 0.1.162).
+        run: dart tool/gerar_versao.dart
+
       - name: Chave de assinatura (secrets -> keystore + key.properties)
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks

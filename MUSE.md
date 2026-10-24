@@ -44,12 +44,20 @@ Proxy na VPS (`/opt/taskix-chat/`):
 
 ---
 
-## 3. VELOCIDADE da fala — onde mudar (⚠️ DOIS lugares)
+## 3. VELOCIDADE e VOZ da fala — onde mudar
 
-A velocidade é o `length_scale` (↑ = mais LENTA; ↓ = mais rápida). **Mude nos dois** para manter igual:
+A velocidade é o `length_scale` (↑ = mais LENTA; ↓ = mais rápida) e agora é
+**configurável pelo usuário** (não mais constante no código):
 
-1. **On-device:** `lib/chat/tts_ondevice.dart` → `static const double _lengthScale = 1.04;`
-2. **Servidor:** `/opt/taskix-chat/vozes/pt_BR-dii-high.onnx.json` → campo `inference.length_scale` (ex.: `1.04`). Depois `systemctl restart taskix-chat` (ou só recarrega no próximo pedido, pois o Piper lê o json por chamada).
+1. **App:** `lib/voz_config.dart` (`VozController`: `voz_velocidade_v1` 0.85–1.25,
+   padrão **1.04**; `voz_id_v1` 'dii'/'faber') + seção "Voz da Muse" nas
+   Configurações (slider + Feminina/Masculina) + "Fala devagar" por conversa
+   (menu ⋮ da Muse, `Conversa.falaDevagar`, soma +0.16).
+2. **On-device:** `TtsOnDevice.sintetizar(texto, velocidade:)` — o isolate
+   RECRIA o motor se a velocidade mudar entre pedidos (sem derrubar a fila).
+3. **Servidor:** `POST /tts` aceita `{voz: "dii"|"faber"|voz Edge, velocidade}` —
+   Piper usa o modelo faber/dii + flag `--length_scale` (faixa 0.7–1.4).
+   Sem parâmetros = comportamento antigo (.onnx.json).
 
 Valor atual: **1.04**. Histórico: 1.10 (lento demais) → 1.04 → 1.02 → **1.04** (pedido do usuário). Regra prática: ajustes de ±2% por vez (ex.: 1.02→1.04 ≈ 2% mais lento).
 
@@ -156,11 +164,12 @@ Também: **tamanho** (longo/curto) por conversa.
 
 ## 9. Checklist para outro agente contribuir
 1. **App:** editar `lib/…`, rodar `flutter analyze` (limpo) + `flutter test` (142+ testes) — Flutter em `/root/flutter/bin` (`export PATH="$PATH:/root/flutter/bin"`).
-2. **Versão:** subir `lib/versao.dart` + `version:` do `pubspec.yaml` (ex.: `0.1.131+131`).
+2. **Versão:** subir SÓ o `version:` do `pubspec.yaml` + rodar `dart tool/gerar_versao.dart` (o `lib/versao.dart` é gerado; o CI gera de novo a cada build).
 3. **Release:** commit + push na `main` → GitHub Actions compila o APK → link
    `https://github.com/viniciostristao1/adm-projetos/releases/download/v0.1.0/taskix-v0.1.<N>.apk`. **Sempre mandar o link ao usuário.** Instalar POR CIMA (não desinstalar).
 4. **Proxy:** editar `/opt/taskix-chat/app.py` → `systemctl restart taskix-chat` → conferir `/health`. ⚠️ **NÃO sobrecarregar a VPS** (1 vCPU/3,8 GB; auto-trader no mesmo servidor): build de APK é só no CI; nada de rodar modelos pesados residentes sem avaliar memória.
-5. **Pronúncia/velocidade:** lembrar dos **dois lados** (seções 3 e 4).
+5. **Pronúncia:** lembrar dos **dois lados** (seção 4). Velocidade/voz vêm das
+   Configurações (`lib/voz_config.dart`, seção 3) — não há mais constante espalhada.
 6. **Não** commitar segredos; `.env` fica só na VPS.
 
 ---
