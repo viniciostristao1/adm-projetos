@@ -1346,6 +1346,11 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `[[ACAO:lembrete|nota...]]` (proxy `_ACAO`, coach/geral/projetos) + `lib/chat/chat_actions.dart`
   (parse/execução/limpeza, máx. 2 por resposta, sem executar parcial) interceptado no reply
   final (`_rodar`/`enviar`, SnackBar de confirmação); `test/chat_actions_test.dart`.
+- **Tempo em Lajeado/RS (servidor, sem APK novo):** novo `tempo.py` no proxy
+  (Open-Meteo, sem chave): atual+máx do dia+chuva por turno (manhã/tarde/noite).
+  Entra sob pergunta explícita (qualquer hora, com guarda anti-"tempo"=duração)
+  ou automático na 2ª msg da manhã (05–12h, 1x/dia). Cache 90 min + estado em
+  `/var/lib/taskix-chat/tempo.json`. Testes em `tests_tempo.py`.
 - **Armazenamento:** a conversa atual é local (`chat_store.dart`, chave `taskix_chat_v1`) —
   **não** toca no `Storage` dos projetos nem na cadeia de proteção (REGRA DE OURO intacta).
 
