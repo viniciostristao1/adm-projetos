@@ -86,7 +86,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int _ultimoEventoVozAt = 0;
   DateTime? _inicioEnvio;
   String? _anexo; // texto anexado (clip) p/ a próxima mensagem
-  bool _dicaDitarMostrada = false; // dica do "ditar no teclado" (1x por sessão)
   final List<String> _imagensB64 = []; // imagens anexadas (visão), máx. 3
   static const int _maxImagens = 3;
   final FlutterTts _tts = FlutterTts();
@@ -1023,22 +1022,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     setState(() => _gravando = false);
   }
 
-  /// Atalho "DITAR NO TECLADO": foca a caixa e abre o teclado para o usuário
-  /// usar o MICROFONE do próprio teclado (ex.: Gboard) — reconhecimento contínuo
-  /// que tolera PAUSAS LONGAS, diferente do segurar-enviar (recognizer do app,
-  /// que corta em pausa curta). Na 1ª vez por sessão, uma dica aponta o mic.
-  Future<void> _ditarNoTeclado() async {
-    if (_gravando && !_enviando) await _micCancel(); // sai do ditado do app
-    _foco.requestFocus();
-    try {
-      await SystemChannels.textInput.invokeMethod('TextInput.show');
-    } catch (_) {}
-    if (!_dicaDitarMostrada) {
-      _dicaDitarMostrada = true;
-      _snack('Toque no microfone 🎤 do seu teclado para ditar — ele aceita pausas longas.');
-    }
-  }
-
   /// X da caixa de mensagem → limpa tudo o que está escrito/ditado (texto +
   /// anexo + imagens). Se estava gravando, para primeiro sem enviar. Mantém o
   /// foco na caixa p/ continuar digitando/ditando na sequência.
@@ -1963,7 +1946,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // Segurar = menu com Copiar / Salvar no Estudos (mensagem INTEIRA, sem
           // precisar selecionar tudo).
           GestureDetector(
-            onLongPress: () => _acoesMensagem(_semCarimbo(m.texto)),
+            onLongPress: () => _acoesMensagem(m, idx),
             child: Container(
               margin: const EdgeInsets.only(top: 4, bottom: 2),
               padding:
@@ -2058,13 +2041,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Menu ao segurar uma mensagem: copiar ou mandar para o projeto "Estudos".
-  Future<void> _acoesMensagem(String texto) async {
+  Future<void> _acoesMensagem(ChatMessage m, int idx) async {
+    final texto = _semCarimbo(m.texto);
+    final msgs = _conv.mensagens;
+    final ehUltima = idx == msgs.length - 1;
+    final ultimoUserIdx = msgs.lastIndexWhere((x) => x.ehUsuario);
+    // Tentar de novo: regenera a ÚLTIMA resposta da Muse. Editar: corrige a sua
+    // ÚLTIMA mensagem e reenvia. Ambos só fora de um envio em andamento.
+    final podeRegenerar = ehUltima && !m.ehUsuario && !_enviando;
+    final podeEditar = m.ehUsuario && idx == ultimoUserIdx && !_enviando;
     final escolha = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (podeRegenerar)
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Tentar de novo'),
+                subtitle: const Text('Gera outra resposta para a mesma pergunta'),
+                onTap: () => Navigator.pop(ctx, 'regenerar'),
+              ),
+            if (podeEditar)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Editar e reenviar'),
+                subtitle: const Text('Corrige o que você enviou, sem reescrever tudo'),
+                onTap: () => Navigator.pop(ctx, 'editar'),
+              ),
             ListTile(
               leading: const Icon(Icons.copy_outlined),
               title: const Text('Copiar'),
@@ -2083,7 +2088,70 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _copiar(texto);
     } else if (escolha == 'estudos') {
       await _salvarNoEstudos(texto);
+    } else if (escolha == 'regenerar') {
+      await _regenerar();
+    } else if (escolha == 'editar') {
+      await _editarMensagem(idx);
     }
+  }
+
+  /// TENTAR DE NOVO: remove a última resposta da Muse e pede OUTRA para a mesma
+  /// pergunta (a resposta antiga sai do histórico → a Muse gera do zero; com a
+  /// variação natural da persona + temperatura, não repete a resposta anterior).
+  Future<void> _regenerar() async {
+    if (_enviando) return;
+    final msgs = _conv.mensagens;
+    if (msgs.isEmpty || msgs.last.ehUsuario) return; // precisa de uma resposta no fim
+    await _pararFala();
+    setState(() {
+      _conv.mensagens = msgs.sublist(0, msgs.length - 1); // tira a resposta antiga
+      _enviando = true;
+      _streamando = true;
+      _streamTexto = '';
+      _proxSep = ' ';
+      _vozParag = '';
+      _inicioEnvio = DateTime.now();
+    });
+    _tick?.cancel();
+    _tick = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (mounted) setState(() {});
+    });
+    await ChatStore.salvar(_conv);
+    await ChatStore.marcarUltima(_conv.id);
+    _rolarFim();
+    final idOrigem = _conv.id;
+    final snapshot = List<ChatMessage>.from(_conv.mensagens);
+    _escutarStream(
+      idOrigem,
+      ChatService.enviarStream(idOrigem, snapshot,
+          presetId: _conv.preset.id,
+          modeloId: _conv.modelo.id,
+          tamanhoId: _conv.tamanho.id),
+      snapshot,
+      null,
+    );
+  }
+
+  /// EDITAR E REENVIAR: devolve o texto da sua última mensagem para a caixa (sem
+  /// os carimbos de anexo/imagem) e remove a mensagem + o que veio depois. Você
+  /// corrige e toca em enviar → a Muse responde à versão corrigida.
+  Future<void> _editarMensagem(int idx) async {
+    if (_enviando) return;
+    final msgs = _conv.mensagens;
+    if (idx < 0 || idx >= msgs.length || !msgs[idx].ehUsuario) return;
+    await _pararFala();
+    var t = msgs[idx].texto;
+    final iAnexo = t.indexOf('\n\n--- Anexo ---');
+    if (iAnexo >= 0) t = t.substring(0, iAnexo);
+    t = t.replaceAll(RegExp(r'\n?\[📷[^\]]*\]'), '').trimRight();
+    setState(() {
+      _conv.mensagens = msgs.sublist(0, idx); // tira a sua msg e tudo depois
+      _ctrl.text = t;
+      _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    });
+    await ChatStore.salvar(_conv);
+    _foco.requestFocus();
+    _snack('Edite a mensagem e toque em enviar para reenviar.');
   }
 
   /// Guarda a mensagem como uma caixinha no projeto reservado "Estudos" (cria se
@@ -2361,18 +2429,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Ditar no teclado: abre o teclado p/ usar o MIC dele (Gboard),
-                // que aguenta pausas longas (o segurar-enviar é o recognizer do app).
-                IconButton(
-                  icon: const Icon(Icons.keyboard_outlined, size: 20),
-                  tooltip: 'Ditar no teclado (pausas longas)',
-                  padding: const EdgeInsets.all(6),
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  splashRadius: 16,
-                  onPressed: _enviando ? null : _ditarNoTeclado,
-                ),
-                const SizedBox(height: 8),
                 IconButton(
                   icon: Icon(Icons.attach_file,
                       size: 20,

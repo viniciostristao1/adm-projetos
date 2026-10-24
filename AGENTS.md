@@ -1362,6 +1362,15 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   contrário do segurar-enviar (recognizer one-shot do app, que corta em pausa
   curta — ver [[feedback_taskix_ditado_pausa_zona_morta]]). Na 1ª vez por sessão,
   `_snack` aponta onde fica o mic. Só UI; não mexe no recognizer do app.
+- **V0.1.166 — "Tentar de novo" + "Editar e reenviar" no chat + reverte o ícone de teclado:**
+  (1) **Reverte o ícone de teclado da V0.1.165** (redundante — tocar na caixa já abre o teclado;
+  pedido do usuário). (2) **Tentar de novo / Editar** no `_acoesMensagem` (long-press na bolha, agora
+  recebe `(ChatMessage, idx)`): **Tentar de novo** só na ÚLTIMA mensagem se for resposta da Muse
+  (`_regenerar`: remove a resposta antiga, reenvia o MESMO histórico via `_escutarStream` → resposta
+  nova, que varia pela persona "VARIE DE VERDADE" + temperatura); **Editar e reenviar** só na sua
+  última mensagem (`_editarMensagem`: devolve o texto p/ a caixa sem os carimbos de anexo/imagem,
+  remove a msg + o que veio depois; ao enviar, a Muse responde à versão corrigida). Ambos bloqueados
+  durante um envio. Limitação: regenerar/editar um turno que tinha imagem perde a imagem (só o texto).
 - **Tempo em Lajeado/RS (servidor, sem APK novo):** novo `tempo.py` no proxy
   (Open-Meteo, sem chave): atual+máx do dia+chuva por turno (manhã/tarde/noite).
   Entra sob pergunta explícita (qualquer hora, com guarda anti-"tempo"=duração)
