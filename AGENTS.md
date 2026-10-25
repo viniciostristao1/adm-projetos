@@ -1371,6 +1371,13 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   última mensagem (`_editarMensagem`: devolve o texto p/ a caixa sem os carimbos de anexo/imagem,
   remove a msg + o que veio depois; ao enviar, a Muse responde à versão corrigida). Ambos bloqueados
   durante um envio. Limitação: regenerar/editar um turno que tinha imagem perde a imagem (só o texto).
+- **V0.1.167 — copiar não abre mais o teclado + doc do experimento GPT-5.6 Luna:** (1) **Bug:** ao
+  Copiar uma mensagem (menu de ações), o teclado reabria sozinho — o bottom sheet, ao fechar,
+  devolvia o foco à caixa. Fix: `FocusScope.of(context).unfocus()` no início de `_acoesMensagem`
+  (o "Editar" refoca de propósito depois). (2) **Doc (sem código):** `MUSE.md §8` ganhou o
+  experimento do **gpt-5.6-luna** — como o muse-spark, só fala a **Responses API** (`chat/completions`
+  → 400 ModelProtocolUnsupported → fallback DeepSeek); custo ($0,20/$1,20, até + barato que o flash);
+  comparação Muse (DeepSeek igual/melhor p/ coach; Luna + enxuto). Ver [[reference_opencode_zen_responses_api]].
 - **Tempo em Lajeado/RS (servidor, sem APK novo):** novo `tempo.py` no proxy
   (Open-Meteo, sem chave): atual+máx do dia+chuva por turno (manhã/tarde/noite).
   Entra sob pergunta explícita (qualquer hora, com guarda anti-"tempo"=duração)

@@ -2042,6 +2042,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Menu ao segurar uma mensagem: copiar ou mandar para o projeto "Estudos".
   Future<void> _acoesMensagem(ChatMessage m, int idx) async {
+    // Tira o foco da caixa ANTES de abrir o menu: senão, ao fechar o bottom
+    // sheet (ex.: depois de Copiar), o foco voltava p/ o campo e o teclado
+    // reabria sozinho. O "Editar" refoca de propósito depois (em _editarMensagem).
+    FocusScope.of(context).unfocus();
     final texto = _semCarimbo(m.texto);
     final msgs = _conv.mensagens;
     final ehUltima = idx == msgs.length - 1;
