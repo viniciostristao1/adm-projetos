@@ -80,11 +80,27 @@ class ChatActions {
     }
   }
 
-  static Future<bool> _agendarPadrao(String texto, DateTime quando) async {
+  static Future<bool> _agendarPadrao(
+      String texto, DateTime quando, String recorrencia) async {
     final daqui = quando.difference(DateTime.now());
-    final l = await LembretesService.instance.agendar(texto, daqui);
+    final l = await LembretesService.instance
+        .agendar(texto, daqui, recorrencia: recorrencia);
     return l != null;
   }
+
+  /// Normaliza o `repete` do bloco de ação → 'none' | 'diario' | 'semanal'.
+  static String _normRepete(String? s) {
+    final v = (s ?? '').trim().toLowerCase();
+    if (v.startsWith('dia') || v == 'daily') return 'diario';
+    if (v.startsWith('sem') || v == 'weekly') return 'semanal';
+    return 'none';
+  }
+
+  static const _dias = [
+    'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'
+  ];
+  static String _hhmm(DateTime d) =>
+      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
   static Future<void> _salvarPadrao(String projeto, String texto) =>
       Storage.instance.adicionarNotaEmProjeto(projeto, texto);
@@ -113,10 +129,19 @@ class ChatActions {
           confs.add('⚠️ Não agendei: a data já passou.');
           continue;
         }
+        final repete = _normRepete(a.params['repete']);
         try {
-          final ok = await (agendar ?? _agendarPadrao)(texto, quando);
+          // A recorrência chega ao serviço real pelo closure; o executor injetado
+          // (testes) mantém a assinatura (texto, quando).
+          final ok = await (agendar ?? (t, q) => _agendarPadrao(t, q, repete))(
+              texto, quando);
+          final quandoTxt = repete == 'diario'
+              ? 'repete todo dia ${_hhmm(quando)}'
+              : repete == 'semanal'
+                  ? 'repete toda ${_dias[quando.weekday - 1]} ${_hhmm(quando)}'
+                  : quandoComDiaSemana(quando);
           confs.add(ok
-              ? '⏰ Lembrete criado: $texto (${quandoComDiaSemana(quando)})'
+              ? '⏰ Lembrete criado: $texto ($quandoTxt)'
               : '⚠️ Sem permissão de notificação: ative p/ agendar.');
         } catch (_) {
           confs.add('⚠️ Não consegui agendar agora. Tente de novo.');

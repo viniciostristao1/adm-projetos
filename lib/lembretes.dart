@@ -7,24 +7,50 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+/// Dias da semana (1=segunda..7=domingo) p/ o rótulo de recorrência semanal.
+const List<String> _diasSem = [
+  'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'
+];
+
 /// Um lembrete agendado (para exibir/cancelar na lista de pendentes).
 class Lembrete {
-  Lembrete({required this.id, required this.texto, required this.quando});
+  Lembrete({
+    required this.id,
+    required this.texto,
+    required this.quando,
+    this.recorrencia = 'none',
+  });
 
   final int id;
   final String texto;
   final DateTime quando;
+  final String recorrencia; // 'none' | 'diario' | 'semanal'
+
+  bool get repetindo => recorrencia == 'diario' || recorrencia == 'semanal';
+
+  /// Rótulo da repetição p/ exibir ("todo dia 08:00", "toda segunda 09:00").
+  String get rotuloRecorrencia {
+    final hhmm =
+        '${quando.hour.toString().padLeft(2, '0')}:${quando.minute.toString().padLeft(2, '0')}';
+    if (recorrencia == 'diario') return 'todo dia $hhmm';
+    if (recorrencia == 'semanal') {
+      return 'toda ${_diasSem[quando.weekday - 1]} $hhmm';
+    }
+    return '';
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'texto': texto,
         'quando': quando.millisecondsSinceEpoch,
+        if (recorrencia != 'none') 'recorrencia': recorrencia,
       };
 
   factory Lembrete.fromJson(Map<String, dynamic> j) => Lembrete(
         id: j['id'] as int,
         texto: j['texto'] as String,
         quando: DateTime.fromMillisecondsSinceEpoch(j['quando'] as int),
+        recorrencia: (j['recorrencia'] as String?) ?? 'none',
       );
 }
 
@@ -127,10 +153,13 @@ class LembretesService extends ChangeNotifier {
 
   final List<Lembrete> _pendentes = [];
 
-  /// Lembretes ainda por vir (ordenados por horário; os vencidos somem).
+  /// Lembretes ainda por vir (ordenados por horário; os vencidos somem). Os
+  /// RECORRENTES ficam sempre (repetem — a âncora fica no passado, mas seguem ativos).
   List<Lembrete> get pendentes {
     final agora = DateTime.now();
-    final vivos = _pendentes.where((l) => l.quando.isAfter(agora)).toList()
+    final vivos = _pendentes
+        .where((l) => l.repetindo || l.quando.isAfter(agora))
+        .toList()
       ..sort((a, b) => a.quando.compareTo(b.quando));
     return vivos;
   }
@@ -305,9 +334,11 @@ class LembretesService extends ChangeNotifier {
     return ok ?? true;
   }
 
-  /// Agenda um lembrete para daqui a [daqui]. Retorna o [Lembrete] criado, ou
-  /// null se a permissão foi negada.
-  Future<Lembrete?> agendar(String texto, Duration daqui) async {
+  /// Agenda um lembrete para daqui a [daqui]. Com [recorrencia] 'diario'/'semanal'
+  /// ele REPETE (mesma hora todo dia, ou mesmo dia-da-semana+hora) — a 1ª ocorrência
+  /// é [daqui]. Retorna o [Lembrete] criado, ou null se a permissão foi negada.
+  Future<Lembrete?> agendar(String texto, Duration daqui,
+      {String recorrencia = 'none'}) async {
     if (!_pronto) await init();
     if (!await pedirPermissao()) return null;
 
@@ -317,6 +348,12 @@ class LembretesService extends ChangeNotifier {
     await prefs.setInt(_chaveProxId, id + 1);
 
     final (quando, agendado) = _quandoAgendar(daqui);
+    // Repetição via matchDateTimeComponents (mesmo mecanismo do backup semanal).
+    final match = recorrencia == 'diario'
+        ? DateTimeComponents.time
+        : recorrencia == 'semanal'
+            ? DateTimeComponents.dayOfWeekAndTime
+            : null;
 
     final corpo = texto.isEmpty ? 'Toque para abrir o Taskix' : texto;
     await _plugin.zonedSchedule(
@@ -326,10 +363,11 @@ class LembretesService extends ChangeNotifier {
       agendado,
       _detalhes(texto),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: match,
       payload: texto,
     );
 
-    final l = Lembrete(id: id, texto: texto, quando: quando);
+    final l = Lembrete(id: id, texto: texto, quando: quando, recorrencia: recorrencia);
     _pendentes.add(l);
     await _salvarPendentes();
     notifyListeners();

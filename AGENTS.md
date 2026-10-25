@@ -1378,6 +1378,16 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   experimento do **gpt-5.6-luna** — como o muse-spark, só fala a **Responses API** (`chat/completions`
   → 400 ModelProtocolUnsupported → fallback DeepSeek); custo ($0,20/$1,20, até + barato que o flash);
   comparação Muse (DeepSeek igual/melhor p/ coach; Luna + enxuto). Ver [[reference_opencode_zen_responses_api]].
+- **V0.1.168 — LEMBRETES RECORRENTES (diário/semanal):** a Muse agora pode criar lembrete que
+  REPETE. **App (`lembretes.dart`):** `Lembrete` ganhou `recorrencia` ('none'|'diario'|'semanal')
+  + `repetindo`/`rotuloRecorrencia` (JSON compatível com antigos); `agendar(texto, daqui,
+  {recorrencia})` usa `matchDateTimeComponents` (`.time` diário / `.dayOfWeekAndTime` semanal — mesmo
+  mecanismo do backup semanal); `pendentes` mantém os recorrentes (âncora no passado, mas ativos); a
+  lista "AGENDADOS" mostra "🔁 todo dia 08:00". **Ação (`chat_actions.dart`):** parse de `repete`
+  (diario/semanal) e recorrência pro serviço via closure (typedef `AgendarLembrete` intacto → testes
+  não quebram); confirmação "⏰ … (repete todo dia 08:00)". **Proxy (`app.py`, reiniciado):** `_ACAO`
+  ensina `| repete=diario|semanal` + "você PODE criar recorrente agora". `flutter analyze` limpo (só
+  o warning pré-existente de `projetos_screen.dart:806`).
 - **Tempo em Lajeado/RS (servidor, sem APK novo):** novo `tempo.py` no proxy
   (Open-Meteo, sem chave): atual+máx do dia+chuva por turno (manhã/tarde/noite).
   Entra sob pergunta explícita (qualquer hora, com guarda anti-"tempo"=duração)

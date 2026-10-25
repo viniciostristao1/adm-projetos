@@ -2946,7 +2946,9 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          subtitle: Text(_quando(l.quando)),
+                          subtitle: Text(l.repetindo
+                              ? '🔁 ${l.rotuloRecorrencia}'
+                              : _quando(l.quando)),
                           trailing: IconButton(
                             icon: const Icon(Icons.close),
                             tooltip: 'Cancelar lembrete',
