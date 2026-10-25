@@ -1388,6 +1388,12 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   não quebram); confirmação "⏰ … (repete todo dia 08:00)". **Proxy (`app.py`, reiniciado):** `_ACAO`
   ensina `| repete=diario|semanal` + "você PODE criar recorrente agora". `flutter analyze` limpo (só
   o warning pré-existente de `projetos_screen.dart:806`).
+- **V0.1.169 — botão de ENVIAR em degradê (ideia "C" do usuário, galeria de mockups):** o
+  `FloatingActionButton` do compositor da Muse virou um botão redondo em **degradê** derivado do
+  acento do tema (`Color.lerp(app.fab, white/black)` → claro→escuro; `fabIcone` no ícone), via
+  `Material`+`Ink`+`InkWell` (gravando = vermelho sólido). Tirou o especial-case do tema Bege (o
+  degradê sai do `fab` de cada tema). Mantido: caixa de texto sempre visível, anexo (+, imagens via
+  ImagePicker) e o segurar-pra-ditar. `flutter analyze` do arquivo: No issues.
 - **Tempo em Lajeado/RS (servidor, sem APK novo):** novo `tempo.py` no proxy
   (Open-Meteo, sem chave): atual+máx do dia+chuva por turno (manhã/tarde/noite).
   Entra sob pergunta explícita (qualquer hora, com guarda anti-"tempo"=duração)

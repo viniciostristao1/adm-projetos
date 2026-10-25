@@ -2325,10 +2325,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _barraEntrada(BuildContext context) {
-    // Tema Bege: botão de enviar PRETO (fundo escuro + ícone claro).
-    final bege =
-        (Theme.of(context).extension<AppCores>() ?? AppCores.azul) ==
-            AppCores.bege;
+    // Botão de ENVIAR em DEGRADÊ, derivado do acento do tema (terracota no
+    // Terracota; cada tema usa o seu `fab`/`fabIcone`).
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    final sendG1 = Color.lerp(app.fab, Colors.white, 0.20)!;
+    final sendG2 = Color.lerp(app.fab, Colors.black, 0.28)!;
     return SafeArea(
       top: false,
       child: Padding(
@@ -2454,28 +2455,47 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   // Travado de propósito: soltar/cancelar o gesto NÃO encerra.
                   onLongPressEnd: (_) {},
                   onLongPressCancel: () {},
-                  child: FloatingActionButton(
-                    heroTag: 'fab_chat_enviar',
-                    onPressed: _enviando
-                        ? null
-                        : () {
-                            if (_gravando) {
-                              _micStop(); // conclui a gravação travada e envia
-                            } else {
-                              _modoAudio =
-                                  false; // digitou → responde em texto (sem voz)
-                              _enviar();
-                            }
-                          },
-                    backgroundColor:
-                        _gravando ? Colors.red : (bege ? Colors.black : null),
-                    foregroundColor:
-                        _gravando ? Colors.white : (bege ? Colors.white : null),
-                    child: Icon(
-                      _enviando
-                          ? Icons.hourglass_empty
-                          : (_gravando ? Icons.mic : Icons.send),
-                      size: 28,
+                  // Botão redondo em DEGRADÊ (gravando = vermelho sólido).
+                  child: Material(
+                    color: Colors.transparent,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    elevation: 2,
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: _gravando
+                            ? null
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [sendG1, sendG2]),
+                        color: _gravando ? Colors.red : null,
+                      ),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _enviando
+                            ? null
+                            : () {
+                                if (_gravando) {
+                                  _micStop(); // conclui a gravação travada e envia
+                                } else {
+                                  _modoAudio = false; // digitou → resposta em texto
+                                  _enviar();
+                                }
+                              },
+                        child: SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: Icon(
+                            _enviando
+                                ? Icons.hourglass_empty
+                                : (_gravando ? Icons.mic : Icons.send),
+                            size: 28,
+                            color: _gravando ? Colors.white : app.fabIcone,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
