@@ -1394,6 +1394,12 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `Material`+`Ink`+`InkWell` (gravando = vermelho sólido). Tirou o especial-case do tema Bege (o
   degradê sai do `fab` de cada tema). Mantido: caixa de texto sempre visível, anexo (+, imagens via
   ImagePicker) e o segurar-pra-ditar. `flutter analyze` do arquivo: No issues.
+- **V0.1.170 — voltar dentro de pasta retorna à grade:** projeto aberto "em modo pastas"
+  (ex.: Estudos) ganhava `PopScope` na `ProjetoScreen`: o 1º voltar do sistema, estando
+  dentro de uma pasta, volta À GRADE de pastas — só o 2º voltar sai para a lista
+  (`canPop: _modoPastas || !modoPastasInicial || _saindo`; `_saindo` libera o pop real
+  da exclusão do projeto, senão o veto o seguraria). Sem `modoPastasInicial`, o voltar
+  sai direto como antes. Teste em `test/voltar_pastas_test.dart` (2 testes).
 - **Tempo em Lajeado/RS (servidor, sem APK novo):** novo `tempo.py` no proxy
   (Open-Meteo, sem chave): atual+máx do dia+chuva por turno (manhã/tarde/noite).
   Entra sob pergunta explícita (qualquer hora, com guarda anti-"tempo"=duração)
@@ -1439,7 +1445,7 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
 # Análise estática
 flutter analyze
 
-# Testes (158 testes)
+# Testes (161 testes)
 flutter test
 
 # Build local (não usado — build é feito no GitHub Actions)
@@ -1502,7 +1508,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (158 testes)
+## 10. Testes (161 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -1625,6 +1631,11 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Execução com fakes (sucesso, passado rejeitado, default Estudos, parcial não
   executa, máx. 2, gigante/vazio ignorados, falha vira aviso)
 
+### `test/voltar_pastas_test.dart` (2 testes — V0.1.170)
+- Projeto com `modoPastasInicial`: entrar na pasta, 1º voltar do sistema volta
+  À GRADE (rota preservada), 2º voltar sai para a lista
+- Sem `modoPastasInicial`: voltar sai direto (comportamento antigo intacto)
+
 ---
 
 ## 11. Restrições e Cuidados
@@ -1637,7 +1648,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - **Não remover `_debounce` de 2s** — necessário para ditado por voz.
 - **Não usar `const` com acesso a campo de instância** (ex: `const FloatingActionButtonThemeData(backgroundColor: AppCores.azul.fab)` — dá erro de compilação).
 - **Sempre rodar `flutter analyze` antes de commitar** — sem issues.
-- **Sempre rodar `flutter test`** — 158 testes devem passar.
+- **Sempre rodar `flutter test`** — 161 testes devem passar.
 - **Nunca commitar `android/key.properties` ou `*.jks`** — já no `.gitignore`.
 - **Assinatura do APK é fixa** — permite atualizar o app sem desinstalar.
 - **VPS com pouca RAM — trabalho leve (incidente 2026-10-12: swap 100%, PSI alto após

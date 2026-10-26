@@ -66,6 +66,9 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   final FocusNode _focoBusca = FocusNode();
   bool _buscando = false;
   late bool _modoPastas = widget.modoPastasInicial;
+  // Saída real da rota (ex.: projeto excluído): o PopScope abaixo veta o 1º
+  // voltar dentro de uma pasta p/ retornar À GRADE — este flag libera o pop.
+  bool _saindo = false;
 
   int get _qtdAbas => widget.projeto.qtdAbas;
   String _nomeAba(int i) => widget.projeto.nomeAba(i);
@@ -442,7 +445,10 @@ class _ProjetoScreenState extends State<ProjetoScreen>
         ],
       ),
     );
-    if (ok == true && mounted) Navigator.pop(context, 'excluir');
+    if (ok == true && mounted) {
+      _saindo = true; // libera o pop no PopScope (senão voltaria à grade)
+      Navigator.pop(context, 'excluir');
+    }
   }
 
   void _copiarProjeto() {
@@ -676,7 +682,15 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     // Cor do desenho = acento do tema ativo (cada tema pinta com a sua cor).
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     return Fundo(
-      child: Scaffold(
+      // Projeto aberto "em modo pastas" (ex.: Estudos): o 1º voltar, estando
+      // dentro de uma pasta, retorna À GRADE de pastas — só o 2º voltar sai
+      // para a lista de projetos.
+      child: PopScope(
+        canPop: _modoPastas || !widget.modoPastasInicial || _saindo,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && mounted) setState(() => _modoPastas = true);
+        },
+        child: Scaffold(
         appBar: AppBar(
         titleSpacing: 8,
         title: Row(
@@ -784,6 +798,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                 for (var i = 0; i < _qtdAbas; i++) _listaCard(i),
               ],
             ),
+        ),
       ),
     );
   }
