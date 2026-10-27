@@ -151,10 +151,11 @@ Selecionável por conversa (menu). Em `chat_models.dart` (`ChatPreset`) e no `ap
 
 ### Modelo de IA (gateway OpenCode Go) — qual está em uso
 O app manda o `model` por conversa; o proxy valida contra `MODELOS_OK` (`app.py`). Selecionável no menu **⋮ → Modelo** (`ChatModelo` em `chat_models.dart`):
-- **Rápido = `deepseek-v4-flash-vision-exp`** — **o PADRÃO** (com visão). Definido no `/opt/taskix-chat/.env` → `OPENCODE_GO_MODEL`.
-- **Caprichado = `deepseek-v4.1-flash`** — mais elaborado, um pouco mais lento. **Já dá p/ escolher** (o "escolher 2 modelos" que o usuário pediu já existe).
-- **Fallback = `deepseek-flash`** (`OPENCODE_FALLBACK`) — usado se o escolhido falhar.
+- **Padrão = `deepseek-v4.1-flash`** — com visão (testada). Definido no `/opt/taskix-chat/.env` → `OPENCODE_GO_MODEL`.
+- **Fallback = `glm-5.3-flash`** (`OPENCODE_FALLBACK`) — usado se o escolhido falhar (barato; `qwen3.8-flash` é a 2ª opção testada e OK).
 - `MAX_TOKENS=4000`, `REASONING_EFFORT=none` (desliga raciocínio oculto → ~metade do tempo).
+
+⚠️ **2026-10-27: `deepseek-v4-flash-vision-exp` e `deepseek-flash` MORRERAM no gateway** (`HTTP 410 ModelDeprecated`; o gateway sugere `deepseek-v4.1-flash`). Sintoma era "A IA está indisponível agora" (proxy 502) nas conversas com modelo Rápido — o Caprichado (v4.1-flash) seguia funcionando. Fix só no servidor: `.env` (`MODEL`+`FALLBACK`), `MODELOS_OK` e `VISION_MODEL` (`tem visão`) em `app.py`, restart. Conversas antigas salvas com o id morto caem no `MODEL` atual (allowlist) — funcionam sem atualizar o app; o rótulo "Rápido" no menu ⋮ ficou desatualizado (trocar o id em `chat_models.dart` exige APK novo).
 
 ⚠️ **`muse-spark-1.3-contributor` NÃO funciona** neste gateway (testado 2026-10-12 **e de novo 2026-10-20**: `HTTP 400 ModelProtocolUnsupported` — é um endpoint de outro protocolo, não um modelo chat-completions; `muse-spark-1.3` dá "Model is unavailable"). Por isso a Muse usa **DeepSeek**. Para adicionar como 3ª opção, só se o gateway passar a expô-lo como chat-completions.
 

@@ -1394,6 +1394,13 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `Material`+`Ink`+`InkWell` (gravando = vermelho sólido). Tirou o especial-case do tema Bege (o
   degradê sai do `fab` de cada tema). Mantido: caixa de texto sempre visível, anexo (+, imagens via
   ImagePicker) e o segurar-pra-ditar. `flutter analyze` do arquivo: No issues.
+- **V0.1.171 — caixa da Muse não joga p/ o fim ao tocar/editar no meio:** `onTap` e
+  `onChanged` do TextField chamavam `_rolarCaixaFim()` incondicionalmente — tocar num
+  trecho no meio de mensagem longa (ou digitar nele) rolava a caixa até a última linha
+  e escondia o trecho. Agora o fim só é acompanhado quando o cursor está no fim
+  (`extentOffset >= text.length`, que é o caso do ditado e da digitação normal);
+  editar no meio deixa o scroll onde está (o próprio campo revela o cursor).
+  Regra registrada no comentário do `_rolarCaixaFim`.
 - **V0.1.170 — voltar dentro de pasta retorna à grade:** projeto aberto "em modo pastas"
   (ex.: Estudos) ganhava `PopScope` na `ProjetoScreen`: o 1º voltar do sistema, estando
   dentro de uma pasta, volta À GRADE de pastas — só o 2º voltar sai para a lista

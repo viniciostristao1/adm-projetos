@@ -695,7 +695,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // O TextField com maxLines:10 cria um scroll interno quando o texto passa de
   // 10 linhas; a atualização programática (_ctrl.text = ...) NÃO acompanha o
   // cursor sozinha — sem isto o texto novo desce para baixo da caixa e o usuário
-  // não vê o que foi capturado. Chamado a cada parcial do ditado e ao digitar.
+  // não vê o que foi capturado. ⚠️ Chamar SÓ quando o cursor está no fim
+  // (ditado e digitação no fim): chamar no onTap ou em digitação no MEIO do
+  // texto joga a caixa p/ baixo e esconde o trecho que o usuário tocou/editou.
   void _rolarCaixaFim() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_caixaScroll.hasClients) return;
@@ -2383,13 +2385,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   // (equivale ao antigo X lateral, sem comer largura da caixa).
                   if (_gravando && !_enviando) _micCancel();
                   _rolarFim();
-                  _rolarCaixaFim();
+                  // NÃO rola a caixa p/ o fim aqui: o toque posiciona o cursor
+                  // e o próprio campo o revela; forçar o fim escondia o trecho
+                  // tocado em mensagem longa.
                 },
                 // Digitando a caixa cresce (1→5 linhas) e o teclado pode cobrir o
-                // fim: mantém a última mensagem visível + o fim do texto da caixa.
+                // fim: mantém a última mensagem visível + o fim do texto da caixa
+                // SÓ quando o cursor está no fim (digitando/ditando no fim).
+                // Editando no meio do texto, forçar o fim escondia o trecho.
                 onChanged: (_) {
                   _rolarFim(instantaneo: true);
-                  _rolarCaixaFim();
+                  if (_ctrl.selection.extentOffset >= _ctrl.text.length) {
+                    _rolarCaixaFim();
+                  }
                 },
                 decoration: InputDecoration(
                   hintText: _gravando
