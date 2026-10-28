@@ -1599,6 +1599,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final logado = SyncService.instance.conectado;
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 8,
@@ -1611,7 +1613,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               : () => Navigator.of(context).maybePop(),
           filho: const Icon(Icons.arrow_back, size: 24),
         ),
-        // Nome da conversa (ou campo de busca no modo busca).
+        // No topo (lugar do antigo nome da conversa): STATUS da Muse —
+        // rosto + "Modo • Tamanho • Modelo". O NOME da conversa foi para o
+        // menu ☰ (1º item). No modo busca, o campo de busca. (V0.1.177)
         title: _buscando
             ? TextField(
                 controller: _buscaCtrl,
@@ -1622,13 +1626,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 decoration: const InputDecoration(
                     hintText: 'Buscar na conversa…', border: InputBorder.none),
               )
-            : Text(
-                _conv.titulo,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600, height: 1.1),
-              ),
+            : Row(mainAxisSize: MainAxisSize.min, children: [
+                MuseBlob(size: 20, cor: app.fab, halo: false),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}${_conv.falaDevagar ? ' • Devagar' : ''}',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface),
+                  ),
+                ),
+              ]),
         actions: _buscando
             ? _acoesBusca()
             : [
@@ -1639,6 +1650,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   tooltip: 'Menu',
                   onSelected: _acaoMenu,
                   itemBuilder: (_) => [
+              // Nome da conversa como CABEÇALHO do menu (V0.1.177).
+              PopupMenuItem<String>(
+                enabled: false,
+                height: 36,
+                child: Text(
+                  _conv.titulo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800, color: cs.onSurface),
+                ),
+              ),
+              const PopupMenuDivider(),
               _item('buscar', Icons.search, 'Buscar na conversa'),
               _item('nova', Icons.add_comment_outlined, 'Nova conversa'),
               _item('resumo', Icons.summarize_outlined, 'Resumo da conversa'),
@@ -1845,40 +1869,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _conversa(BuildContext context) {
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
-    final cs = Theme.of(context).colorScheme;
+    // (A pílula de status subiu para o TÍTULO da AppBar na V0.1.177 — aqui a
+    // conversa começa direto, sem banner, ganhando espaço no topo.)
     return Column(children: [
-      // Pílula FLUTUANTE de status (rosto da Muse + Modo • Tamanho • Modelo).
-      // Colada no topo (pouco espaço acima) a pedido do usuário.
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(8, 5, 14, 5),
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                  cs.onSurface.withValues(alpha: 0.05), cs.surface),
-              borderRadius: BorderRadius.circular(20),
-              border:
-                  Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              MuseBlob(size: 22, cor: app.fab, halo: false),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}${_conv.falaDevagar ? ' • Devagar' : ''}',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onSurface),
-                ),
-              ),
-            ]),
-          ),
-        ),
-      ),
       Expanded(
         child: _conv.vazia
             ? _vazio(context)
