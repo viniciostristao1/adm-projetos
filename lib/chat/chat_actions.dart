@@ -26,7 +26,7 @@ typedef SalvarNota = Future<void> Function(String projeto, String texto);
 /// pelo proxy). O app mostra como chips; tocar envia aquele texto. O bloco NÃO
 /// aparece na tela nem na fala (removido em `_semCarimbo`).
 class QuickReplies {
-  static const int maxOpcoes = 3;
+  static const int maxOpcoes = 2;
   static const int maxLen = 44;
 
   static final _re = RegExp(

@@ -1843,8 +1843,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final cs = Theme.of(context).colorScheme;
     return Column(children: [
       // Pílula FLUTUANTE de status (rosto da Muse + Modo • Tamanho • Modelo).
+      // Colada no topo (pouco espaço acima) a pedido do usuário.
       Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
         child: Center(
           child: Container(
             padding: const EdgeInsets.fromLTRB(8, 5, 14, 5),
@@ -1875,9 +1876,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       Expanded(
         child: _conv.vazia
             ? _vazio(context)
-            : ListView.builder(
+            // Scrollbar CONTIDO na lista de mensagens (antes a rolagem "vazava"
+            // pra viewport). Mesmo controller da lista.
+            : Scrollbar(
                 controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: ListView.builder(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
                 itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
                 itemBuilder: (c, i) {
                   // O "pensando" tem tag própria (índice n) p/ o _rolarFim mirar nele
@@ -1904,6 +1909,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   );
                 },
               ),
+            ),
       ),
       _sugestoes(context),
       _barraEntrada(context),
@@ -2416,14 +2422,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Expanded(
-              // Barra de rolagem sempre visível (estilo WhatsApp): mostra que há
-              // mais texto acima quando passa do limite, cortando pelo topo.
-              child: Scrollbar(
-                controller: _caixaScroll,
-                thumbVisibility: true,
-                thickness: 4,
-                radius: const Radius.circular(4),
-                child: TextField(
+              // Sem Scrollbar aqui: a barra "sempre visível" vazava pra viewport
+              // (flutuava sobre o fundo). A caixa ainda rola internamente (até 10
+              // linhas); a barra de rolagem vive só na LISTA de mensagens agora.
+              child: TextField(
                 controller: _ctrl,
                 focusNode: _foco,
                 scrollController: _caixaScroll,
@@ -2480,7 +2482,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
                 ),
-              ),
             ),
             // Coluna da direita: ANEXO (pequeno) em cima + ENVIAR (grande) embaixo.
             //  • TOQUE no enviar = envia o texto digitado (não fala a resposta).

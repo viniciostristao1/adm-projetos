@@ -10,6 +10,7 @@ import 'caixa3d.dart';
 import 'chat/chat_config.dart';
 import 'chat/chat_screen.dart';
 import 'cores.dart';
+import 'muse_blob.dart';
 import 'editor.dart';
 import 'models.dart';
 import 'ocr.dart';
@@ -725,17 +726,25 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
               ),
             ),
-            // Atalho para o Muse de dentro do projeto (só com o recurso ligado).
-            // Muse em DESTAQUE (ação principal): chip preenchido na cor de acento.
+            // Atalho para o Muse de dentro do projeto (só com o recurso ligado):
+            // o ROSTO da Muse (blob) tingido no acento do tema (V0.1.175).
             if (ChatConfig.habilitado)
-              _BotaoTopo(
-                glifo: _GlifoTopo.muse,
-                cor: app.fab,
-                destaque: true,
-                corGlifoDestaque: app.fabIcone,
-                tooltip: 'Muse Spark (assistente)',
-                onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ChatScreen())),
+              Tooltip(
+                message: 'Muse Spark (assistente)',
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ChatScreen())),
+                    child: SizedBox(
+                      width: 44,
+                      height: 40,
+                      child: Center(
+                          child: MuseBlob(size: 30, cor: app.fab, halo: false)),
+                    ),
+                  ),
+                ),
               ),
             // Demais: GHOST (desenho em branco/texto da UI, sem caixa).
             _BotaoTopo(
@@ -2337,31 +2346,24 @@ Widget _menuSelecao(
 /// Qual desenho vai na plaquinha do topo do projeto (ideia 04 da galeria).
 enum _GlifoTopo { muse, pastas, pdf, copiar, excluir }
 
-/// Botão do topo do projeto. Dois modos:
-///  • GHOST (padrão): só o desenho, sem caixa — usado em Pastas/PDF/Copiar/Excluir
-///    com `cor` = texto da UI (branco no Terracota).
-///  • DESTAQUE (`destaque: true`): chip preenchido na cor de acento — usado na Muse
-///    (ação principal), com o desenho em `corGlifoDestaque` (cor sobre o acento).
-/// Vale em TODOS os temas (as cores vêm do tema).
+/// Botão GHOST do topo do projeto: só o desenho, sem caixa — usado em
+/// Pastas/PDF/Copiar/Excluir com `cor` = texto da UI (branco no Terracota).
+/// (A Muse deixou de usá-lo na V0.1.175: virou o rosto/blob.) Vale em todos os
+/// temas (as cores vêm do tema).
 class _BotaoTopo extends StatelessWidget {
   const _BotaoTopo({
     required this.glifo,
     required this.cor,
     required this.tooltip,
     required this.onPressed,
-    this.destaque = false,
-    this.corGlifoDestaque,
   });
   final _GlifoTopo glifo;
   final Color cor;
   final String tooltip;
   final VoidCallback onPressed;
-  final bool destaque;
-  final Color? corGlifoDestaque;
 
   @override
   Widget build(BuildContext context) {
-    final corGlifo = destaque ? (corGlifoDestaque ?? Colors.black) : cor;
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -2369,18 +2371,12 @@ class _BotaoTopo extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: onPressed,
-          child: Container(
+          child: SizedBox(
             width: 44,
             height: 40,
-            decoration: destaque
-                ? BoxDecoration(
-                    color: cor,
-                    borderRadius: BorderRadius.circular(10),
-                  )
-                : null,
             child: Center(
               child: CustomPaint(
-                painter: _TopoPainter(glifo, corGlifo),
+                painter: _TopoPainter(glifo, cor),
                 size: const Size.square(26),
               ),
             ),

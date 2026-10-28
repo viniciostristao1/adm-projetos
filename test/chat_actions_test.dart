@@ -193,21 +193,21 @@ void main() {
   });
 
   group('QuickReplies (respostas de 1 toque)', () {
-    test('extrai 2–3 opções do bloco [[SUGESTOES:...]]', () {
+    test('extrai as opções do bloco [[SUGESTOES:...]] (máx. 2)', () {
       final ops = QuickReplies.extrair(
           'Quer que eu monte o alvo?\n[[SUGESTOES: Sim, monta | Prefiro só dicas | Agora não]]');
-      expect(ops, ['Sim, monta', 'Prefiro só dicas', 'Agora não']);
+      expect(ops, ['Sim, monta', 'Prefiro só dicas']);
     });
 
     test('sem bloco = vazio', () {
       expect(QuickReplies.extrair('Resposta normal sem pergunta.'), isEmpty);
     });
 
-    test('ignora opções vazias/longas e limita a 3', () {
+    test('ignora opções vazias/longas e limita a 2', () {
       final longa = 'x' * 80;
       final ops = QuickReplies.extrair(
-          '[[SUGESTOES: Um |  | Dois | $longa | Três | Quatro]]');
-      expect(ops, ['Um', 'Dois', 'Três']);
+          '[[SUGESTOES: Um |  | $longa | Dois | Três]]');
+      expect(ops, ['Um', 'Dois']);
     });
   });
 }
