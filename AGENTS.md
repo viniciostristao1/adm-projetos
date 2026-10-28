@@ -126,14 +126,19 @@ lib/
 
 ### Modo (enum em `tema.dart`)
 `azul`, `escuro`, `neumB` (Dark Game), `bege`, `claude` (rótulo **Terracota**),
-`onix` (**Ônix**) — **6 temas** (estilo inspirado no app Calis Timer: azul =
-navy plano com accent azul; bege = claro com as cores do tema madeira — tons
-amadeirados com accent laranja-marrom). Bege é o único claro (roda em
-`ThemeMode.light`); os demais são escuros. `claude` é o tema terminal
-(rótulo **Terracota** desde V0.1.64; `name` do enum segue `claude`):
+`onix` (**Ônix**), `luz` (rótulo **Claro**) — **7 temas** (estilo inspirado no app
+Calis Timer: azul = navy plano com accent azul; bege = claro com as cores do tema
+madeira — tons amadeirados com accent laranja-marrom). **Bege e Claro** são os
+claros (rodam em `ThemeMode.light`); os demais são escuros. `claude` é o tema
+terminal (rótulo **Terracota** desde V0.1.64; `name` do enum segue `claude`):
 preto-quente #0C0C0D, borda 1px #2A2A2B, acento terracota #D97757, fonte
 JetBrains Mono. `onix` é o tema estilo ChatGPT: preto liso #0D0D0D, texto branco
-#ECECEC, verde discreto #19C37D só no accent, fonte sem serifa padrão.
+#ECECEC, verde discreto #19C37D só no accent, fonte sem serifa padrão. **`luz`
+(Claro, V0.1.174)** é o visual dos mockups de redesenho: fundo cinza-claro FRIO
+(#EEF1F6→#E6EBF2), cartões/caixinhas BRANCOS que flutuam com sombra suave, texto
+quase-preto #121418, acento AZUL #2E6BFF, fonte sem serifa padrão. ⚠️ `name` do
+enum é **`luz`** (não `claro`): `claro` é nome LEGADO migrado p/ `azul` na carga
+(`TemaController.carregar`) — reaproveitá-lo faria o tema novo cair na migração.
 
 - **Home "sem caixa" (Bege e Ônix):** na tela principal as pastas de projeto
   ficam LISAS (sem cartão nem borda — `semCaixa` no item da lista e nos
@@ -1400,6 +1405,7 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `Material`+`Ink`+`InkWell` (gravando = vermelho sólido). Tirou o especial-case do tema Bege (o
   degradê sai do `fab` de cada tema). Mantido: caixa de texto sempre visível, anexo (+, imagens via
   ImagePicker) e o segurar-pra-ditar. `flutter analyze` do arquivo: No issues.
+- **V0.1.174 — tema "Claro":** novo 7º tema (`Modo.luz`, rótulo **Claro**) com o visual dos mockups de redesenho que o usuário aprovou — fundo cinza-claro FRIO (#EEF1F6→#E6EBF2), cartões/caixinhas BRANCOS flutuando com sombra suave, texto quase-preto (#121418), acento AZUL (#2E6BFF), fonte sem serifa padrão do sistema (mesma linguagem da barra flutuante e da Muse). `AppCores.luz` (`cores.dart`) + `_temaLuz()` (`main.dart`, reusa `_temaClaroCalis`, roda em `ThemeMode.light`) + card BRANCO com sombra no home (`ehLuz` em `projetos_screen.dart`). ⚠️ O `name` do enum é **`luz`**, NÃO `claro` — `claro` é nome legado migrado p/ `azul` na carga; reaproveitá-lo faria o tema cair na migração. Os demais 6 temas seguem com suas cores (o `MuseBlob` já tinge no acento de cada um). Testes: `tema_test.dart` (7 temas; cada um constrói sem erro). `dart analyze lib`: sem erros novos.
 - **V0.1.173 — barra flutuante + Muse minimalista + blob por tema + respostas de 1 toque:** redesenho na linguagem "flutuante". (1) **Shell de navegação** (`lib/home_shell.dart`, `HomeShell`): barra inferior FLUTUANTE (contorno próprio, descola do fundo) com 3 destinos — **Projetos** · **Muse** (centro) · **Estudos** — num `IndexedStack`; abrir um projeto/conversa empilha rota cheia (a barra some, foco na tela) e o voltar traz a barra. `main.dart` passa a abrir no `HomeShell`. **Removida a prateleira** de acessos rápidos (`_AcessosRapidos`) e a função **Recentes** (inútil na prática) de `projetos_screen.dart` (`_recarregarRecentes` virou no-op; glifos da prateleira removidos). (2) **Aba Muse = LISTA primeiro** (`lib/chat/conversas_screen.dart`, `ConversasScreen`): tocar em "Muse" abre a lista de conversas; tocar numa conversa abre o chat; o **voltar ← do chat retorna à lista** (antes não existia). `ChatScreen` ganhou `conversaId`/`iniciarNova` (a lista escolhe a conversa; sem eles cai no legado "última conversa" do atalho do launcher). (3) **Topo do chat minimalista:** só **← (voltar p/ lista)**, **☰** (TUDO num botão: buscar, nova, resumo, renomear, relatório, modelo, tamanho, fala) e **M** (modo Calis/Projetos/Geral — mostra a inicial do modo atual, tingida no acento; toca e troca). A antiga folha "Conversas" (`_abrirHistorico`) e os botões soltos de busca/histórico/modo saíram. O banner virou uma **pílula flutuante** central com o rosto da Muse + "Modo • Tamanho • Modelo". (4) **Blob por tema** (`lib/muse_blob.dart`, `MuseBlob` — `CustomPainter`, FORA de `lib/chat/` p/ a barra usar sem puxar o chat): o rosto da Muse (esfera vítrea + "fones" + olhos) assume a cor de acento de CADA tema (`AppCores.fab`), como os glifos; sem asset novo. Usado na barra, na lista e na pílula. (5) **Respostas de 1 toque:** quando a Muse fecha com pergunta, o proxy emite `[[SUGESTOES: a | b | c]]` no fim (bloco estático no `app.py`, `_SUGESTOES`; só não-resumo); o app mostra como chips acima da caixa (`QuickReplies.extrair` em `chat_actions.dart`; stripping no `_semCarimbo`, pega bloco parcial no stream). Latência desprezível (vem no fim do streaming, sem chamada extra). (6) **`ProjetoScreen` ganhou `embutido`/`onVoltarNaRaiz`**: a aba Estudos embute o projeto reservado "Estudos" (modo pastas) com segurança — nunca sai da rota (voltar na pasta→grade; na grade→troca p/ aba Projetos), "Excluir" some, e os FABs ficam `heroTag: null` (evita colisão de Hero com um ProjetoScreen empilhado). Testes: `chat_actions_test.dart` (QuickReplies). `dart analyze lib`: sem erros (warnings/infos pré-existentes).
 - **V0.1.172 — "Feito" na notificação + alarmes que abrem a Muse perguntando + resumo semanal:** (1) **Botão "Feito ✓"** na notificação do lembrete (cancela e tira dos pendentes sem abrir o app; o 3º botão vira ele no lugar do "+24 h" — o backup semanal mantém os 3 snoozes e não tem Feito, p/ nunca matar a série; série recorrente nunca é cancelada pelo Feito). (2) **Alarmes inteligentes**: bloco de lembrete aceita `| abrir=coach|projetos|geral | dizer=<pergunta>` (proxy ensinado no `_ACAO`); tocar no corpo abre a Muse naquele modo e **envia a pergunta sozinha** (conversa nova; roteamento via pedido em prefs+notify, snooze preserva o payload). (3) **Resumo semanal** (servidor, sem APK): `resumo_semanal.py` (1x/semana, domingo 06–22h, estado por semana ISO) injeta o fechamento da semana (treinos, joelho se mencionado, leitura, foco seguinte) quando conecta com o assunto. Testes: `lembretes_muse_test.dart` (payload/Feito) + 3 de abrir/dizer no `chat_actions_test.dart` + `tests_resumo_semanal.py`.
 - **V0.1.171 — caixa da Muse não joga p/ o fim ao tocar/editar no meio:** `onTap` e
@@ -1491,7 +1497,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 ### Adicionar nova cor ao tema
 1. Adicionar campo `final Color` em `AppCores` (`cores.dart`)
 2. Atualizar construtor, `copyWith`, `lerp`
-3. Definir valor nas 5 constantes (`azul`, `escuro`, `neumB`, `bege`, `claude`)
+3. Definir valor nas 7 constantes (`azul`, `escuro`, `neumB`, `bege`, `claude`, `onix`, `luz`)
 4. Acessar via `Theme.of(context).extension<AppCores>() ?? AppCores.azul`
 
 ### Adicionar novo botão na barra da caixinha
@@ -1715,7 +1721,7 @@ A cada publicação de APK:
 | **Novo logo Taskix (V0.1.90)** | Usuário enviou uma arte nova (TX neon em bloco de notas). Substituiu `assets/icono.png` (fonte do ícone do app — `flutter_launcher_icons` regenerado, mipmaps commitados pois o CI não roda o gerador) e criou `assets/icono_titulo.png` (badge recortado, sem a margem preta) para o logo ao lado do título "Taskix" (AppBar 24px + empty-state 56px, `projetos_screen.dart`). |
 | **"+" rola até a caixinha nova (V0.1.90)** | Com muitas caixinhas, a nova nascia fora da viewport; como a `ReorderableListView` é LAZY, o item nem era construído → o `focarNoFim()` no post-frame achava `currentState==null` (nem focava nem rolava). Fix: `ScrollController` POR ABA (`_scrollAbas`, o TabBarView tem uma lista por aba → controller único daria conflito) + `_revelarNota` rola até `maxScrollExtent` em passos (a lista lazy cresce o extent a cada rolagem) e só então foca. |
 | JSON local em vez de Firebase | Simplicidade, offline-first, sem custo |
-| 5 temas (Azul/Escuro/Dark Game/Bege/Claude Code) | Preferência do usuário; Bege é claro, os demais escuros |
+| 7 temas (Azul/Escuro/Dark Game/Bege/Terracota/Ônix/Claro) | Preferência do usuário; Bege e Claro são claros, os demais escuros |
 | Tema Claude Code (terminal) com JetBrains Mono | Escolha do usuário: preto-quente + terracota + fonte mono, cartões como linhas de 1px |
 | Prateleira "Recentes" (5 projetos) na página principal | Ideia do usuário (prateleira rolante) aplicada aos projetos mais recentes |
 | Seções "EM ANDAMENTO"/"OUTROS" na lista de projetos | Ideia do usuário: o marcador de em andamento vira agrupamento; arrastar só dentro da seção |

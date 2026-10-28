@@ -330,6 +330,20 @@ class AdmProjetosApp extends StatelessWidget {
         appBarColor: const Color(0xFFE0D1B9),
       );
 
+  /// Tema Claro (V0.1.174) — o visual dos mockups: fundo cinza-claro frio,
+  /// cartões brancos, acento azul, fonte limpa (sistema). Reusa a estrutura
+  /// clara do Calis; a AppBar blenda com a página (sem barra colorida).
+  ThemeData _temaLuz() => _temaClaroCalis(
+        bg: const Color(0xFFEAEEF4),
+        surface: const Color(0xFFFFFFFF),
+        surface2: const Color(0xFFF1F4F9),
+        text: const Color(0xFF121418),
+        accent: const Color(0xFF2E6BFF),
+        onAccent: const Color(0xFFF4F8FF),
+        app: AppCores.luz,
+        appBarColor: const Color(0xFFEAEEF4),
+      );
+
   ThemeData _temaEscuro() => _temaBase(ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E3A8A),
@@ -633,8 +647,8 @@ class AdmProjetosApp extends StatelessWidget {
       builder: (context, _) {
         final modo = temaController.modo;
         final scale = temaController.fonte.scale;
-        // Bege é o único claro (madeira do Calis Timer); demais escuros.
-        final claro = modo == Modo.bege;
+        // Bege (madeira) e Claro (mockups) são os claros; demais escuros.
+        final claro = modo == Modo.bege || modo == Modo.luz;
         final theme = switch (modo) {
           Modo.azul => _temaAzul(),
           Modo.escuro => _temaEscuro(),
@@ -642,6 +656,7 @@ class AdmProjetosApp extends StatelessWidget {
           Modo.bege => _temaBege(),
           Modo.claude => _temaClaude(),
           Modo.onix => _temaOnix(),
+          Modo.luz => _temaLuz(),
         };
         return MaterialApp(
           title: 'Taskix',

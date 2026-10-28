@@ -8,7 +8,12 @@ enum Modo {
   neumB('Dark Game'),
   bege('Bege'),
   claude('Terracota'),
-  onix('Ônix');
+  onix('Ônix'),
+  // Tema CLARO (V0.1.174): o visual dos mockups de redesenho — cinza-claro frio,
+  // cartões brancos flutuantes, acento azul, fonte sem serifa limpa. `name` é
+  // `luz` (não `claro`) de propósito: `claro` é um nome legado migrado p/ azul
+  // na carga (não reaproveitar, senão o tema novo cairia na migração).
+  luz('Claro');
 
   const Modo(this.rotulo);
   final String rotulo;
@@ -69,10 +74,11 @@ class TemaController extends ChangeNotifier {
   /// true no modo Compacto (linhas/cartões mais próximos).
   bool get compacto => _densidade == Densidade.compacto;
 
-  /// Modo usado pelo [MaterialApp] — Bege é claro (madeira do Calis Timer);
-  /// os demais são escuros.
+  /// Modo usado pelo [MaterialApp] — Bege e Claro são claros; os demais escuros.
   ThemeMode get themeFlutter =>
-      _modo == Modo.bege ? ThemeMode.light : ThemeMode.dark;
+      (_modo == Modo.bege || _modo == Modo.luz)
+          ? ThemeMode.light
+          : ThemeMode.dark;
 
   /// Carrega as preferências salvas (chamar no início do app). Temas antigos
   /// removidos migram para os novos: claro → azul, espresso → bege,

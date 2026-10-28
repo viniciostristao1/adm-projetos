@@ -179,6 +179,26 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFFECECEC),
   );
 
+  /// Tema Claro (V0.1.174) — o visual dos mockups de redesenho: fundo cinza-claro
+  /// FRIO (#EEF1F6→#E6EBF2), cartões/caixinhas BRANCOS (flutuam com sombra suave),
+  /// texto quase-preto (#121418), acento AZUL (#2E6BFF). Plano, sem relevo. Roda
+  /// em `ThemeMode.light`. (Mesma linguagem da barra flutuante e da Muse.)
+  static const AppCores luz = AppCores(
+    notaInicio: Color(0xFFFFFFFF),
+    notaFim: Color(0xFFFFFFFF),
+    notaBorda: Color(0x14121418),
+    projetoCard: Color(0xFFFFFFFF),
+    projetoCardFim: Color(0xFFFFFFFF),
+    projetoTxt: Color(0xFF121418),
+    fab: Color(0xFF2E6BFF),
+    fabIcone: Color(0xFFF4F8FF),
+    barraFerramentas: Color(0xFFF1F4F9),
+    barraFerramentasFim: Color(0xFFF1F4F9),
+    fundoInicio: Color(0xFFEEF1F6),
+    fundoFim: Color(0xFFE6EBF2),
+    textoUI: Color(0xFF121418),
+  );
+
   @override
   AppCores copyWith({
     Color? notaInicio,

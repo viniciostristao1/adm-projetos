@@ -1479,6 +1479,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 // borda 1px #2A2A2B e acento terracota no "em andamento".
                 final ehClaude = app == AppCores.claude;
                 final ehOnix = app == AppCores.onix;
+                // Claro (V0.1.174): cartão BRANCO flutuante com sombra suave
+                // (o visual dos mockups), em vez de borda.
+                final ehLuz = app == AppCores.luz;
                 // Bege e Ônix: pastas SEM caixa nem borda (linhas lisas sobre o
                 // fundo). Os demais temas mantêm o cartão.
                 final semCaixa = ehBege || ehOnix;
@@ -1508,6 +1511,18 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFF2A2A2B)),
                   );
+                } else if (ehLuz) {
+                  baseDecor = BoxDecoration(
+                    color: app.projetoCard, // branco
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14121A2E),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  );
                 } else {
                   baseDecor = BoxDecoration(
                     color: app.projetoCard,
@@ -1519,7 +1534,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 Widget cardPlano = Material(
                   type: MaterialType.transparency,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(semCaixa ? 8 : (ehClaude ? 10 : 14)),
+                    borderRadius: BorderRadius.circular(
+                        semCaixa ? 8 : (ehClaude ? 10 : (ehLuz ? 16 : 14))),
                     onTap: onTapProjeto,
                     onLongPress: () => _mostrarSeletorCor(p),
                     child: Container(
