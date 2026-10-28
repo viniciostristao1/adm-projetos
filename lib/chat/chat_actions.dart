@@ -17,7 +17,8 @@ class ExecResult {
   const ExecResult(this.texto, [this.confirmacoes = const []]);
 }
 
-typedef AgendarLembrete = Future<bool> Function(String texto, DateTime quando);
+typedef AgendarLembrete = Future<bool> Function(String texto, DateTime quando,
+    {String? abrir, String? dizer});
 typedef SalvarNota = Future<void> Function(String projeto, String texto);
 
 /// Parser + executor das ações da Muse. Chamado SÓ sobre o reply FINAL
@@ -81,10 +82,11 @@ class ChatActions {
   }
 
   static Future<bool> _agendarPadrao(
-      String texto, DateTime quando, String recorrencia) async {
+      String texto, DateTime quando, String repete,
+      {String? abrir, String? dizer}) async {
     final daqui = quando.difference(DateTime.now());
-    final l = await LembretesService.instance
-        .agendar(texto, daqui, recorrencia: recorrencia);
+    final l = await LembretesService.instance.agendar(texto, daqui,
+        recorrencia: repete, abrirMusePreset: abrir, abrirMusePergunta: dizer);
     return l != null;
   }
 
@@ -129,19 +131,30 @@ class ChatActions {
           confs.add('⚠️ Não agendei: a data já passou.');
           continue;
         }
+        // Alarme inteligente: `| abrir=coach|projetos|geral | dizer=<pergunta>` —
+        // tocar abre a Muse naquele modo e já envia a pergunta. Inválido = ignora.
+        var abrir = (a.params['abrir'] ?? '').trim().toLowerCase();
+        if (!LembretesService.presetsMuseValidos.contains(abrir)) abrir = '';
+        var dizer = (a.params['dizer'] ?? '').trim();
+        if (dizer.length > maxTexto) dizer = '';
         final repete = _normRepete(a.params['repete']);
         try {
-          // A recorrência chega ao serviço real pelo closure; o executor injetado
-          // (testes) mantém a assinatura (texto, quando).
-          final ok = await (agendar ?? (t, q) => _agendarPadrao(t, q, repete))(
-              texto, quando);
+          // A recorrência e o abrir/dizer chegam ao serviço real pelo closure; o
+          // executor injetado (testes) mantém a assinatura (texto, quando).
+          final ok = await (agendar ??
+                  (t, q, {abrir, dizer}) =>
+                      _agendarPadrao(t, q, repete, abrir: abrir, dizer: dizer))(
+              texto, quando,
+              abrir: abrir.isEmpty ? null : abrir,
+              dizer: dizer.isEmpty ? null : dizer);
+          final abreTxt = dizer.isNotEmpty ? ' (abre a Muse e pergunta)' : '';
           final quandoTxt = repete == 'diario'
               ? 'repete todo dia ${_hhmm(quando)}'
               : repete == 'semanal'
                   ? 'repete toda ${_dias[quando.weekday - 1]} ${_hhmm(quando)}'
                   : quandoComDiaSemana(quando);
           confs.add(ok
-              ? '⏰ Lembrete criado: $texto ($quandoTxt)'
+              ? '⏰ Lembrete criado: $texto ($quandoTxt)$abreTxt'
               : '⚠️ Sem permissão de notificação: ative p/ agendar.');
         } catch (_) {
           confs.add('⚠️ Não consegui agendar agora. Tente de novo.');

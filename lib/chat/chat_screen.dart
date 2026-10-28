@@ -25,9 +25,16 @@ import 'tts_ondevice.dart';
 /// Janela do Muse (assistente de chat do Taskix) — módulo isolado, só aberto pelo
 /// botão de mensagem (que só existe com a flag `CHAT`). Auth = login Google que o
 /// app já usa (`SyncService`); o servidor só aceita a conta do dono. Tem histórico
-/// de conversas (local).
+/// de conversas (local). Com [presetInicial]+[perguntaInicial] (alarme
+/// inteligente), abre na conversa daquele modo e já envia a pergunta sozinho.
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({super.key, this.presetInicial, this.perguntaInicial});
+
+  /// Modo da conversa a abrir (id do ChatPreset: coach|projetos|geral).
+  final String? presetInicial;
+
+  /// Pergunta a enviar sozinha ao abrir (alarme inteligente).
+  final String? perguntaInicial;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -580,6 +587,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
       _carregando = false;
     });
+    // Alarme inteligente: abre no modo pedido e já pergunta sozinho (1 toque
+    // na notificação → conversa certa perguntando). Conversa nova p/ não
+    // misturar o assunto programado com a última conversa.
+    final perguntaAuto = widget.perguntaInicial?.trim() ?? '';
+    if (perguntaAuto.isNotEmpty) {
+      final preset = ChatPreset.values.firstWhere(
+        (p) => p.id == widget.presetInicial,
+        orElse: () => _conv.preset,
+      );
+      setState(() {
+        _conv = Conversa.nova(preset);
+        _ctrl.text = perguntaAuto;
+      });
+      await _enviar();
+      return;
+    }
     // Abre direto na 1ª linha da última resposta (sem animação de scroll).
     _abrirNoFim();
     // Reatar a um envio em voo (perguntou e saiu com voltar no meio): primeiro o

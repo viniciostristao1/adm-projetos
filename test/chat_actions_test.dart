@@ -47,7 +47,7 @@ void main() {
       DateTime? salvoQuando;
       final r = await ChatActions.executarTodos(
         'Fechado!\n[[ACAO:lembrete | texto=Regar as plantas | quando=2999-01-02 09:00]]',
-        agendar: (t, q) async {
+        agendar: (t, q, {abrir, dizer}) async {
           chamado++;
           salvoTexto = t;
           salvoQuando = q;
@@ -66,7 +66,7 @@ void main() {
       var chamado = 0;
       final r = await ChatActions.executarTodos(
         '[[ACAO:lembrete | texto=X | quando=2020-01-01 09:00]]',
-        agendar: (texto, quando) async {
+        agendar: (texto, quando, {abrir, dizer}) async {
           chamado++;
           return true;
         },
@@ -98,7 +98,7 @@ void main() {
       final r = await ChatActions.executarTodos(
         'Oi [[ACAO:lembrete | texto=X | quando=2999-01-02 09:00]]',
         completo: false,
-        agendar: (texto, quando) async {
+        agendar: (texto, quando, {abrir, dizer}) async {
           agendou = true;
           return true;
         },
@@ -126,7 +126,7 @@ void main() {
       final r = await ChatActions.executarTodos(
         '[[ACAO:lembrete | texto=$longo | quando=2999-01-02 09:00]]\n'
         '[[ACAO:nota | texto=  ]]',
-        agendar: (texto, quando) async {
+        agendar: (texto, quando, {abrir, dizer}) async {
           n++;
           return true;
         },
@@ -142,6 +142,53 @@ void main() {
         salvar: (proj, texto) async => throw StateError('disco'),
       );
       expect(r.confirmacoes.single, contains('Não consegui'));
+    });
+
+    test('alarme inteligente: abrir/dizer chegam ao agendar', () async {
+      String? salvoAbrir;
+      String? salvoDizer;
+      final r = await ChatActions.executarTodos(
+        '[[ACAO:lembrete | texto=Treino | quando=2999-01-02 06:30 | abrir=coach | dizer=Como foi o treino?]]',
+        agendar: (t, q, {abrir, dizer}) async {
+          salvoAbrir = abrir;
+          salvoDizer = dizer;
+          return true;
+        },
+      );
+      expect(salvoAbrir, 'coach');
+      expect(salvoDizer, 'Como foi o treino?');
+      expect(r.confirmacoes.single, contains('abre a Muse'));
+    });
+
+    test('alarme inteligente: abrir inválido e dizer gigante são ignorados',
+        () async {
+      String? salvoAbrir = 'x';
+      String? salvoDizer = 'y';
+      final r = await ChatActions.executarTodos(
+        '[[ACAO:lembrete | texto=X | quando=2999-01-02 09:00 | abrir=nave | dizer=${'z' * 201}]]',
+        agendar: (t, q, {abrir, dizer}) async {
+          salvoAbrir = abrir;
+          salvoDizer = dizer;
+          return true;
+        },
+      );
+      expect(salvoAbrir, isNull);
+      expect(salvoDizer, isNull);
+      expect(r.confirmacoes.single, isNot(contains('abre a Muse')));
+    });
+
+    test('sem abrir/dizer o agendar recebe null (compatível)', () async {
+      var chamou = false;
+      await ChatActions.executarTodos(
+        '[[ACAO:lembrete | texto=X | quando=2999-01-02 09:00]]',
+        agendar: (t, q, {abrir, dizer}) async {
+          chamou = true;
+          expect(abrir, isNull);
+          expect(dizer, isNull);
+          return true;
+        },
+      );
+      expect(chamou, isTrue);
     });
   });
 }

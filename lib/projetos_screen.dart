@@ -83,6 +83,12 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     });
     // Quando a nuvem baixa dados, recarrega a lista.
     Storage.instance.addListener(_aoMudarStorage);
+    // Alarme inteligente: com o app vivo, o toque na notificação avisa aqui.
+    LembretesService.instance.addListener(_aoMudarLembrete);
+    // Com o app fechado, o toque grava o pedido em disco — consome no cold start.
+    LembretesService.lerEConsumirPedidoMuse().then((p) {
+      if (p != null && mounted) _abrirMuseComPergunta(p.preset, p.pergunta);
+    });
     _configurarAtalhos();
     // Pré-aquece o histórico do Muse em 2º plano (inicializa o SharedPreferences
     // + decodifica o histórico fora do caminho quente) p/ a 1ª abertura do chat
@@ -138,6 +144,26 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
           MaterialPageRoute(builder: (_) => const ChatScreen()));
       if (!mounted) return;
       setState(() => _museAberto = false); // libera ao fechar (permite reabrir)
+    });
+  }
+
+  /// Abre a Muse com modo + pergunta prontos (alarme inteligente): a conversa
+  /// nova pergunta sozinha ao abrir. Se a Muse já estiver aberta, descarta o
+  /// pedido (não empilha 2 chats).
+  void _abrirMuseComPergunta(String presetId, String pergunta) {
+    if (!ChatConfig.habilitado || _museAberto) return;
+    _museAberto = true;
+    if (mounted) setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        _museAberto = false;
+        return;
+      }
+      await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => ChatScreen(
+              presetInicial: presetId, perguntaInicial: pergunta)));
+      if (!mounted) return;
+      setState(() => _museAberto = false);
     });
   }
 
@@ -220,9 +246,19 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   @override
   void dispose() {
     Storage.instance.removeListener(_aoMudarStorage);
+    LembretesService.instance.removeListener(_aoMudarLembrete);
     _ctrlBusca.dispose();
     _focoBusca.dispose();
     super.dispose();
+  }
+
+  /// Alarme inteligente tocado com o app vivo: abre a Muse naquele modo e
+  /// pergunta sozinho. Consumo único (quem consome zera o pedido).
+  void _aoMudarLembrete() {
+    final pedido = LembretesService.instance.pedidoMusePendente;
+    if (pedido == null || !mounted) return;
+    LembretesService.instance.descartarPedidoMuse();
+    _abrirMuseComPergunta(pedido.preset, pedido.pergunta);
   }
 
   /// Reconstroi a prateleira "Últimos abertos" a partir dos IDs salvos

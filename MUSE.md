@@ -116,6 +116,10 @@ A voz de entrada é o reconhecimento **NATIVO do Android** (`speech_to_text`; mo
 
 **Regra de auto-play:** segue o MÉTODO de entrada — falou (🎤) → responde falando; digitou (toque) → responde em texto. Não há mais um "modo áudio" persistente nem auto-enviar-por-pausa (removidos; o botão único cobre tudo). Teclado de voz (Dictate/Gboard) ainda funciona: você digita por voz e dá o **toque curto** p/ enviar.
 
+**Alarmes inteligentes (V0.1.172):** lembrete com `abrir`+`dizer` (`[[ACAO:lembrete … | abrir=coach|projetos|geral | dizer=<pergunta>]]`, ensinado no `_ACAO` do proxy) — tocar no corpo da notificação abre o chat naquele modo e **envia a pergunta sozinho** (conversa nova; `ChatScreen(presetInicial, perguntaInicial)`; roteamento via pedido em prefs + notify em `LembretesService`). Snooze preserva o payload. Botão **"Feito ✓"** na notificação conclui sem abrir o app (nunca cancela série recorrente/backup semanal).
+
+**Resumo semanal (V0.1.172, servidor):** `resumo_semanal.py` — 1x/semana, domingo 06–22h (estado por semana ISO), injeta o fechamento (treinos, joelho se mencionado, leitura, foco seguinte) quando conecta com o assunto. Testes em `tests_resumo_semanal.py`.
+
 ---
 
 ## 7. MEMÓRIA e CONHECIMENTO da Muse — como adicionar info pessoal
