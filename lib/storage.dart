@@ -186,6 +186,7 @@ class Storage extends ChangeNotifier {
     _dir = null;
     _recuperadoDeCorrupcao = false;
     _permitirEsvaziamento = false;
+    _carregamentoEmVoo = null;
   }
 
   Future<String> _dirPath() async {
@@ -347,47 +348,63 @@ class Storage extends ChangeNotifier {
     return false;
   }
 
-  Future<List<Projeto>> carregar() async {
-    if (_carregado) return _projetos;
-    String? lerSeExiste(File f) {
-      if (!f.existsSync()) return null;
-      final conteudo = f.readAsStringSync();
-      if (conteudo.trim().isEmpty) return null;
-      return conteudo;
-    }
+  /// Carga EM VOO: dedupe de chamadas CONCORRENTES. ⚠️ V0.1.176 — sem isto, dois
+  /// `carregar()` simultâneos (ex.: a tela de Projetos e a aba Estudos no startup)
+  /// rodavam o corpo em paralelo e criavam DUAS listas internas separadas; uma
+  /// tela editava a lista A enquanto `salvar()` gravava a lista B → o texto
+  /// digitado se perdia. Agora todos compartilham o MESMO future = uma única
+  /// leitura e uma única lista interna (a invariante "mesma referência").
+  Future<List<Projeto>>? _carregamentoEmVoo;
 
-    final dir = await _dirPath();
-    final raw = lerSeExiste(File('$dir/$_arquivo'));
-    // ANTES de qualquer leitura/escrita: versão nova? preserva o arquivo.
-    await _snapshotAoMudarVersao(raw);
-    if (raw != null) {
-      try {
-        _lerConteudo(raw);
-      } catch (_) {
-        // PRINCIPAL CORROMPIDO: preserva os bytes originais (1ª cópia) para
-        // análise futura, tenta REPARAR o JSON e, se falhar, usa .bak/snapshots.
-        debugPrint('storage: arquivo principal ilegível — tentando resgate');
-        final corrompido = File('$dir/$_arquivoCorrompido');
-        if (!corrompido.existsSync()) {
-          try {
-            corrompido.writeAsStringSync(raw);
-          } catch (_) {}
-        }
-        _projetos = [];
-        _atualizadoEm = 0;
-        if (!_tentarSalvamento(raw)) {
-          _restaurarDeFontesAlternativas(dir, lerSeExiste);
-        } else {
-          _recuperadoDeCorrupcao = true;
-          debugPrint('storage: DADOS REPARADOS (${_projetos.length} projetos)');
-        }
+  Future<List<Projeto>> carregar() {
+    if (_carregado) return Future.value(_projetos);
+    return _carregamentoEmVoo ??= _carregarInterno();
+  }
+
+  Future<List<Projeto>> _carregarInterno() async {
+    try {
+      String? lerSeExiste(File f) {
+        if (!f.existsSync()) return null;
+        final conteudo = f.readAsStringSync();
+        if (conteudo.trim().isEmpty) return null;
+        return conteudo;
       }
-    } else {
-      // Arquivo principal ausente/vazio: tenta .bak e snapshots.
-      _restaurarDeFontesAlternativas(dir, lerSeExiste);
+
+      final dir = await _dirPath();
+      final raw = lerSeExiste(File('$dir/$_arquivo'));
+      // ANTES de qualquer leitura/escrita: versão nova? preserva o arquivo.
+      await _snapshotAoMudarVersao(raw);
+      if (raw != null) {
+        try {
+          _lerConteudo(raw);
+        } catch (_) {
+          // PRINCIPAL CORROMPIDO: preserva os bytes originais (1ª cópia) para
+          // análise futura, tenta REPARAR o JSON e, se falhar, usa .bak/snapshots.
+          debugPrint('storage: arquivo principal ilegível — tentando resgate');
+          final corrompido = File('$dir/$_arquivoCorrompido');
+          if (!corrompido.existsSync()) {
+            try {
+              corrompido.writeAsStringSync(raw);
+            } catch (_) {}
+          }
+          _projetos = [];
+          _atualizadoEm = 0;
+          if (!_tentarSalvamento(raw)) {
+            _restaurarDeFontesAlternativas(dir, lerSeExiste);
+          } else {
+            _recuperadoDeCorrupcao = true;
+            debugPrint('storage: DADOS REPARADOS (${_projetos.length} projetos)');
+          }
+        }
+      } else {
+        // Arquivo principal ausente/vazio: tenta .bak e snapshots.
+        _restaurarDeFontesAlternativas(dir, lerSeExiste);
+      }
+      _carregado = true;
+      return _projetos;
+    } finally {
+      _carregamentoEmVoo = null;
     }
-    _carregado = true;
-    return _projetos;
   }
 
   /// Grava no arquivo principal, ANTES guardando a versão anterior no `.bak`

@@ -1236,15 +1236,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 letterSpacing: 0.2,
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              appVersao,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
+            // (Versão removida daqui na V0.1.176: já aparece em Configurações.)
           ],
         ),
         centerTitle: false,

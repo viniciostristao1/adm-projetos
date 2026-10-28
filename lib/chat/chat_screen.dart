@@ -1789,25 +1789,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     required List<PopupMenuEntry<T>> Function(BuildContext) itemBuilder,
     required Widget filho,
     T? initialValue,
-    double largura = 40,
+    double largura = 48,
   }) {
     final cor =
         (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
     return Tooltip(
       message: tooltip,
-      child: Container(
-        width: largura,
-        height: 40,
-        alignment: Alignment.center,
-        child: IconTheme(
-          data: const IconThemeData(size: 24).copyWith(color: cor),
-          child: PopupMenuButton<T>(
-            tooltip: tooltip,
-            padding: EdgeInsets.zero,
-            initialValue: initialValue,
-            onSelected: onSelected,
-            itemBuilder: itemBuilder,
-            child: filho,
+      child: IconTheme(
+        data: const IconThemeData(size: 24).copyWith(color: cor),
+        child: PopupMenuButton<T>(
+          tooltip: tooltip,
+          padding: EdgeInsets.zero,
+          initialValue: initialValue,
+          onSelected: onSelected,
+          // Tira o foco da caixa de texto ao ABRIR o menu — senão, ao fechar o
+          // menu tocando fora (numa mensagem), o foco voltava p/ a caixa e o
+          // teclado reabria sozinho. (V0.1.176)
+          onOpened: () => FocusScope.of(context).unfocus(),
+          itemBuilder: itemBuilder,
+          // A ÁREA TODA (largura×48) é tocável — antes o PopupMenuButton só
+          // capturava o tamanho do filho (a letrinha do modo), e era difícil
+          // acertar o toque. (V0.1.176)
+          child: SizedBox(
+            width: largura,
+            height: 48,
+            child: Center(child: filho),
           ),
         ),
       ),
@@ -2014,7 +2020,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               padding:
                   EdgeInsets.fromLTRB(14, 10, ehEu ? 14 : 6, ehEu ? 10 : 2),
               constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.82),
+                  maxWidth: MediaQuery.of(context).size.width * 0.9),
               decoration: BoxDecoration(
                 color: ehEu ? cs.primary : cs.surfaceContainerHighest,
                 borderRadius: BorderRadius.only(
@@ -2264,7 +2270,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         margin: const EdgeInsets.only(top: 4, bottom: 2),
         padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
         constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.9),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest,
           borderRadius: const BorderRadius.only(

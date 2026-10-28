@@ -173,4 +173,25 @@ void main() {
     expect(corrompido.existsSync(), isTrue);
     expect(corrompido.readAsStringSync(), lixo);
   });
+
+  test('carregar() CONCORRENTE devolve a MESMA lista (fix da corrida V0.1.176)',
+      () async {
+    // Reproduz o startup: duas telas (ex.: Projetos + aba Estudos) chamam
+    // carregar() ao mesmo tempo. Sem o dedupe, cada uma criava uma lista
+    // SEPARADA e a edição ia para a lista errada → o texto digitado sumia.
+    await salvarCom(7);
+    Storage.instance.reiniciarParaTeste(); // força reler do disco
+    final r = await Future.wait([
+      Storage.instance.carregar(),
+      Storage.instance.carregar(),
+    ]);
+    expect(identical(r[0], r[1]), isTrue,
+        reason: 'cargas concorrentes devem compartilhar a MESMA lista interna');
+    // Editar via a referência recebida e salvar PERSISTE no disco.
+    r[0].first.tarefas.first.texto = 'editado após corrida';
+    await Storage.instance.salvar();
+    Storage.instance.reiniciarParaTeste();
+    final de = await Storage.instance.carregar();
+    expect(de.first.tarefas.first.texto, 'editado após corrida');
+  });
 }
