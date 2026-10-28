@@ -741,7 +741,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                       width: 44,
                       height: 40,
                       child: Center(
-                          child: MuseBlob(size: 30, cor: app.fab, halo: false)),
+                          child: MuseBlob(size: 30)),
                     ),
                   ),
                 ),

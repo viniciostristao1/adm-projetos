@@ -1599,7 +1599,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final logado = SyncService.instance.conectado;
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
@@ -1627,7 +1626,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     hintText: 'Buscar na conversa…', border: InputBorder.none),
               )
             : Row(mainAxisSize: MainAxisSize.min, children: [
-                MuseBlob(size: 20, cor: app.fab, halo: false),
+                MuseBlob(size: 20),
                 const SizedBox(width: 7),
                 Flexible(
                   child: Text(

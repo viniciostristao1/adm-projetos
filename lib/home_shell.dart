@@ -169,7 +169,7 @@ class _ItemBarra extends StatelessWidget {
       // Rosto da Muse; esmaece quando a aba não está ativa.
       icone = Opacity(
         opacity: selecionado ? 1 : 0.55,
-        child: MuseBlob(size: 26, cor: acento, halo: false),
+        child: MuseBlob(size: 26),
       );
     } else {
       icone = Icon(

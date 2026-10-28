@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../cores.dart';
 import '../muse_blob.dart';
 import 'chat_models.dart';
 import 'chat_screen.dart';
@@ -143,7 +142,6 @@ class _ConversasScreenState extends State<ConversasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final cs = Theme.of(context).colorScheme;
     final q = _filtro.trim().toLowerCase();
     final lista = q.isEmpty
@@ -161,7 +159,7 @@ class _ConversasScreenState extends State<ConversasScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
                   child: Column(children: [
-                    MuseBlob(size: 72, cor: app.fab),
+                    MuseBlob(size: 72),
                     const SizedBox(height: 10),
                     Text('Muse Spark',
                         style: TextStyle(
@@ -239,8 +237,7 @@ class _ConversasScreenState extends State<ConversasScreen> {
                               child: ListTile(
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16)),
-                                leading: MuseBlob(
-                                    size: 34, cor: app.fab, halo: false),
+                                leading: MuseBlob(size: 34),
                                 title: Text(conv.titulo,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
