@@ -18,10 +18,21 @@
 
 Arquivos do app em `lib/chat/`:
 - `chat_screen.dart` — tela, fila de voz, streaming, auto-enviar, normalização de fala do cliente.
+- `conversas_screen.dart` — **LISTA de conversas** (a aba "Muse" abre AQUI; V0.1.173).
 - `chat_service.dart` — HTTP: `/chat`, `/chat_stream` (streaming), `/tts` (voz reserva), `enviarStream`/`MuseEvent`.
 - `chat_store.dart` — histórico LOCAL (SharedPreferences; **excluído do backup do Android** — ver AGENTS.md).
 - `chat_models.dart` — `Conversa`, `ChatMessage`, presets, modelo, tamanho.
 - `tts_ondevice.dart` — **voz no próprio celular** (sherpa-onnx + modelo dii).
+- `chat_actions.dart` — blocos da Muse: `[[ACAO:…]]` (lembrete/nota) e `[[SUGESTOES:…]]` (`QuickReplies`, respostas de 1 toque).
+
+> **UI V0.1.173 (fora de `lib/chat/`):** o app abre no `HomeShell`
+> (`lib/home_shell.dart`) com barra inferior flutuante **Projetos · Muse ·
+> Estudos**; a aba Muse abre a LISTA (`ConversasScreen`) e o chat tem **voltar ←
+> → lista**. Topo do chat: **←**, **☰** (buscar/nova/resumo/renomear/modelo/
+> tamanho/fala) e **M** (modo). O rosto da Muse é o `MuseBlob`
+> (`lib/muse_blob.dart`, tingido no acento do tema). **Respostas de 1 toque:** o
+> proxy emite `[[SUGESTOES: a | b | c]]` quando fecha com pergunta (`_SUGESTOES`
+> no `app.py`); o app mostra chips acima da caixa.
 
 Proxy na VPS (`/opt/taskix-chat/`):
 - `app.py` — tudo do servidor. `conhecimento/` — o que a Muse "sabe".
@@ -148,7 +159,9 @@ Em `app.py` → `_nivel_sono`: seg–qui sinaliza ≥20:45 e enfatiza ≥21:15; 
 ---
 
 ## 8. Modos (preset) da Muse
-Selecionável por conversa (menu). Em `chat_models.dart` (`ChatPreset`) e no `app.py` (montagem do prompt):
+Selecionável por conversa pelo botão **M** no canto superior direito do chat
+(V0.1.173 — mostra a inicial do modo atual, C/P/G, tingida no acento; toca e
+troca). Em `chat_models.dart` (`ChatPreset`) e no `app.py` (montagem do prompt):
 - **Coach (Calis)** — treinador do Calis Timer: lê o desempenho (Firestore) + `perfil.md`/ciência. Foco principal.
 - **Projetos** — discute os apps/projetos (usa `projetos.md`).
 - **Geral** — conversa livre/pessoal (usa `pessoal.md`).

@@ -13,6 +13,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../diagnostico.dart';
 import '../cores.dart';
+import '../muse_blob.dart';
 import '../storage.dart';
 import '../sync_service.dart';
 import '../voz_config.dart';
@@ -28,7 +29,20 @@ import 'tts_ondevice.dart';
 /// de conversas (local). Com [presetInicial]+[perguntaInicial] (alarme
 /// inteligente), abre na conversa daquele modo e já envia a pergunta sozinho.
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, this.presetInicial, this.perguntaInicial});
+  const ChatScreen(
+      {super.key,
+      this.conversaId,
+      this.iniciarNova = false,
+      this.presetInicial,
+      this.perguntaInicial});
+
+  /// Conversa a abrir (id). Vem da LISTA de conversas (aba Muse). Quando nulo
+  /// (e sem alarme), cai no comportamento legado: reabre a ÚLTIMA usada (atalho
+  /// "Muse Spark" do launcher).
+  final String? conversaId;
+
+  /// Abre já numa conversa NOVA (botão "nova conversa" da lista).
+  final bool iniciarNova;
 
   /// Modo da conversa a abrir (id do ChatPreset: coach|projetos|geral).
   final String? presetInicial;
@@ -427,11 +441,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// (ex.: "[23:40]", "[hoje 23:16] [16/10 …]"). Novas respostas já vêm limpas do
   /// servidor; isto cobre as ANTIGAS na escrita E na fala. Exige hora (HH:MM),
   /// hoje/ontem ou dd/MM dentro do colchete p/ preservar "[📷 imagem]" etc.
-  String _semCarimbo(String t) => t.replaceFirst(
-      RegExp(
-          r'^\s*(?:\[[^\]]*(?:\d{1,2}:\d{2}|hoje|ontem|\d{1,2}/\d{1,2})[^\]]*\]\s*)+',
-          caseSensitive: false),
-      '');
+  String _semCarimbo(String t) {
+    t = t.replaceFirst(
+        RegExp(
+            r'^\s*(?:\[[^\]]*(?:\d{1,2}:\d{2}|hoje|ontem|\d{1,2}/\d{1,2})[^\]]*\]\s*)+',
+            caseSensitive: false),
+        '');
+    // Remove o bloco de SUGESTÕES (respostas de 1 toque) do que é exibido/falado
+    // — fica SÓ nos chips. `dotAll` pega o bloco e qualquer cauda; pega também um
+    // bloco PARCIAL no fim do stream (evita o "flash" de `[[SUGEST…` ao vivo).
+    t = t.replaceFirst(
+        RegExp(r'\n*\s*\[\[\s*SUGEST.*$',
+            caseSensitive: false, dotAll: true),
+        '');
+    return t.trimRight();
+  }
 
   /// Lê a resposta da Muse em voz alta (ou pausa/retoma). Toca por PARÁGRAFO pela
   /// fila produtor-consumidor: começa após o 1º parágrafo (não espera sintetizar
@@ -581,12 +605,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final ult = await ChatStore.ultimaId();
     if (!mounted) return;
     setState(() {
-      if (convs.isNotEmpty) {
-        // Reabre a ÚLTIMA conversa usada (não sempre a mesma).
-        _conv = convs.firstWhere((c) => c.id == ult, orElse: () => convs.first);
+      if (widget.iniciarNova) {
+        // Botão "nova conversa" da lista: começa limpa (preset padrão).
+        _conv = Conversa.nova(ChatPreset.coach);
+      } else if (convs.isNotEmpty) {
+        // 1) Conversa pedida pela LISTA (aba Muse); 2) senão a ÚLTIMA usada
+        // (atalho do launcher); 3) senão a primeira.
+        final alvo = widget.conversaId;
+        _conv = alvo != null
+            ? convs.firstWhere((c) => c.id == alvo, orElse: () => convs.first)
+            : convs.firstWhere((c) => c.id == ult, orElse: () => convs.first);
       }
       _carregando = false;
     });
+    // Marca como última a conversa aberta (reflete no reabrir do launcher).
+    if (!_conv.vazia) await ChatStore.marcarUltima(_conv.id);
     // Alarme inteligente: abre no modo pedido e já pergunta sozinho (1 toque
     // na notificação → conversa certa perguntando). Conversa nova p/ não
     // misturar o assunto programado com a última conversa.
@@ -1295,91 +1328,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _abrirHistorico() async {
-    if (!_conv.vazia) await ChatStore.salvar(_conv);
-    var convs = await ChatStore.listar();
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => SafeArea(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-              child: Row(children: [
-                const Expanded(
-                  child: Text('Conversas',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                ),
-                TextButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('Nova'),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _novaConversa();
-                  },
-                ),
-              ]),
-            ),
-            if (convs.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('Nenhuma conversa ainda.'),
-              )
-            else
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: convs.length,
-                  itemBuilder: (c, i) {
-                    final conv = convs[i];
-                    final atual = conv.id == _conv.id;
-                    return ListTile(
-                      leading: Icon(_icone(conv.preset)),
-                      title: Text(conv.titulo,
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(
-                          '${conv.preset.rotulo} · ${conv.tamanho.rotulo} · ${_data(conv.atualizadaEm)}'),
-                      selected: atual,
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: 'Apagar',
-                        onPressed: () async {
-                          await ChatStore.remover(conv.id);
-                          convs = await ChatStore.listar();
-                          setSheet(() {});
-                          if (atual && mounted) {
-                            setState(() => _conv = convs.isNotEmpty
-                                ? convs.first
-                                : Conversa.nova(_conv.preset));
-                          }
-                        },
-                      ),
-                      onTap: () async {
-                        Navigator.pop(ctx);
-                        setState(() => _conv = conv);
-                        await ChatStore.marcarUltima(conv.id);
-                        // Abre direto na 1ª linha da última resposta da Muse, SEM
-                        // animar a conversa inteira até o fim (instantâneo) — igual
-                        // ao reabrir o app (`_carregar`).
-                        _abrirNoFim();
-                      },
-                      // Segurar = renomear (o nome aparece no topo).
-                      onLongPress: () async {
-                        await _renomear(conv);
-                        convs = await ChatStore.listar();
-                        setSheet(() {});
-                      },
-                    );
-                  },
-                ),
-              ),
-          ]),
-        ),
-      ),
-    );
-  }
+  // (A antiga folha "Conversas" (_abrirHistorico) saiu na V0.1.173: a LISTA de
+  // conversas virou a tela inicial da aba Muse — ConversasScreen — e o voltar ←
+  // do chat retorna para ela.)
 
   PopupMenuItem<String> _item(String v, IconData ic, String t) => PopupMenuItem(
         value: v,
@@ -1392,6 +1343,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _acaoMenu(String v) async {
     switch (v) {
+      case 'buscar':
+        if (_conv.mensagens.isNotEmpty) setState(() => _buscando = true);
       case 'nova':
         await _novaConversa();
       case 'resumo':
@@ -1625,12 +1578,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
   }
 
-  String _data(DateTime d) {
-    final dia = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
-    final hora = '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    return '$dia $hora';
-  }
-
   /// Rótulo de hora de UMA mensagem (embaixo da bolha): hoje = só HH:mm,
   /// ontem = "ontem HH:mm", outros dias = "dd/MM HH:mm". Vazio p/ data inválida
   /// (JSON antigo sem hora).
@@ -1685,47 +1632,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         actions: _buscando
             ? _acoesBusca()
             : [
-                _placaTopo(
-                  tooltip: 'Buscar na conversa',
-                  onTap: _conv.mensagens.isEmpty
-                      ? null
-                      : () => setState(() => _buscando = true),
-                  filho: const Icon(Icons.search, size: 24),
-                ),
-                // Seletor de MODO (mostra o modo atual).
-                _placaTopoMenu<ChatPreset>(
-                  tooltip: 'Modo',
-                  initialValue: _conv.preset,
-                  onSelected: (p) async {
-                    setState(() => _conv.preset = p);
-                    if (!_conv.vazia) await ChatStore.salvar(_conv);
-                  },
-                  itemBuilder: (_) => [
-                    for (final p in ChatPreset.values)
-                      PopupMenuItem(
-                        value: p,
-                        child: ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(_icone(p)),
-                          title: Text(p.rotulo),
-                          subtitle: Text(p.descricao),
-                        ),
-                      ),
-                  ],
-                  // Só a seta (o modo atual aparece marcado dentro do menu).
-                  filho: const Icon(Icons.arrow_drop_down, size: 26),
-                ),
-                _placaTopo(
-                  tooltip: 'Conversas',
-                  onTap: _abrirHistorico,
-                  filho: const Icon(Icons.history, size: 24),
-                ),
-                // Menu: nova, resumo, renomear e MODELO de IA.
+                // ☰ — TUDO num só botão: buscar, nova, resumo, renomear, modelo,
+                // tamanho, fala. (O voltar ← leva à lista de conversas; o modo
+                // fica no botão M, à direita.)
                 _placaTopoMenu<String>(
-                  tooltip: 'Mais',
+                  tooltip: 'Menu',
                   onSelected: _acaoMenu,
                   itemBuilder: (_) => [
+              _item('buscar', Icons.search, 'Buscar na conversa'),
               _item('nova', Icons.add_comment_outlined, 'Nova conversa'),
               _item('resumo', Icons.summarize_outlined, 'Resumo da conversa'),
               _item('renomear', Icons.edit_outlined, 'Renomear conversa'),
@@ -1776,7 +1690,47 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ),
             ],
-                  filho: const Icon(Icons.more_vert, size: 24),
+                  filho: const Icon(Icons.menu, size: 24),
+                ),
+                // M — MODO da Muse (Calis/Projetos/Geral). Mostra a inicial do
+                // modo atual; tocar troca. (Pedido do usuário: o modo mora aqui,
+                // no canto superior direito.)
+                _placaTopoMenu<ChatPreset>(
+                  tooltip: 'Modo (${_conv.preset.rotulo})',
+                  initialValue: _conv.preset,
+                  onSelected: (p) async {
+                    setState(() => _conv.preset = p);
+                    if (!_conv.vazia) await ChatStore.salvar(_conv);
+                  },
+                  itemBuilder: (_) => [
+                    for (final p in ChatPreset.values)
+                      PopupMenuItem(
+                        value: p,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(_icone(p),
+                              color: _conv.preset == p
+                                  ? Theme.of(context).colorScheme.primary
+                                  : null),
+                          title: Text(p.rotulo),
+                          subtitle: Text(p.descricao),
+                          trailing:
+                              _conv.preset == p ? const Icon(Icons.check) : null,
+                        ),
+                      ),
+                  ],
+                  // Inicial do modo atual (C/P/G) — "M" da Muse, refletindo o estado.
+                  filho: Text(
+                    _conv.preset.rotulo.substring(0, 1).toUpperCase(),
+                    style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        height: 1.0,
+                        color: (Theme.of(context).extension<AppCores>() ??
+                                AppCores.azul)
+                            .fab),
+                  ),
                 ),
         ],
       ),
@@ -1885,18 +1839,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _conversa(BuildContext context) {
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    final cs = Theme.of(context).colorScheme;
     return Column(children: [
-      Container(
-        width: double.infinity,
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        child: Text(
-          'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}${_conv.falaDevagar ? ' • Devagar' : ''}',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary),
+      // Pílula FLUTUANTE de status (rosto da Muse + Modo • Tamanho • Modelo).
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(8, 5, 14, 5),
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                  cs.onSurface.withValues(alpha: 0.05), cs.surface),
+              borderRadius: BorderRadius.circular(20),
+              border:
+                  Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              MuseBlob(size: 22, cor: app.fab, halo: false),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}${_conv.falaDevagar ? ' • Devagar' : ''}',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface),
+                ),
+              ),
+            ]),
+          ),
         ),
       ),
       Expanded(
@@ -1932,8 +1905,66 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 },
               ),
       ),
+      _sugestoes(context),
       _barraEntrada(context),
     ]);
+  }
+
+  /// Respostas de 1 toque: chips que a Muse propôs no fim da ÚLTIMA resposta.
+  /// Tocar envia aquele texto. Some durante o envio e quando a última mensagem é
+  /// sua (já respondeu).
+  Widget _sugestoes(BuildContext context) {
+    if (_enviando || _streamando) return const SizedBox.shrink();
+    if (_conv.mensagens.isEmpty || _conv.mensagens.last.ehUsuario) {
+      return const SizedBox.shrink();
+    }
+    final ops = QuickReplies.extrair(_conv.mensagens.last.texto);
+    if (ops.isEmpty) return const SizedBox.shrink();
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    final cs = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 2),
+        child: Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final o in ops)
+            Material(
+              color: cs.surface,
+              shape: StadiumBorder(
+                  side: BorderSide(color: app.fab.withValues(alpha: 0.5))),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => _usarSugestao(o),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.subdirectory_arrow_left,
+                        size: 16, color: app.fab),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(o,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface)),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  /// Envia a sugestão tocada como a próxima mensagem (resposta em texto).
+  void _usarSugestao(String s) {
+    if (_enviando) return;
+    _ctrl.text = s;
+    _modoAudio = false;
+    _enviar();
   }
 
   Widget _vazio(BuildContext context) => Center(

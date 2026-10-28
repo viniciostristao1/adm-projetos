@@ -21,6 +21,34 @@ typedef AgendarLembrete = Future<bool> Function(String texto, DateTime quando,
     {String? abrir, String? dizer});
 typedef SalvarNota = Future<void> Function(String projeto, String texto);
 
+/// Respostas de 1 toque: sugestões curtas que a Muse propõe no FIM de uma
+/// resposta que termina com pergunta (bloco `[[SUGESTOES: a | b | c]]`, emitido
+/// pelo proxy). O app mostra como chips; tocar envia aquele texto. O bloco NÃO
+/// aparece na tela nem na fala (removido em `_semCarimbo`).
+class QuickReplies {
+  static const int maxOpcoes = 3;
+  static const int maxLen = 44;
+
+  static final _re = RegExp(
+    r'\[\[\s*SUGEST(?:OES|ÕES)?\s*:\s*([^\[\]\n]*)\]\]',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  /// Extrai as opções do bloco (vazio se não houver). Ignora opções vazias ou
+  /// longas demais e limita a [maxOpcoes].
+  static List<String> extrair(String texto) {
+    final m = _re.firstMatch(texto);
+    if (m == null) return const [];
+    return (m.group(1) ?? '')
+        .split('|')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty && s.length <= maxLen)
+        .take(maxOpcoes)
+        .toList(growable: false);
+  }
+}
+
 /// Parser + executor das ações da Muse. Chamado SÓ sobre o reply FINAL
 /// (nunca por frase do stream — o bloco poderia vir quebrado). Não lança:
 /// bloco malformado é ignorado e falha de execução vira aviso textual.

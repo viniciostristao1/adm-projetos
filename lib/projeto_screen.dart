@@ -27,10 +27,23 @@ class ProjetoScreen extends StatefulWidget {
     this.notaAlvo,
     this.adicionarAoAbrir = false,
     this.modoPastasInicial = false,
+    this.embutido = false,
+    this.onVoltarNaRaiz,
   });
 
   /// Abre já no modo PASTAS (ex.: projeto "Estudos").
   final bool modoPastasInicial;
+
+  /// EMBUTIDO numa aba do shell (ex.: aba "Estudos"): a tela NUNCA sai da rota
+  /// (não há rota para popar — ela vive no corpo do shell). O voltar do sistema,
+  /// dentro de uma pasta, retorna à grade; já na grade, chama [onVoltarNaRaiz]
+  /// (o shell troca para a aba Projetos). O botão "Excluir" some (projeto
+  /// reservado não se apaga daqui).
+  final bool embutido;
+
+  /// Chamado quando o voltar do sistema é acionado já na raiz (grade) de uma
+  /// tela embutida — o shell usa para trocar de aba em vez de sair do app.
+  final VoidCallback? onVoltarNaRaiz;
 
   final Projeto projeto;
 
@@ -686,9 +699,18 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       // dentro de uma pasta, retorna À GRADE de pastas — só o 2º voltar sai
       // para a lista de projetos.
       child: PopScope(
-        canPop: _modoPastas || !widget.modoPastasInicial || _saindo,
+        // Embutido no shell: nunca pop (não há rota). Dentro de uma pasta, o
+        // voltar volta à grade; na grade, avisa o shell (troca de aba).
+        canPop: widget.embutido
+            ? false
+            : (_modoPastas || !widget.modoPastasInicial || _saindo),
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop && mounted) setState(() => _modoPastas = true);
+          if (didPop || !mounted) return;
+          if (widget.embutido && _modoPastas) {
+            widget.onVoltarNaRaiz?.call();
+          } else {
+            setState(() => _modoPastas = true);
+          }
         },
         child: Scaffold(
         appBar: AppBar(
@@ -734,12 +756,14 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               tooltip: 'Copiar tudo do projeto',
               onPressed: _copiarProjeto,
             ),
-            _BotaoTopo(
-              glifo: _GlifoTopo.excluir,
-              cor: app.textoUI,
-              tooltip: 'Excluir projeto',
-              onPressed: _excluirProjeto,
-            ),
+            // Projeto reservado numa aba (Estudos) não se exclui daqui.
+            if (!widget.embutido)
+              _BotaoTopo(
+                glifo: _GlifoTopo.excluir,
+                cor: app.textoUI,
+                tooltip: 'Excluir projeto',
+                onPressed: _excluirProjeto,
+              ),
           ],
         ),
         bottom: _modoPastas
@@ -776,8 +800,13 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           ),
         ),
       ),
+      // heroTag: null — sem Hero: a tela pode estar EMBUTIDA no shell (aba
+      // Estudos) ao mesmo tempo que um outro ProjetoScreen é empilhado; dois FABs
+      // com a tag padrão colidiriam/animariam entre rotas. O FAB não precisa de
+      // voo de Hero aqui.
       floatingActionButton: _modoPastas
           ? FloatingActionButton(
+              heroTag: null,
               onPressed: _criarNovaAba,
               tooltip: 'Nova pasta',
               child: const Icon(Icons.create_new_folder_outlined),
@@ -785,6 +814,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           : GestureDetector(
               onLongPress: _adicionarDeImagem,
               child: FloatingActionButton(
+                heroTag: null,
                 onPressed: () => _adicionar(_tabCtrl.index),
                 tooltip: 'Nova caixa de texto',
                 child: const Icon(Icons.add),

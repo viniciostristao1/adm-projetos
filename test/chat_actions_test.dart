@@ -191,4 +191,23 @@ void main() {
       expect(chamou, isTrue);
     });
   });
+
+  group('QuickReplies (respostas de 1 toque)', () {
+    test('extrai 2–3 opções do bloco [[SUGESTOES:...]]', () {
+      final ops = QuickReplies.extrair(
+          'Quer que eu monte o alvo?\n[[SUGESTOES: Sim, monta | Prefiro só dicas | Agora não]]');
+      expect(ops, ['Sim, monta', 'Prefiro só dicas', 'Agora não']);
+    });
+
+    test('sem bloco = vazio', () {
+      expect(QuickReplies.extrair('Resposta normal sem pergunta.'), isEmpty);
+    });
+
+    test('ignora opções vazias/longas e limita a 3', () {
+      final longa = 'x' * 80;
+      final ops = QuickReplies.extrair(
+          '[[SUGESTOES: Um |  | Dois | $longa | Três | Quatro]]');
+      expect(ops, ['Um', 'Dois', 'Três']);
+    });
+  });
 }

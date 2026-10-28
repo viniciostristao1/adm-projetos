@@ -9,8 +9,8 @@ import 'chat/chat_config.dart';
 import 'chat/chat_store.dart';
 import 'cores.dart';
 import 'diagnostico.dart';
+import 'home_shell.dart';
 import 'lembretes.dart';
-import 'projetos_screen.dart';
 import 'storage.dart';
 import 'sync_service.dart';
 import 'tema.dart';
@@ -666,7 +666,7 @@ class AdmProjetosApp extends StatelessWidget {
               ),
             );
           },
-          home: const ProjetosScreen(),
+          home: const HomeShell(),
         );
       },
     );

@@ -62,7 +62,9 @@ App Android (Flutter) para **anotar ideias** em projetos, com listas numeradas, 
 
 ```
 lib/
-├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege/Terracota/Ônix)
+├── main.dart            # Entry point + temas (Azul/Escuro/Dark Game/Bege/Terracota/Ônix) — abre no HomeShell
+├── home_shell.dart      # HomeShell (V0.1.173): barra inferior FLUTUANTE Projetos·Muse·Estudos (IndexedStack); aba Estudos embute o ProjetoScreen
+├── muse_blob.dart       # MuseBlob (CustomPainter): rosto da Muse tingido no acento do tema (AppCores.fab); FORA de lib/chat/ (barra usa sem puxar o chat)
 ├── models.dart          # Nota, Projeto — serialização JSON
 ├── storage.dart         # Persistência local (singleton Storage) + exportarJson/substituir + recentes (últimos abertos) + backup .bak
 ├── tema.dart            # TemaController (ChangeNotifier) + enums Modo, ModoFonte e Densidade + corFoco/corProximos (cores das seções FOCO/PRÓXIMOS)
@@ -287,8 +289,16 @@ caixinhas (os temas planos renderizam o cartão do projeto com essa cor):
 
 ## 5. Fluxo de Telas
 
+> **V0.1.173 — HomeShell + barra flutuante:** o app abre no `HomeShell`
+> (`lib/home_shell.dart`), com uma **barra inferior FLUTUANTE** de 3 destinos —
+> **Projetos** (a `ProjetosScreen` abaixo) · **Muse** (centro → `ConversasScreen`,
+> a LISTA de conversas) · **Estudos** (o projeto reservado "Estudos" embutido em
+> modo pastas). Abrir um projeto ou uma conversa empilha uma rota CHEIA (a barra
+> some); o voltar traz a barra. A antiga **prateleira** de acessos rápidos e a
+> função **Recentes** foram REMOVIDAS.
+
 ```
-ProjetosScreen (lista de projetos)
+ProjetosScreen (lista de projetos — aba 1 do HomeShell)
   ├─ FAB [+] → criar projeto
   ├─ 🔔 (à ESQUERDA da lupa) → folha "Lembrete rápido": escrever + tocar num
   │       tempo (30 min · 2 h · 4 h · 24 h · Outro…) agenda uma NOTIFICAÇÃO
@@ -296,16 +306,9 @@ ProjetosScreen (lista de projetos)
   │       V0.1.54). Detalhe em §6 "Lembretes".
   ├─ 🔍 → busca GLOBAL (projetos por nome + conteúdo das caixinhas em
   │       Tarefas/Ideias); tocar num resultado abre a caixinha
-  ├─ ACESSOS RÁPIDOS (V0.1.110, `_AcessosRapidos`): 3 caixinhas lado a lado,
-  │    cada uma com TÍTULO centralizado acima de uma caixinha tocável:
-  │      • RECENTES  → abre DIRETO o último projeto aberto (rótulo = nome dele;
-  │                    "nenhum ainda"/desabilitada se não há recentes);
-  │      • ASSISTENTE→ abre o chat da Muse (só com a flag `CHAT`; substitui o
-  │                    antigo FAB de mensagem que ficava ao lado do "+");
-  │      • ESTUDOS   → abre o projeto reservado "Estudos" (cria se não existir)
-  │                    em MODO PASTAS — onde o usuário cola mensagens da Muse /
-  │                    resumos de vídeos; entra na busca global como qualquer
-  │                    projeto. (Substitui a antiga prateleira rolante RECENTES.)
+  │   (ACESSOS RÁPIDOS / prateleira RECENTES·ASSISTENTE·ESTUDOS REMOVIDOS na
+  │    V0.1.173 — navegação migrou p/ a barra flutuante do HomeShell; Muse e
+  │    Estudos viraram abas.)
   ├─ SEÇÕES (V0.1.46; FOCO/PRÓXIMOS por cor em V0.1.94): a lista vira seções
   │    quando há ≥1 projeto em FOCO, EM ANDAMENTO ou PRÓXIMOS. Ordem por
   │    PRIORIDADE: "FOCO · N" → "EM ANDAMENTO · N" → "PRÓXIMOS · N" →
@@ -379,24 +382,27 @@ ProjetosScreen (lista de projetos)
 > engolia o gesto e só dava para sair pelo botão "voltar" do Android. A alça
 > decorativa manual foi removida (agora vem do próprio showDragHandle).
 
-### Acessos rápidos (página principal) — `_AcessosRapidos` (V0.1.110)
-Três caixinhas lado a lado (Row de `Expanded`), cada uma com TÍTULO centralizado
-acima de uma caixinha tocável. Substituiu a antiga prateleira rolante "RECENTES".
-- **RECENTES** → abre DIRETO o último projeto aberto (`_recentes.first`); rótulo
-  = nome dele, ou "nenhum ainda" (caixinha esmaecida/desabilitada) sem recentes.
-- **ASSISTENTE** → abre o chat da Muse (`ChatScreen`); só aparece quando
-  `ChatConfig.habilitado` (flag `CHAT`). Substitui o antigo FAB de mensagem.
-- **ESTUDOS** → `_abrirEstudos()`: abre o projeto reservado "Estudos" (cria se
-  não existir, `_projetoEstudos`) em MODO PASTAS (`ProjetoScreen(..., modoPastasInicial: true)`).
-  É onde o usuário cola trechos da Muse / resumos; entra na busca global normal.
-  A Muse tem um "Salvar no Estudos" (segurar a bolha → menu) que acrescenta a
-  mensagem via `Storage.adicionarNotaEmProjeto('Estudos', texto)`.
-- Rastreio de recentes em `Storage` (SharedPreferences `recentes_v1`):
-  `registrarAbertura(id)` (move pro topo), `recentesIds()`, `removerRecente(id)`.
-  `_recarregarRecentes()` remonta a lista (só projetos existentes) — ao abrir a
-  tela, ao voltar de um projeto, após "Baixar da nuvem" e após excluir/desfazer.
-- Some durante a busca (campo `🔍` aberto). No tema Claude as caixinhas usam
-  borda de 1px `#2A2A2B`; em temas neumórficos usam `Caixa3D`.
+### Barra de navegação flutuante (`HomeShell`) — V0.1.173
+Substituiu a prateleira de acessos rápidos (`_AcessosRapidos`, V0.1.110) E a
+função **Recentes**. O app abre no `HomeShell` (`lib/home_shell.dart`): uma barra
+inferior com **contorno próprio** (flutua, não cola no fundo; sombra nos temas
+com relevo, borda 1px nos planos Terracota/Ônix) sobre um `IndexedStack`.
+- **Projetos** → `ProjetosScreen` (lista; sem a prateleira do topo). Abrir um
+  projeto empilha `ProjetoScreen` em rota cheia (barra some; volta ao voltar).
+- **Muse** (centro, com o `MuseBlob`) → `ConversasScreen` (LISTA de conversas,
+  V0.1.173) — só com `ChatConfig.habilitado`. Tocar numa conversa abre o
+  `ChatScreen`; o voltar ← do chat retorna À LISTA. "Nova conversa" (✎) começa uma
+  limpa (`ChatScreen(iniciarNova: true)`).
+- **Estudos** → o projeto reservado "Estudos" (cria se não existir) EMBUTIDO
+  (`ProjetoScreen(embutido: true, modoPastasInicial: true)`): nunca sai da rota
+  (voltar na pasta→grade; na grade→troca p/ a aba Projetos via `onVoltarNaRaiz`),
+  "Excluir" some. É onde o usuário cola trechos da Muse / resumos (a Muse tem
+  "Salvar no Estudos": segurar a bolha → menu → `Storage.adicionarNotaEmProjeto`).
+- Voltar do sistema: fora de Projetos, volta p/ Projetos; nela, sai do app
+  (PopScope do shell; a aba Estudos trata o seu próprio voltar).
+- Rastreio de "recentes" em `Storage` (`registrarAbertura`/`recentesIds`) ainda
+  existe (sem UI que dependa; `_recarregarRecentes` virou no-op) — pode voltar a
+  ter uso futuro sem migração.
 
 ### Barra de ferramentas da caixinha (`_CaixaNota`)
 
@@ -1394,6 +1400,7 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `Material`+`Ink`+`InkWell` (gravando = vermelho sólido). Tirou o especial-case do tema Bege (o
   degradê sai do `fab` de cada tema). Mantido: caixa de texto sempre visível, anexo (+, imagens via
   ImagePicker) e o segurar-pra-ditar. `flutter analyze` do arquivo: No issues.
+- **V0.1.173 — barra flutuante + Muse minimalista + blob por tema + respostas de 1 toque:** redesenho na linguagem "flutuante". (1) **Shell de navegação** (`lib/home_shell.dart`, `HomeShell`): barra inferior FLUTUANTE (contorno próprio, descola do fundo) com 3 destinos — **Projetos** · **Muse** (centro) · **Estudos** — num `IndexedStack`; abrir um projeto/conversa empilha rota cheia (a barra some, foco na tela) e o voltar traz a barra. `main.dart` passa a abrir no `HomeShell`. **Removida a prateleira** de acessos rápidos (`_AcessosRapidos`) e a função **Recentes** (inútil na prática) de `projetos_screen.dart` (`_recarregarRecentes` virou no-op; glifos da prateleira removidos). (2) **Aba Muse = LISTA primeiro** (`lib/chat/conversas_screen.dart`, `ConversasScreen`): tocar em "Muse" abre a lista de conversas; tocar numa conversa abre o chat; o **voltar ← do chat retorna à lista** (antes não existia). `ChatScreen` ganhou `conversaId`/`iniciarNova` (a lista escolhe a conversa; sem eles cai no legado "última conversa" do atalho do launcher). (3) **Topo do chat minimalista:** só **← (voltar p/ lista)**, **☰** (TUDO num botão: buscar, nova, resumo, renomear, relatório, modelo, tamanho, fala) e **M** (modo Calis/Projetos/Geral — mostra a inicial do modo atual, tingida no acento; toca e troca). A antiga folha "Conversas" (`_abrirHistorico`) e os botões soltos de busca/histórico/modo saíram. O banner virou uma **pílula flutuante** central com o rosto da Muse + "Modo • Tamanho • Modelo". (4) **Blob por tema** (`lib/muse_blob.dart`, `MuseBlob` — `CustomPainter`, FORA de `lib/chat/` p/ a barra usar sem puxar o chat): o rosto da Muse (esfera vítrea + "fones" + olhos) assume a cor de acento de CADA tema (`AppCores.fab`), como os glifos; sem asset novo. Usado na barra, na lista e na pílula. (5) **Respostas de 1 toque:** quando a Muse fecha com pergunta, o proxy emite `[[SUGESTOES: a | b | c]]` no fim (bloco estático no `app.py`, `_SUGESTOES`; só não-resumo); o app mostra como chips acima da caixa (`QuickReplies.extrair` em `chat_actions.dart`; stripping no `_semCarimbo`, pega bloco parcial no stream). Latência desprezível (vem no fim do streaming, sem chamada extra). (6) **`ProjetoScreen` ganhou `embutido`/`onVoltarNaRaiz`**: a aba Estudos embute o projeto reservado "Estudos" (modo pastas) com segurança — nunca sai da rota (voltar na pasta→grade; na grade→troca p/ aba Projetos), "Excluir" some, e os FABs ficam `heroTag: null` (evita colisão de Hero com um ProjetoScreen empilhado). Testes: `chat_actions_test.dart` (QuickReplies). `dart analyze lib`: sem erros (warnings/infos pré-existentes).
 - **V0.1.172 — "Feito" na notificação + alarmes que abrem a Muse perguntando + resumo semanal:** (1) **Botão "Feito ✓"** na notificação do lembrete (cancela e tira dos pendentes sem abrir o app; o 3º botão vira ele no lugar do "+24 h" — o backup semanal mantém os 3 snoozes e não tem Feito, p/ nunca matar a série; série recorrente nunca é cancelada pelo Feito). (2) **Alarmes inteligentes**: bloco de lembrete aceita `| abrir=coach|projetos|geral | dizer=<pergunta>` (proxy ensinado no `_ACAO`); tocar no corpo abre a Muse naquele modo e **envia a pergunta sozinha** (conversa nova; roteamento via pedido em prefs+notify, snooze preserva o payload). (3) **Resumo semanal** (servidor, sem APK): `resumo_semanal.py` (1x/semana, domingo 06–22h, estado por semana ISO) injeta o fechamento da semana (treinos, joelho se mencionado, leitura, foco seguinte) quando conecta com o assunto. Testes: `lembretes_muse_test.dart` (payload/Feito) + 3 de abrir/dizer no `chat_actions_test.dart` + `tests_resumo_semanal.py`.
 - **V0.1.171 — caixa da Muse não joga p/ o fim ao tocar/editar no meio:** `onTap` e
   `onChanged` do TextField chamavam `_rolarCaixaFim()` incondicionalmente — tocar num

@@ -52,7 +52,6 @@ class ProjetosScreen extends StatefulWidget {
 
 class _ProjetosScreenState extends State<ProjetosScreen> {
   List<Projeto> _projetos = [];
-  List<Projeto> _recentes = [];
   final TextEditingController _ctrlBusca = TextEditingController();
   final FocusNode _focoBusca = FocusNode();
   bool _buscando = false;
@@ -65,7 +64,6 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   String? _ultimoAtalhoTipo;
   DateTime _ultimoAtalhoEm = DateTime.fromMillisecondsSinceEpoch(0);
   static const String _projetoNotasRapidas = 'Notas rápidas';
-  static const String _projetoEstudos = 'Estudos';
 
   @override
   void initState() {
@@ -206,43 +204,6 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     _recarregarRecentes();
   }
 
-  /// Abre o projeto reservado "Estudos" (cria se não existir) já em MODO PASTAS.
-  /// É onde o usuário cola resumos/mensagens da Muse; entra na busca global como
-  /// qualquer projeto.
-  Future<void> _abrirEstudos() async {
-    final projetos = await Storage.instance.carregar();
-    if (!mounted) return;
-    setState(() => _projetos = projetos);
-    Projeto? achado;
-    for (final x in _projetos) {
-      if (x.nome == _projetoEstudos) {
-        achado = x;
-        break;
-      }
-    }
-    if (achado == null) {
-      achado = Projeto(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          nome: _projetoEstudos);
-      _projetos.add(achado);
-      await _salvar();
-    }
-    final proj = achado;
-    if (!await _liberarAbertura(proj)) return;
-    await Storage.instance.registrarAbertura(proj.id);
-    if (!mounted) return;
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProjetoScreen(projeto: proj, modoPastasInicial: true),
-      ),
-    );
-    if (!mounted) return;
-    await _salvar();
-    if (mounted) setState(() {});
-    _recarregarRecentes();
-  }
-
   @override
   void dispose() {
     Storage.instance.removeListener(_aoMudarStorage);
@@ -261,18 +222,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     _abrirMuseComPergunta(pedido.preset, pedido.pergunta);
   }
 
-  /// Reconstroi a prateleira "Últimos abertos" a partir dos IDs salvos
-  /// (apenas projetos que ainda existem, na ordem: mais recente primeiro).
-  Future<void> _recarregarRecentes() async {
-    final ids = await Storage.instance.recentesIds();
-    if (!mounted) return;
-    setState(() {
-      _recentes = ids
-          .map((id) => _projetos.where((p) => p.id == id).firstOrNull)
-          .whereType<Projeto>()
-          .toList();
-    });
-  }
+  /// A prateleira "Recentes" foi removida na V0.1.173 (navegação foi para a barra
+  /// flutuante). Mantido como no-op para não mexer nos vários pontos que
+  /// avisavam a prateleira ao abrir/fechar/excluir projetos. O Storage segue
+  /// registrando a abertura (ordem/uso futuro), sem UI que dependa disso.
+  Future<void> _recarregarRecentes() async {}
 
   Future<void> _aoMudarStorage() async {
     // IMPORTANTE: sem List.of — a tela precisa apontar para a MESMA lista
@@ -1349,16 +1303,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 onChanged: (_) => setState(() {}),
               ),
             ),
-          if (!_buscando)
-            _AcessosRapidos(
-              ultimo: _recentes.isNotEmpty ? _recentes.first : null,
-              mostrarMuse: ChatConfig.habilitado,
-              onRecentes: () {
-                if (_recentes.isNotEmpty) _abrirProjeto(_recentes.first);
-              },
-              onMuse: _abrirMuse,
-              onEstudos: _abrirEstudos,
-            ),
+          // Prateleira de acessos rápidos (Recentes · Assistente · Estudos)
+          // removida na V0.1.173 — navegação migrou para a barra flutuante
+          // inferior (Projetos · Muse · Estudos) no HomeShell.
           Expanded(
             child: Builder(builder: (ctx) {
               if (_projetos.isEmpty) return const _Vazio();
@@ -3090,318 +3037,4 @@ class _Vazio extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Três acessos rápidos no lugar da antiga prateleira de recentes. Cada um tem
-/// um título centralizado acima de uma caixinha tocável:
-///  • RECENTES  → abre direto o último projeto aberto.
-///  • ASSISTENTE→ abre o chat da Muse (só quando o chat está habilitado).
-///  • ESTUDOS   → abre (criando se preciso) o projeto "Estudos" em modo pastas,
-///                onde o usuário cola mensagens da Muse / resumos de vídeos.
-/// Visual da caixinha (V0.1.145, ideia 05 da galeria `ideias_botoes/`): fundo
-/// ESCURO fixo + desenho traçado na cor de acento do tema ([AppCores.fab]),
-/// ou seja, cada tema pinta o desenho com a sua cor. Desenhos: relógio
-/// (Recentes), robô com tiara de telemarketing (Assistente), livro (Estudos).
-class _AcessosRapidos extends StatelessWidget {
-  const _AcessosRapidos({
-    required this.ultimo,
-    required this.mostrarMuse,
-    required this.onRecentes,
-    required this.onMuse,
-    required this.onEstudos,
-  });
-
-  final Projeto? ultimo;
-  final bool mostrarMuse;
-  final VoidCallback onRecentes;
-  final VoidCallback onMuse;
-  final VoidCallback onEstudos;
-
-  @override
-  Widget build(BuildContext context) {
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
-    final ehClaude = app == AppCores.claude;
-    final compacto = temaController.compacto;
-
-    final tituloCor = app.textoUI.withValues(alpha: 0.55);
-    final caixas = <Widget>[
-      _caixa(
-        ehClaude: ehClaude,
-        compacto: compacto,
-        titulo: 'RECENTES',
-        tituloCor: tituloCor,
-        glifo: _GlifoAcesso.recentes,
-        cor: app.fab,
-        rotulo: ultimo?.nome ?? 'nenhum ainda',
-        habilitado: ultimo != null,
-        onTap: onRecentes,
-      ),
-      if (mostrarMuse)
-        _caixa(
-          ehClaude: ehClaude,
-          compacto: compacto,
-          titulo: 'ASSISTENTE',
-          tituloCor: tituloCor,
-          glifo: _GlifoAcesso.assistente,
-          cor: app.fab,
-          rotulo: 'Muse',
-          habilitado: true,
-          onTap: onMuse,
-        ),
-      _caixa(
-        ehClaude: ehClaude,
-        compacto: compacto,
-        titulo: 'ESTUDOS',
-        tituloCor: tituloCor,
-        glifo: _GlifoAcesso.estudos,
-        cor: app.fab,
-        rotulo: 'notas',
-        habilitado: true,
-        onTap: onEstudos,
-      ),
-    ];
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, compacto ? 6 : 10, 16, 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < caixas.length; i++) ...[
-            if (i > 0) const SizedBox(width: 10),
-            Expanded(child: caixas[i]),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _caixa({
-    required bool ehClaude,
-    required bool compacto,
-    required String titulo,
-    required Color tituloCor,
-    required _GlifoAcesso glifo,
-    required Color cor,
-    required String rotulo,
-    required bool habilitado,
-    required VoidCallback onTap,
-  }) {
-    final altura = compacto ? 58.0 : 68.0;
-    final raio = ehClaude ? 10.0 : 14.0;
-
-    final conteudo = Padding(
-      // Desenho o maior possível SEM aumentar a caixa (altura fixa 58/68):
-      // folga mínima em volta, resto vai p/ o glifo. Validar nos testes de
-      // widget (RenderFlex overflow reprova).
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: compacto ? 2 : 3),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _GlifoWidget(glifo, cor: cor, size: compacto ? 30 : 36),
-          const SizedBox(height: 2),
-          Text(
-            rotulo,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: compacto ? 11 : 12,
-              // Caixinha de fundo escuro fixo → texto claro fixo (legível em
-              // qualquer tema; a cor do tema vai no desenho, não no rótulo).
-              color: const Color(0xFFF0EEE9),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    // Ideia 05 da galeria: fundo escuro fixo + filete sutil. O desenho leva a
-    // cor de acento do tema (`cor` = app.fab de cada tema).
-    Widget visual = Container(
-      height: altura,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0C0C0D),
-        borderRadius: BorderRadius.circular(raio),
-        border: Border.all(color: const Color(0x14FFFFFF)),
-      ),
-      child: conteudo,
-    );
-
-    visual = Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(raio),
-        onTap: habilitado ? onTap : null,
-        child: visual,
-      ),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 5),
-          child: Text(
-            titulo,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-              color: tituloCor,
-            ),
-          ),
-        ),
-        Opacity(opacity: habilitado ? 1.0 : 0.45, child: visual),
-      ],
-    );
-  }
-}
-
-/// Qual desenho vai na caixinha de acesso rápido (ideia 05 da galeria).
-enum _GlifoAcesso { recentes, assistente, estudos }
-
-/// Desenho traçado na cor do tema sobre o fundo escuro da caixinha.
-class _GlifoWidget extends StatelessWidget {
-  const _GlifoWidget(this.glifo, {required this.cor, required this.size});
-  final _GlifoAcesso glifo;
-  final Color cor;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _GlifoPainter(glifo, cor),
-      size: Size.square(size),
-    );
-  }
-}
-
-class _GlifoPainter extends CustomPainter {
-  _GlifoPainter(this.glifo, this.cor);
-  final _GlifoAcesso glifo;
-  final Color cor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Caixa lógica 96x96 (mesma geometria dos SVGs em `ideias_botoes/`).
-    final s = size.width / 96.0;
-    double repo(double v) => v * s;
-    final traco = Paint()
-      ..color = cor
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final cheio = Paint()
-      ..color = cor
-      ..style = PaintingStyle.fill;
-
-    switch (glifo) {
-      case _GlifoAcesso.recentes:
-        traco.strokeWidth = repo(6);
-        canvas.drawCircle(Offset(repo(48), repo(48)), repo(21), traco);
-        canvas.drawPath(
-          Path()
-            ..moveTo(repo(48), repo(48))
-            ..lineTo(repo(48), repo(33))
-            ..moveTo(repo(48), repo(48))
-            ..lineTo(repo(59), repo(53)),
-          traco,
-        );
-        canvas.drawCircle(Offset(repo(48), repo(48)), repo(3.6), cheio);
-
-      case _GlifoAcesso.assistente:
-        traco.strokeWidth = repo(5);
-        // Tiara do headset.
-        canvas.drawPath(
-          Path()
-            ..moveTo(repo(25), repo(38))
-            ..cubicTo(repo(25), repo(17), repo(71), repo(17), repo(71),
-                repo(38)),
-          traco,
-        );
-        // Concha no ouvido direito.
-        canvas.drawRRect(
-          RRect.fromLTRBR(repo(67), repo(32), repo(75), repo(46),
-              Radius.circular(repo(4))),
-          cheio,
-        );
-        // Haste do microfone até a boca.
-        canvas.drawPath(
-          Path()
-            ..moveTo(repo(71), repo(44))
-            ..cubicTo(repo(71), repo(56), repo(64), repo(60), repo(58),
-                repo(60)),
-          traco,
-        );
-        canvas.drawCircle(Offset(repo(56), repo(60)), repo(4), cheio);
-        // Cabeça do robô.
-        canvas.drawRRect(
-          RRect.fromLTRBR(repo(25), repo(32), repo(71), repo(66),
-              Radius.circular(repo(12))),
-          traco,
-        );
-        // Olhos.
-        canvas.drawCircle(Offset(repo(40), repo(48)), repo(4.4), cheio);
-        canvas.drawCircle(Offset(repo(56), repo(48)), repo(4.4), cheio);
-        // Sorriso.
-        final sorriso = traco..strokeWidth = repo(4);
-        canvas.drawPath(
-          Path()
-            ..moveTo(repo(38), repo(58))
-            ..quadraticBezierTo(
-                repo(44), repo(62), repo(50), repo(60)),
-          sorriso,
-        );
-
-      case _GlifoAcesso.estudos:
-        traco.strokeWidth = repo(5);
-        // Páginas.
-        canvas.drawPath(
-          Path()
-            ..moveTo(repo(48), repo(34))
-            ..cubicTo(repo(42), repo(30), repo(34), repo(29), repo(26),
-                repo(31))
-            ..lineTo(repo(26), repo(65))
-            ..cubicTo(repo(34), repo(63), repo(42), repo(64), repo(48),
-                repo(68))
-            ..close(),
-          traco,
-        );
-        canvas.drawPath(
-          Path()
-            ..moveTo(repo(48), repo(34))
-            ..cubicTo(repo(54), repo(30), repo(62), repo(29), repo(70),
-                repo(31))
-            ..lineTo(repo(70), repo(65))
-            ..cubicTo(repo(62), repo(63), repo(54), repo(64), repo(48),
-                repo(68))
-            ..close(),
-          traco,
-        );
-        // Lombada.
-        canvas.drawLine(
-            Offset(repo(48), repo(34)), Offset(repo(48), repo(68)), traco);
-        // Linhas de texto.
-        final fino = traco..strokeWidth = repo(3);
-        canvas.drawPath(
-          Path()
-            ..moveTo(repo(31), repo(41))
-            ..lineTo(repo(44), repo(43))
-            ..moveTo(repo(31), repo(48))
-            ..lineTo(repo(44), repo(50))
-            ..moveTo(repo(52), repo(43))
-            ..lineTo(repo(65), repo(41))
-            ..moveTo(repo(52), repo(50))
-            ..lineTo(repo(65), repo(48)),
-          fino,
-        );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _GlifoPainter old) =>
-      old.glifo != glifo || old.cor != cor;
 }
