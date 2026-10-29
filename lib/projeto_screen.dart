@@ -8,9 +8,9 @@ import 'package:flutter/services.dart';
 import 'barra_config.dart';
 import 'caixa3d.dart';
 import 'chat/chat_config.dart';
-import 'chat/conversas_screen.dart';
 import 'cores.dart';
 import 'muse_blob.dart';
+import 'nav_bus.dart';
 import 'editor.dart';
 import 'models.dart';
 import 'ocr.dart';
@@ -735,14 +735,16 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                   type: MaterialType.transparency,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const ConversasScreen())),
-                    child: SizedBox(
+                    // Volta ao shell e abre a ABA Muse (com a barra inferior) —
+                    // antes empilhava a lista SEM a barra. (V0.1.181)
+                    onTap: () {
+                      Navigator.of(context).popUntil((r) => r.isFirst);
+                      abrirAbaMuse?.call();
+                    },
+                    child: const SizedBox(
                       width: 44,
                       height: 40,
-                      child: Center(
-                          child: MuseBlob(size: 30)),
+                      child: Center(child: MuseBlob(size: 30)),
                     ),
                   ),
                 ),

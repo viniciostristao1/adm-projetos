@@ -34,7 +34,7 @@ class MuseBlob extends StatelessWidget {
       'assets/muse/muse_${_nomeTema(app)}.png',
       width: size,
       height: size,
-      filterQuality: FilterQuality.medium,
+      filterQuality: FilterQuality.high,
       // Reserva: se o asset faltar, um círculo no acento (nunca quebra a UI).
       errorBuilder: (_, _, _) => Container(
         width: size,

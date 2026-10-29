@@ -13,7 +13,6 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../diagnostico.dart';
 import '../cores.dart';
-import '../muse_blob.dart';
 import '../storage.dart';
 import '../sync_service.dart';
 import '../voz_config.dart';
@@ -146,6 +145,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ChatPreset.coach => Icons.fitness_center,
         ChatPreset.projetos => Icons.folder_outlined,
         ChatPreset.geral => Icons.forum_outlined,
+      };
+
+  /// Nome do asset do dot de cada MODO (usado no botão de enviar). V0.1.181.
+  static String _modoAsset(ChatPreset p) => switch (p) {
+        ChatPreset.coach => 'calis',
+        ChatPreset.projetos => 'projetos',
+        ChatPreset.geral => 'geral',
       };
 
   @override
@@ -1683,14 +1689,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(
-                      'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}${_conv.falaDevagar ? ' • Devagar' : ''}',
-                      maxLines: 1,
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: cs.onSurface),
-                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(
+                        'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}',
+                        maxLines: 1,
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurface),
+                      ),
+                      // "Fala devagar" vira só o ícone de velocidade (sem a
+                      // palavra "Devagar" na barra). (V0.1.181)
+                      if (_conv.falaDevagar) ...[
+                        const SizedBox(width: 6),
+                        Icon(Icons.speed, size: 16, color: cs.onSurface),
+                      ],
+                    ]),
                   ),
                 ),
               ),
@@ -2590,7 +2604,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   color:
                                       _gravando ? Colors.white : app.fabIcone,
                                 )
-                              : const MuseBlob(size: 56),
+                              // Botão de enviar = o dot do MODO atual
+                              // (Calis/Geral/Projetos). (V0.1.181)
+                              : Image.asset(
+                                  'assets/muse/modo_${_modoAsset(_conv.preset)}.png',
+                                  width: 56,
+                                  height: 56,
+                                  filterQuality: FilterQuality.high,
+                                ),
                         ),
                       ),
                     ),

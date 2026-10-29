@@ -5,6 +5,7 @@ import 'chat/conversas_screen.dart';
 import 'cores.dart';
 import 'models.dart';
 import 'muse_blob.dart';
+import 'nav_bus.dart';
 import 'projeto_screen.dart';
 import 'projetos_screen.dart';
 import 'storage.dart';
@@ -34,6 +35,25 @@ class _HomeShellState extends State<HomeShell> {
         if (ChatConfig.habilitado) _Aba.muse,
         _Aba.estudos,
       ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Permite abrir a aba Muse (com a barra) de qualquer tela (ex.: atalho da
+    // Muse dentro de um projeto, que antes abria a lista SEM a barra). V0.1.181.
+    abrirAbaMuse = _abrirAbaMuse;
+  }
+
+  @override
+  void dispose() {
+    if (abrirAbaMuse == _abrirAbaMuse) abrirAbaMuse = null;
+    super.dispose();
+  }
+
+  void _abrirAbaMuse() {
+    final i = _abas.indexOf(_Aba.muse);
+    if (i >= 0) _irPara(i);
+  }
 
   void _irPara(int i) {
     if (i == _i) return;
@@ -166,10 +186,11 @@ class _ItemBarra extends StatelessWidget {
     final cor = selecionado ? acento : inativo;
     Widget icone;
     if (aba == _Aba.muse) {
-      // Rosto da Muse; esmaece quando a aba não está ativa.
+      // Rosto da Muse, um pouco maior e mais nítido; esmaece de leve quando a
+      // aba não está ativa. (V0.1.181)
       icone = Opacity(
-        opacity: selecionado ? 1 : 0.55,
-        child: MuseBlob(size: 26),
+        opacity: selecionado ? 1 : 0.8,
+        child: const MuseBlob(size: 32),
       );
     } else {
       icone = Icon(
@@ -182,14 +203,14 @@ class _ItemBarra extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(22),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 3),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             // Pílula de destaque atrás do ícone da aba ativa.
             Container(
-              height: 30,
+              height: 36,
               width: 56,
               alignment: Alignment.center,
               decoration: selecionado
