@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:adm_projetos/chat/chat_config.dart';
 import 'package:adm_projetos/chat/chat_models.dart';
 import 'package:adm_projetos/chat/chat_store.dart';
@@ -225,6 +227,32 @@ void main() {
       // A antiga fica no COMEÇO (cronológica); a ÚLTIMA é a resposta recente.
       expect(atual?.mensagens.first.texto, '5 colheres de arroz');
       expect(atual?.mensagens.last.texto, 'resposta');
+    });
+
+    test('LEITURA reordena conversa salva fora de ordem (display na volta, V0.1.183)',
+        () async {
+      // Simula o disco JÁ fora de ordem (ex.: dispose salvou um _conv cruzado com
+      // anexarIa ao sair/voltar): uma msg antiga DEPOIS das recentes. Toda leitura
+      // (porId/listar) deve devolver cronológico — conserta o que a tela exibe.
+      final antiga = DateTime(2026, 10, 25, 9, 36);
+      final recente = DateTime(2026, 10, 29, 12, 36);
+      final conv = Conversa(
+        id: 'c1',
+        titulo: 'x',
+        preset: ChatPreset.coach,
+        atualizadaEm: recente,
+        mensagens: [
+          ChatMessage('user', 'E a massa junto?', recente),
+          ChatMessage('assistant', 'resposta massa',
+              recente.add(const Duration(seconds: 20))),
+          ChatMessage('user', 'café da manhã', antiga), // ANTIGA no fim (bug)
+        ],
+      );
+      final p = await SharedPreferences.getInstance();
+      await p.setString('taskix_muse_convs_v1', jsonEncode([conv.toJson()]));
+      final atual = await ChatStore.porId('c1');
+      expect(atual?.mensagens.first.texto, 'café da manhã'); // volta p/ o começo
+      expect(atual?.mensagens.last.texto, 'resposta massa');
     });
   });
 

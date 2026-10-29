@@ -73,6 +73,14 @@ class ChatStore {
         final list = (jsonDecode(s) as List)
             .map((e) => Conversa.fromJson(e as Map<String, dynamic>))
             .toList();
+        // ⚠️ V0.1.183 — ordena as mensagens de CADA conversa por hora NA LEITURA
+        // DA UI (esta `listar` é o que `porId`/a tela usam; `_listarInterno`, dos
+        // gravadores, é outro caminho). Conserta o display quando o disco ficou
+        // fora de ordem (ex.: sair da tela logo após enviar e voltar antes da
+        // resposta — o dispose salva um `_conv` que cruza com o `anexarIa`).
+        for (final c in list) {
+          c.mensagens = _ordCrono(c.mensagens);
+        }
         list.sort((a, b) => b.atualizadaEm.compareTo(a.atualizadaEm));
         _cacheStr = s;
         _cache = list;
@@ -147,8 +155,29 @@ class ChatStore {
     final list = (jsonDecode(s) as List)
         .map((e) => Conversa.fromJson(e as Map<String, dynamic>))
         .toList();
+    // ⚠️ V0.1.183 — ordena as mensagens de CADA conversa por hora em TODA leitura.
+    // Era a 2ª causa do bug "mensagem antiga reaparece como a última": o merge/save
+    // podia deixar o disco fora de ordem (ex.: sair da tela logo após enviar e
+    // voltar antes da resposta chegar — o dispose salva um `_conv` que se cruza com
+    // o `anexarIa` em background). Reordenar na LEITURA conserta o que a tela exibe
+    // E o histórico enviado, não importa como o disco ficou.
+    for (final c in list) {
+      c.mensagens = _ordCrono(c.mensagens);
+    }
     list.sort((a, b) => b.atualizadaEm.compareTo(a.atualizadaEm));
     return list;
+  }
+
+  /// Ordena mensagens por `hora` (cronológico), STÁVEL (índice como desempate —
+  /// Dart não garante estabilidade): mesmo instante mantém a ordem de inserção;
+  /// mensagens legadas sem carimbo (hora=0) ficam no começo (são as mais antigas).
+  static List<ChatMessage> _ordCrono(List<ChatMessage> msgs) {
+    final pares = [for (var i = 0; i < msgs.length; i++) (i, msgs[i])];
+    pares.sort((a, b) {
+      final c = a.$2.hora.compareTo(b.$2.hora);
+      return c != 0 ? c : a.$1.compareTo(b.$1);
+    });
+    return [for (final p in pares) p.$2];
   }
 
   /// União de mensagens que NUNCA perde nenhuma: junta `salvas` + `foto` (chave =
@@ -170,17 +199,7 @@ class ChatStore {
     for (final m in foto) {
       if (vistos.add(chave(m))) out.add(m);
     }
-    if (out.every((m) => m.hora.millisecondsSinceEpoch > 0)) {
-      // Sort ESTÁVEL por hora (índice de união como desempate — Dart não garante
-      // estabilidade): mensagens do mesmo instante mantêm a ordem de inserção.
-      final pares = [for (var i = 0; i < out.length; i++) (i, out[i])];
-      pares.sort((a, b) {
-        final c = a.$2.hora.compareTo(b.$2.hora);
-        return c != 0 ? c : a.$1.compareTo(b.$1);
-      });
-      return [for (final p in pares) p.$2];
-    }
-    return out;
+    return _ordCrono(out);
   }
 
   /// Uma conversa pelo id (ou null). Usado p/ recarregar a tela a partir do
