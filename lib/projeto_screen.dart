@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'barra_config.dart';
 import 'caixa3d.dart';
 import 'chat/chat_config.dart';
-import 'chat/chat_screen.dart';
+import 'chat/conversas_screen.dart';
 import 'cores.dart';
 import 'muse_blob.dart';
 import 'editor.dart';
@@ -736,7 +736,8 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
                     onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ChatScreen())),
+                        MaterialPageRoute(
+                            builder: (_) => const ConversasScreen())),
                     child: SizedBox(
                       width: 44,
                       height: 40,

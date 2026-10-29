@@ -237,7 +237,6 @@ class _ConversasScreenState extends State<ConversasScreen> {
                               child: ListTile(
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16)),
-                                leading: MuseBlob(size: 34),
                                 title: Text(conv.titulo,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

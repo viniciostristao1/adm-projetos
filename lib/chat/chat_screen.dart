@@ -1353,25 +1353,70 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _renomear(_conv);
       case 'relatorio':
         await _mostrarRelatorio();
+      case 'modelo':
+        await _escolherModelo();
+      case 'tamanho':
+        await _escolherTamanho();
       case 'devagar':
         setState(() => _conv.falaDevagar = !_conv.falaDevagar);
         await ChatStore.salvar(_conv);
         _snack(_conv.falaDevagar
             ? 'Fala devagar ativada nesta conversa'
             : 'Fala devagar desativada');
-      default:
-        if (v.startsWith('m_')) {
-          setState(() => _conv.modelo = ChatModelo.deId(v.substring(2)));
-          await ChatStore.salvar(_conv);
-          _snack('Modelo: ${_conv.modelo.rotulo}');
-        } else if (v.startsWith('t_')) {
-          setState(() => _conv.tamanho = ChatTamanho.deId(v.substring(2)));
-          await ChatStore.salvar(_conv);
-          _snack(_conv.tamanho == ChatTamanho.curto
-              ? 'Respostas curtas (cerca de metade, sem cortar)'
-              : 'Respostas longas (tamanho completo)');
-        }
     }
+  }
+
+  /// Seletor de MODELO (escondido no menu; abre sob toque). V0.1.179.
+  Future<void> _escolherModelo() async {
+    final esc = await showModalBottomSheet<ChatModelo>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final mdl in ChatModelo.values)
+            ListTile(
+              leading: Icon(_conv.modelo == mdl
+                  ? Icons.check
+                  : Icons.smart_toy_outlined),
+              title: Text(mdl.rotulo),
+              subtitle: Text(mdl.descricao),
+              selected: _conv.modelo == mdl,
+              onTap: () => Navigator.pop(c, mdl),
+            ),
+        ]),
+      ),
+    );
+    if (esc == null) return;
+    setState(() => _conv.modelo = esc);
+    await ChatStore.salvar(_conv);
+    _snack('Modelo: ${_conv.modelo.rotulo}');
+  }
+
+  /// Seletor de TAMANHO (escondido no menu; abre sob toque). V0.1.179.
+  Future<void> _escolherTamanho() async {
+    final esc = await showModalBottomSheet<ChatTamanho>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final tam in ChatTamanho.values)
+            ListTile(
+              leading: Icon(
+                  _conv.tamanho == tam ? Icons.check : Icons.straighten),
+              title: Text(tam.rotulo),
+              subtitle: Text(tam.descricao),
+              selected: _conv.tamanho == tam,
+              onTap: () => Navigator.pop(c, tam),
+            ),
+        ]),
+      ),
+    );
+    if (esc == null) return;
+    setState(() => _conv.tamanho = esc);
+    await ChatStore.salvar(_conv);
+    _snack(_conv.tamanho == ChatTamanho.curto
+        ? 'Respostas curtas (cerca de metade, sem cortar)'
+        : 'Respostas longas (tamanho completo)');
   }
 
   /// Mostra as falhas capturadas (Diagnostico) e deixa ENVIAR (ao proxy do
@@ -1599,6 +1644,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final logado = SyncService.instance.conectado;
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
@@ -1625,20 +1671,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 decoration: const InputDecoration(
                     hintText: 'Buscar na conversa…', border: InputBorder.none),
               )
-            : Row(mainAxisSize: MainAxisSize.min, children: [
-                MuseBlob(size: 20),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}${_conv.falaDevagar ? ' • Devagar' : ''}',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface),
+            // Pílula de status com CONTORNO na cor do tema; a frase inteira cabe
+            // (FittedBox encolhe se faltar largura). Sem a foto ao lado. (V0.1.179)
+            : Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: app.fab, width: 1.5),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}${_conv.falaDevagar ? ' • Devagar' : ''}',
+                      maxLines: 1,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface),
+                    ),
                   ),
                 ),
-              ]),
+              ),
         actions: _buscando
             ? _acoesBusca()
             : [
@@ -1668,36 +1723,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _item('renomear', Icons.edit_outlined, 'Renomear conversa'),
               _item('relatorio', Icons.bug_report_outlined, 'Relatório de erros'),
               const PopupMenuDivider(),
-              for (final mdl in ChatModelo.values)
-                PopupMenuItem(
-                  value: 'm_${mdl.id}',
-                  child: ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(_conv.modelo == mdl
-                        ? Icons.check
-                        : Icons.smart_toy_outlined),
-                    title: Text('Modelo: ${mdl.rotulo}'),
-                    subtitle: Text(mdl.descricao),
-                  ),
-                ),
-              const PopupMenuDivider(),
-              // Tamanho da resposta (vale a partir da próxima mensagem). Curto
-              // nunca corta: o servidor ainda obriga concluir o raciocínio e
-              // terminar as frases, mantendo o tom motivador/propositivo.
-              for (final tam in ChatTamanho.values)
-                PopupMenuItem(
-                  value: 't_${tam.id}',
-                  child: ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(_conv.tamanho == tam
-                        ? Icons.check
-                        : Icons.straighten),
-                    title: Text('Tamanho: ${tam.rotulo}'),
-                    subtitle: Text(tam.descricao),
-                  ),
-                ),
+              // Modelo e Tamanho ESCONDIDOS atrás de um toque (abrem um seletor)
+              // — antes ficavam expandidos no menu. (V0.1.179) Mostram o atual.
+              _item('modelo', Icons.smart_toy_outlined,
+                  'Modelo: ${_conv.modelo.rotulo}'),
+              _item('tamanho', Icons.straighten,
+                  'Tamanho: ${_conv.tamanho.rotulo}'),
               const PopupMenuDivider(),
               // Fala devagar SÓ nesta conversa (soma ao ritmo das Configurações).
               PopupMenuItem(
@@ -2525,12 +2556,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     child: Ink(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: _gravando
-                            ? null
-                            : LinearGradient(
+                        // Enviando = degradê + ampulheta; gravando = vermelho +
+                        // mic; OCIOSO = a FOTO da Muse é o próprio botão de enviar.
+                        gradient: _enviando
+                            ? LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [sendG1, sendG2]),
+                                colors: [sendG1, sendG2])
+                            : null,
                         color: _gravando ? Colors.red : null,
                       ),
                       child: InkWell(
@@ -2548,13 +2581,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         child: SizedBox(
                           width: 56,
                           height: 56,
-                          child: Icon(
-                            _enviando
-                                ? Icons.hourglass_empty
-                                : (_gravando ? Icons.mic : Icons.send),
-                            size: 28,
-                            color: _gravando ? Colors.white : app.fabIcone,
-                          ),
+                          child: (_enviando || _gravando)
+                              ? Icon(
+                                  _enviando
+                                      ? Icons.hourglass_empty
+                                      : Icons.mic,
+                                  size: 28,
+                                  color:
+                                      _gravando ? Colors.white : app.fabIcone,
+                                )
+                              : const MuseBlob(size: 56),
                         ),
                       ),
                     ),
