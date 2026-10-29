@@ -199,6 +199,33 @@ void main() {
       expect(lista.single.mensagens.length, 3);
       expect(lista.single.mensagens.last.texto, '3');
     });
+
+    test('merge NÃO deixa mensagem antiga no fim — reordena por hora (V0.1.182)',
+        () async {
+      // Bug: uma mensagem de DIAS atrás, reinjetada pela foto da tela, ia pro FIM
+      // da lista e virava a "última" enviada ao modelo. Deve voltar à posição
+      // cronológica (começo), não ficar depois das recentes.
+      final recente = DateTime(2026, 10, 27, 10, 27);
+      final c = Conversa.nova(ChatPreset.geral)
+        ..mensagens = [
+          ChatMessage('user', 'recente', recente),
+          ChatMessage('assistant', 'resposta', recente.add(const Duration(seconds: 30))),
+        ];
+      await ChatStore.salvar(c);
+      // Foto da tela traz uma msg ANTIGA (25/10) que NÃO está no disco:
+      final foto = Conversa.fromJson(c.toJson());
+      foto.mensagens = [
+        ...foto.mensagens,
+        ChatMessage('user', '5 colheres de arroz', DateTime(2026, 10, 25, 7, 3)),
+      ];
+      await ChatStore.salvar(foto);
+      await ChatStore.sincronizar();
+      final atual = await ChatStore.porId(c.id);
+      expect(atual?.mensagens.length, 3);
+      // A antiga fica no COMEÇO (cronológica); a ÚLTIMA é a resposta recente.
+      expect(atual?.mensagens.first.texto, '5 colheres de arroz');
+      expect(atual?.mensagens.last.texto, 'resposta');
+    });
   });
 
   group('resposta sobrevive ao voltar (envio em background)', () {

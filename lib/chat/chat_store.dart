@@ -151,9 +151,13 @@ class ChatStore {
     return list;
   }
 
-  /// União de mensagens que NUNCA perde nenhuma: mantém TODAS as `salvas`, na
-  /// ordem, e acrescenta as da `foto` que ainda não estão lá (chave =
-  /// role|hora|texto). Resolve o caso de uma foto atrasada tentar encolher.
+  /// União de mensagens que NUNCA perde nenhuma: junta `salvas` + `foto` (chave =
+  /// role|hora|texto) e REORDENA por hora (cronológico). Resolve o caso de uma foto
+  /// atrasada tentar encolher E o bug de ORDENAÇÃO (V0.1.182): antes os extras da
+  /// foto iam pro FIM da lista — uma mensagem de DIAS atrás (resposta nunca entregue,
+  /// corte de 120 msgs, save defasado) podia reaparecer como a ÚLTIMA e o modelo
+  /// respondia a ela como se fosse recente. Só reordena se TODAS têm carimbo válido
+  /// (>0); conversas legadas sem `hora` ficam na ordem de união (sem bagunçar).
   static List<ChatMessage> _mesclarMensagens(
       List<ChatMessage> salvas, List<ChatMessage> foto) {
     String chave(ChatMessage m) =>
@@ -165,6 +169,16 @@ class ChatStore {
     }
     for (final m in foto) {
       if (vistos.add(chave(m))) out.add(m);
+    }
+    if (out.every((m) => m.hora.millisecondsSinceEpoch > 0)) {
+      // Sort ESTÁVEL por hora (índice de união como desempate — Dart não garante
+      // estabilidade): mensagens do mesmo instante mantêm a ordem de inserção.
+      final pares = [for (var i = 0; i < out.length; i++) (i, out[i])];
+      pares.sort((a, b) {
+        final c = a.$2.hora.compareTo(b.$2.hora);
+        return c != 0 ? c : a.$1.compareTo(b.$1);
+      });
+      return [for (final p in pares) p.$2];
     }
     return out;
   }
