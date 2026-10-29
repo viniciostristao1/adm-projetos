@@ -166,7 +166,7 @@ class _ConversasScreenState extends State<ConversasScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
                   child: Column(children: [
-                    MuseBlob(size: 72),
+                    const MuseRespira(size: 72),
                     const SizedBox(height: 10),
                     Text('Muse Spark',
                         style: TextStyle(

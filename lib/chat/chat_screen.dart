@@ -13,6 +13,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../diagnostico.dart';
 import '../cores.dart';
+import '../muse_blob.dart';
 import '../storage.dart';
 import '../sync_service.dart';
 import '../voz_config.dart';
@@ -2430,11 +2431,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _barraEntrada(BuildContext context) {
-    // Botão de ENVIAR em DEGRADÊ, derivado do acento do tema (terracota no
-    // Terracota; cada tema usa o seu `fab`/`fabIcone`).
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
-    final sendG1 = Color.lerp(app.fab, Colors.white, 0.20)!;
-    final sendG2 = Color.lerp(app.fab, Colors.black, 0.28)!;
+    // Botão de ENVIAR = o dot do MODO (rosto da Muse), que PULA enquanto ela
+    // pensa; gravando vira vermelho + mic. (V0.1.184)
     return SafeArea(
       top: false,
       child: Padding(
@@ -2565,19 +2563,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   child: Material(
                     color: Colors.transparent,
                     shape: const CircleBorder(),
-                    clipBehavior: Clip.antiAlias,
+                    // Clip.none p/ o PULO da Muse (enquanto pensa) não ser cortado.
+                    clipBehavior: Clip.none,
                     elevation: 2,
                     child: Ink(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        // Enviando = degradê + ampulheta; gravando = vermelho +
-                        // mic; OCIOSO = a FOTO da Muse é o próprio botão de enviar.
-                        gradient: _enviando
-                            ? LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [sendG1, sendG2])
-                            : null,
+                        // Gravando = vermelho + mic; senão o rosto da Muse (dot do
+                        // MODO) é o botão — e PULA enquanto ela pensa (V0.1.184).
                         color: _gravando ? Colors.red : null,
                       ),
                       child: InkWell(
@@ -2592,27 +2585,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   _enviar();
                                 }
                               },
-                        child: SizedBox(
-                          width: 56,
-                          height: 56,
-                          child: (_enviando || _gravando)
-                              ? Icon(
-                                  _enviando
-                                      ? Icons.hourglass_empty
-                                      : Icons.mic,
-                                  size: 28,
-                                  color:
-                                      _gravando ? Colors.white : app.fabIcone,
-                                )
-                              // Botão de enviar = o dot do MODO atual
-                              // (Calis/Geral/Projetos). (V0.1.181)
-                              : Image.asset(
+                        child: _gravando
+                            ? const SizedBox(
+                                width: 56,
+                                height: 56,
+                                child: Icon(Icons.mic,
+                                    size: 28, color: Colors.white),
+                              )
+                            // Dot do MODO (Calis/Geral/Projetos) é o botão; PULA
+                            // enquanto a Muse pensa (_enviando). (V0.1.184)
+                            : MusePula(
+                                ativo: _enviando,
+                                size: 56,
+                                child: Image.asset(
                                   'assets/muse/modo_${_modoAsset(_conv.preset)}.png',
                                   width: 56,
                                   height: 56,
                                   filterQuality: FilterQuality.high,
                                 ),
-                        ),
+                              ),
                       ),
                     ),
                   ),
