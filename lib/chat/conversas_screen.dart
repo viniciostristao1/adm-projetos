@@ -130,6 +130,13 @@ class _ConversasScreenState extends State<ConversasScreen> {
     }
   }
 
+  /// Nome do asset do dot de cada MODO (Calis/Geral/Projetos).
+  String _modoAsset(ChatPreset p) => switch (p) {
+        ChatPreset.coach => 'calis',
+        ChatPreset.projetos => 'projetos',
+        ChatPreset.geral => 'geral',
+      };
+
   String _data(DateTime d) {
     final agora = DateTime.now();
     final hoje = DateTime(agora.year, agora.month, agora.day);
@@ -237,6 +244,13 @@ class _ConversasScreenState extends State<ConversasScreen> {
                               child: ListTile(
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16)),
+                                // Dot do MODO da conversa (Calis/Geral/Projetos),
+                                // cada um com seu personagem/cor. (V0.1.180)
+                                leading: Image.asset(
+                                  'assets/muse/modo_${_modoAsset(conv.preset)}.png',
+                                  width: 40,
+                                  height: 40,
+                                ),
                                 title: Text(conv.titulo,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
