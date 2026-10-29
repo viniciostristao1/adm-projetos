@@ -58,8 +58,9 @@ class MuseRespira extends StatefulWidget {
 
 class _MuseRespiraState extends State<MuseRespira>
     with SingleTickerProviderStateMixin {
+  // 1600ms (V0.1.185: o dobro da velocidade — era 3200).
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 3200))
+      vsync: this, duration: const Duration(milliseconds: 1600))
     ..repeat(reverse: true);
 
   @override
