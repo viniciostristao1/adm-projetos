@@ -33,10 +33,11 @@ Arquivos do app em `lib/chat/`:
 > (`lib/muse_blob.dart`, tingido no acento do tema). **Respostas de 1 toque:** o
 > app mostra até 2 chips acima da caixa a partir do bloco `[[SUGESTOES: a | b]]`.
 > Esse bloco vem de duas formas no `app.py`: (1) o modelo emite (`_SUGESTOES`); (2)
-> **fallback determinístico** — se a resposta fecha com pergunta e o modelo NÃO
-> emitiu, o servidor GERA as 2 opções numa chamada curta dedicada
-> (`_com_sugestoes`/`_gerar_sugestoes`). O (2) é o que garante que as sugestões
-> não somem no meio da conversa (o modelo esquece a regra após alguns turnos).
+> **fallback determinístico** — em QUASE TODA resposta (não só perguntas; pula
+> resumo/erro/curtas), se o modelo NÃO emitiu, o servidor GERA as 2 opções numa
+> chamada curta dedicada (`_com_sugestoes`/`_gerar_sugestoes`): responde à pergunta
+> OU dá continuações naturais. O (2) garante que as sugestões apareçam sempre (o
+> modelo esquece a regra após alguns turnos) — e é só servidor, vale no APK atual.
 
 Proxy na VPS (`/opt/taskix-chat/`):
 - `app.py` — tudo do servidor. `conhecimento/` — o que a Muse "sabe".
