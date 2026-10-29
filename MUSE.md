@@ -31,8 +31,12 @@ Arquivos do app em `lib/chat/`:
 > → lista**. Topo do chat: **←**, **☰** (buscar/nova/resumo/renomear/modelo/
 > tamanho/fala) e **M** (modo). O rosto da Muse é o `MuseBlob`
 > (`lib/muse_blob.dart`, tingido no acento do tema). **Respostas de 1 toque:** o
-> proxy emite `[[SUGESTOES: a | b | c]]` quando fecha com pergunta (`_SUGESTOES`
-> no `app.py`); o app mostra chips acima da caixa.
+> app mostra até 2 chips acima da caixa a partir do bloco `[[SUGESTOES: a | b]]`.
+> Esse bloco vem de duas formas no `app.py`: (1) o modelo emite (`_SUGESTOES`); (2)
+> **fallback determinístico** — se a resposta fecha com pergunta e o modelo NÃO
+> emitiu, o servidor GERA as 2 opções numa chamada curta dedicada
+> (`_com_sugestoes`/`_gerar_sugestoes`). O (2) é o que garante que as sugestões
+> não somem no meio da conversa (o modelo esquece a regra após alguns turnos).
 
 Proxy na VPS (`/opt/taskix-chat/`):
 - `app.py` — tudo do servidor. `conhecimento/` — o que a Muse "sabe".
