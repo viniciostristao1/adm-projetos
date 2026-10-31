@@ -291,6 +291,7 @@ class ChatService {
               'model': modeloId,
               'tamanho': tamanhoId,
               'imagens_b64': ?imagensB64,
+              'hoje': ancoraHoje(),
             }),
           )
           .timeout(const Duration(seconds: 170));

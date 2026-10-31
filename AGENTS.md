@@ -993,6 +993,15 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   check-ins por dia, conclusões e troféus, com um cabeçalho "como ler" (`calis_resumo.py`).
   Depende de 1 passo manual (colocar `calis-timer-sa.json` na VPS); sem ele, o coach pede ao
   usuário que descreva o treino (degradação graciosa). Detalhes no proxy: `calis_resumo.py`.
+- **Âncora de data (V0.1.186):** o app envia `hoje: {data, dia, amanha_data, amanha_dia}`
+  (`ancoraHoje()` em `chat_models.dart`) em `/chat` e `/chat_stream`. Motivo: a Muse
+  entrou em loop ("amanhã é domingo", trocando Peitoral Foco 1 por Bike) porque a data
+  vivia só no system-prompt e se perdia no histórico. Falta o patch do proxy
+  (`/opt/taskix-chat`): usar `hoje` p/ injetar "📌 Hoje é {dia}, {data}. Amanhã é
+  {amanha_dia}, {amanha_data}." colado na ÚLTIMA msg do usuário + regras duras: (a) nunca
+  discutir dia/data com o usuário — correção de data é aceita na hora; (b) "hoje/amanhã"
+  SEMPRE do cabeçalho, nunca do histórico; (c) treino do dia SÓ pela tabela
+  dia-da-semana→treino do resumo, nunca adivinhar. Proxy antigo ignora `hoje` sem quebrar.
 - **Conversa / projetos (V0.1.97):** no preset Conversa, o proxy injeta
   `/opt/taskix-chat/projetos.md` — um resumo CURADO e compartilhável dos projetos do usuário —
   para a IA responder perguntas básicas sobre eles. ⚠️ **FLUXO:** ao shipar uma funcionalidade

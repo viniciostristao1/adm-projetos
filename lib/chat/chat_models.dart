@@ -13,6 +13,35 @@ String capitalizarFrases(String t) {
       (m) => m[1]! + m[2]!.toUpperCase());
 }
 
+/// Âncora de data enviada em TODA requisição ao proxy (campo `hoje`).
+/// Motivo (V0.1.186): a Muse confundia dia da semana ("amanhã é domingo" em
+/// loop, trocando Peitoral Foco 1 por Bike) porque a data vivia só no
+/// system-prompt do servidor e se perdia no meio do histórico. Com a âncora
+/// junto do pedido, o proxy injeta o cabeçalho datado colado na ÚLTIMA mensagem
+/// do usuário (ver patch do proxy em /opt/taskix-chat). Ignorado pelo proxy
+/// antigo sem quebrar nada.
+Map<String, String> ancoraHoje() {
+  const dias = [
+    'segunda-feira',
+    'terça-feira',
+    'quarta-feira',
+    'quinta-feira',
+    'sexta-feira',
+    'sábado',
+    'domingo',
+  ];
+  String iso(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  final agora = DateTime.now();
+  final amanha = agora.add(const Duration(days: 1));
+  return {
+    'data': iso(agora),
+    'dia': dias[agora.weekday - 1],
+    'amanha_data': iso(amanha),
+    'amanha_dia': dias[amanha.weekday - 1],
+  };
+}
+
 /// Modo da conversa — define o "papel" da IA no servidor (system-prompt).
 enum ChatPreset {
   coach('coach', 'Calis', 'Treinador do Calis Timer (vê seu desempenho)'),
