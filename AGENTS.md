@@ -1029,6 +1029,11 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
 - **V0.1.101:** conhecimento do Muse reorganizado na VPS em `/opt/taskix-chat/conhecimento/`
   (`projetos.md` → modo Projetos; `pessoal.md` → modo Geral; `INSTRUCOES.md` = guia p/ outra IA/
   usuário editar via Termius, com DATAS `[AAAA-MM-DD]`). O proxy injeta a **data de hoje** (pt-BR).
+  **Pendente (usuário aprovou incluir tudo):** `conhecimento/treino-principios.md` p/ o modo Coach
+  (doutrina: julgar por 6–10 sem, dose mínima, reavaliação sono→nutri→hormônios→variáveis,
+  parar a RIR 2–3, frequência distribuída, pliometria SÓ com trava de articulação — joelho do
+  usuário em observação —, imaginação mental só como curiosidade). Proxy deve injetar no Coach
+  com a regra "prefira ao achismo" + nunca debater dia/data (ver âncora `hoje` V0.1.186).
   App: **anexo (clip)** no campo de texto (colar texto ou arquivo via `file_picker`; vai junto da
   mensagem); lista **invertida** (`reverse:true`) — sempre abre na mensagem mais recente; **renomear
   reflete no título na hora**.
