@@ -2038,9 +2038,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Texto SEM o carimbo de data/hora (some da escrita; só o servidor usa p/
     // contexto). Na busca, grifa as ocorrências; senão texto simples.
     final txt = _semCarimbo(m.texto);
-    final texto = _busca.isEmpty
-        ? Text(txt, style: estilo)
-        : Text.rich(TextSpan(children: _grifar(txt, estilo, idx)));
+    // Resposta da Muse = SelectableText (segurar seleciona uma PARTE do texto;
+    // antes o long-press abria o menu e copiava tudo). A SUA mensagem segue com
+    // o menu de segurar (copiar/editar).
+    final texto = ehEu
+        ? (_busca.isEmpty
+            ? Text(txt, style: estilo)
+            : Text.rich(TextSpan(children: _grifar(txt, estilo, idx))))
+        : (_busca.isEmpty
+            ? SelectableText(txt, style: estilo)
+            : SelectableText.rich(TextSpan(children: _grifar(txt, estilo, idx))));
+    final podeRegerar =
+        !ehEu && idx == _conv.mensagens.length - 1 && !_enviando;
     final hora = _rotuloHora(m.hora);
     return Align(
       alignment: ehEu ? Alignment.centerRight : Alignment.centerLeft,
@@ -2051,75 +2060,79 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         children: [
           // Segurar = menu com Copiar / Salvar no Estudos (mensagem INTEIRA, sem
           // precisar selecionar tudo).
-          GestureDetector(
-            onLongPress: () => _acoesMensagem(m, idx),
-            child: Container(
-              margin: const EdgeInsets.only(top: 4, bottom: 2),
-              padding:
-                  EdgeInsets.fromLTRB(14, 10, ehEu ? 14 : 6, ehEu ? 10 : 2),
-              constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.9),
-              decoration: BoxDecoration(
-                color: ehEu ? cs.primary : cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(ehEu ? 16 : 4),
-                  bottomRight: Radius.circular(ehEu ? 4 : 16),
+          Builder(
+            builder: (context) {
+              final bolha = Container(
+                margin: const EdgeInsets.only(top: 4, bottom: 2),
+                padding:
+                    EdgeInsets.fromLTRB(14, 10, ehEu ? 14 : 6, ehEu ? 10 : 2),
+                constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.9),
+                decoration: BoxDecoration(
+                  color: ehEu ? cs.primary : cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: Radius.circular(ehEu ? 16 : 4),
+                    bottomRight: Radius.circular(ehEu ? 4 : 16),
+                  ),
                 ),
-              ),
-              // Resposta da IA: botãozinho de ÁUDIO no canto inferior direito (cabe
-              // dentro da bolha, sem alargá-la).
-              child: ehEu
-                  ? texto
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: texto),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Recomeçar a leitura do INÍCIO desta mensagem.
-                              InkWell(
-                                onTap: () => _recomecarFala(idx, m.texto),
-                                customBorder: const CircleBorder(),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Icon(Icons.replay,
-                                      size: 24, color: cs.onSurfaceVariant),
+                // Resposta da Muse: botões no canto inferior direito.
+                child: ehEu
+                    ? texto
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: texto),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Wrap(
+                              alignment: WrapAlignment.end,
+                              children: [
+                                // Recomeçar a leitura do INÍCIO desta mensagem.
+                                _acaoBolha(Icons.replay, 24,
+                                    onTap: () => _recomecarFala(idx, m.texto)),
+                                // Alto-falante: tocar = play/pausa; segurar = parar.
+                                _acaoBolha(
+                                  _lendoIdx == idx
+                                      ? (_gerandoVoz
+                                          ? Icons.hourglass_bottom_outlined
+                                          : (_pausado
+                                              ? Icons.play_circle_outline
+                                              : Icons.pause_circle_outline))
+                                      : Icons.volume_up_outlined,
+                                  26,
+                                  onTap: () => _falar(idx, m.texto),
+                                  onLongPress: () => _pararReplay(),
                                 ),
-                              ),
-                              // Alto-falante: tocar = play/pausa; segurar = parar.
-                              InkWell(
-                                onTap: () => _falar(idx, m.texto),
-                                onLongPress: () => _pararReplay(),
-                                customBorder: const CircleBorder(),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Icon(
-                                    _lendoIdx == idx
-                                        ? (_gerandoVoz
-                                            ? Icons.hourglass_bottom_outlined
-                                            : (_pausado
-                                                ? Icons.play_circle_outline
-                                                : Icons.pause_circle_outline))
-                                        : Icons.volume_up_outlined,
-                                    size: 26,
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ],
+                                // Copiar TUDO (segurar o texto seleciona só uma parte).
+                                _acaoBolha(Icons.copy_rounded, 21,
+                                    tooltip: 'Copiar tudo',
+                                    onTap: () => _copiar(_semCarimbo(m.texto))),
+                                // Regerar (só a última resposta) — ícone distinto do replay.
+                                if (podeRegerar)
+                                  _acaoBolha(Icons.autorenew_rounded, 22,
+                                      tooltip: 'Regerar',
+                                      onTap: () => _regenerar()),
+                                // Salvar nos Estudos.
+                                _acaoBolha(Icons.menu_book_outlined, 22,
+                                    tooltip: 'Salvar nos Estudos',
+                                    onTap: () =>
+                                        _salvarNoEstudos(_semCarimbo(m.texto))),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-            ),
+                        ],
+                      ),
+              );
+              return ehEu
+                  ? GestureDetector(
+                      onLongPress: () => _acoesMensagem(m, idx), child: bolha)
+                  : bolha;
+            },
           ),
           // Data/hora FORA e EMBAIXO da bolha (não vai no Copiar).
           if (hora.isNotEmpty)
@@ -2133,6 +2146,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ],
       ),
     );
+  }
+
+  /// Um botão de ação da bolha da Muse (voz, copiar, regerar, estudos).
+  Widget _acaoBolha(IconData icone, double size,
+      {required VoidCallback onTap, VoidCallback? onLongPress, String? tooltip}) {
+    final cs = Theme.of(context).colorScheme;
+    Widget w = InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      customBorder: const CircleBorder(),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Icon(icone, size: size, color: cs.onSurfaceVariant),
+      ),
+    );
+    if (tooltip != null) w = Tooltip(message: tooltip, child: w);
+    return w;
   }
 
   void _copiar(String texto) {

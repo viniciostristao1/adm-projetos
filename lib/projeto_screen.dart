@@ -282,7 +282,16 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       texto: comTexto ?? '',
     );
-    setState(() => _lista(aba).add(nota));
+    setState(() {
+      // Com busca ativa, a caixinha nova (vazia) seria filtrada pelo termo e
+      // "sumiria" (o usuário achava que o + não funcionava, pois só aparecia
+      // depois de fechar a lupa). Limpa a busca para ela aparecer e focar.
+      if (_buscando || _ctrlBusca.text.isNotEmpty) {
+        _buscando = false;
+        _ctrlBusca.clear();
+      }
+      _lista(aba).add(nota);
+    });
     // A caixinha nova entra no FIM. Com muitas caixinhas ela nasce fora da tela
     // e, como a lista é lazy, nem é construída → antes o foco/rolagem falhavam.
     // Rola a lista até o fim (construindo os itens no caminho) e então foca.
