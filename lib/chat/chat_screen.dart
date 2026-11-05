@@ -2568,6 +2568,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Microfone AZUL (3º botão, acima do anexar): envia o que você
+                // ditou pelo teclado (mic do Gboard) e faz a Muse RESPONDER POR
+                // VOZ. Contorna o "segurar" (STT nativo morre nas pausas): o
+                // Gboard lida bem com pausas, e este botão só força a voz.
+                IconButton(
+                  icon: const Icon(Icons.mic,
+                      size: 20, color: Color(0xFF3B82F6)),
+                  tooltip: 'Enviar e responder por voz',
+                  padding: const EdgeInsets.all(6),
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  splashRadius: 16,
+                  onPressed: (_enviando || _gravando)
+                      ? null
+                      : () {
+                          _modoAudio = true; // resposta FALADA
+                          _enviar();
+                        },
+                ),
+                const SizedBox(height: 8),
                 IconButton(
                   icon: Icon(Icons.attach_file,
                       size: 20,
