@@ -38,6 +38,34 @@ class MuseEvent {
 /// aqui só vai o ID token do Firebase do usuário logado (o servidor só aceita a
 /// conta do dono). Ver `AGENTS.md` (módulo de chat) e o proxy `/opt/taskix-chat`.
 class ChatService {
+  /// Previsão de Lajeado p/ a NOTIFICAÇÃO diária (6:15). Chama `/tempo_notif`
+  /// (autenticado) e devolve as mensagens das próximas manhãs
+  /// (`{data, titulo, corpo}`). Lista vazia em qualquer falha (sem login/rede).
+  static Future<List<Map<String, String>>> buscarTempoNotif() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return const [];
+      final token = (await user.getIdToken()) ?? '';
+      final resp = await http.get(
+        Uri.parse('${ChatConfig.url}/tempo_notif'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 20));
+      if (resp.statusCode != 200) return const [];
+      final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      final dias = (data['dias'] as List?) ?? const [];
+      return dias
+          .whereType<Map>()
+          .map((e) => {
+                'data': (e['data'] ?? '').toString(),
+                'titulo': (e['titulo'] ?? '').toString(),
+                'corpo': (e['corpo'] ?? '').toString(),
+              })
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Voz neural da VPS (MP3 pt-BR). `voz` ('dii'/'faber'/voz Edge) e
   /// `velocidade` (lengthScale) são opcionais — ausentes = padrão do servidor.
   /// Devolve os bytes do áudio ou null em qualquer falha (o chamador cai para

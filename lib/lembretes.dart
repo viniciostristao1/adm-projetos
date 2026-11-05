@@ -165,6 +165,30 @@ class LembretesService extends ChangeNotifier {
   int get backupSemanalHora => _bkpHora;
   int get backupSemanalMin => _bkpMin;
 
+  // ===== Previsão do tempo (6:15, exceto domingo) =====
+  // Canal PRÓPRIO (ícone/nome distintos do lembrete rápido) + faixa de ids
+  // reservada (3 manhãs pré-agendadas; o conteúdo é reescrito a cada app-open).
+  static const String _canalTempoId = 'tempo_v1';
+  static const String _canalTempoNome = 'Previsão do tempo';
+  static const String _canalTempoDesc = 'Previsão de Lajeado às 6:15 (exceto domingo)';
+  static const int _idTempoBase = 910000;
+  static const int _tempoSlots = 3;
+  static const int _tempoHora = 6;
+  static const int _tempoMin = 15;
+  static const String _chaveTempoAtivo = 'tempo_ativo_v1';
+
+  bool _tempoAtivo = false;
+  bool get previsaoTempoAtiva => _tempoAtivo;
+
+  static const AndroidNotificationChannel _canalTempo = AndroidNotificationChannel(
+    _canalTempoId,
+    _canalTempoNome,
+    description: _canalTempoDesc,
+    importance: Importance.high,
+    playSound: true,
+    enableVibration: true,
+  );
+
   /// Botões de reprogramar que aparecem na notificação (id, rótulo, duração).
   /// O Android mostra até ~3 botões. Nos lembretes o 3º é o "Feito ✓" (concluir
   /// sem abrir é mais comum que adiar 1 dia); o backup semanal mantém os 3
@@ -275,6 +299,7 @@ class LembretesService extends ChangeNotifier {
           respostaNotificacaoBackground,
     );
     await _android?.createNotificationChannel(_canal);
+    await _android?.createNotificationChannel(_canalTempo);
     // Remove o canal antigo (importância high sem som garantido) para não
     // ficar duplicado nas configurações do Android.
     await _android?.deleteNotificationChannel(_canalIdAntigo);
@@ -297,6 +322,7 @@ class LembretesService extends ChangeNotifier {
       _bkpWeekday = prefs.getInt(_chaveBkpWeekday) ?? DateTime.sunday;
       _bkpHora = prefs.getInt(_chaveBkpHora) ?? 19;
       _bkpMin = prefs.getInt(_chaveBkpMin) ?? 0;
+      _tempoAtivo = prefs.getBool(_chaveTempoAtivo) ?? false;
     } catch (_) {}
   }
 
@@ -360,6 +386,91 @@ class LembretesService extends ChangeNotifier {
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       payload: _msgBackup,
     );
+  }
+
+  // ===== Previsão do tempo: detalhes + agendamento =====
+
+  static NotificationDetails _detalhesTempo(String titulo, String corpo) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        _canalTempoId,
+        _canalTempoNome,
+        channelDescription: _canalTempoDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        visibility: NotificationVisibility.public,
+        category: AndroidNotificationCategory.status,
+        icon: 'ic_tempo',
+        styleInformation: BigTextStyleInformation(corpo,
+            contentTitle: titulo, summaryText: 'Tempo · Lajeado'),
+        ticker: titulo,
+        playSound: true,
+        enableVibration: true,
+        autoCancel: true,
+      ),
+      iOS: const DarwinNotificationDetails(
+          presentAlert: true, presentSound: true, presentBadge: false),
+    );
+  }
+
+  Future<void> _cancelarTempo() async {
+    for (var k = 0; k < _tempoSlots; k++) {
+      await _plugin.cancel(_idTempoBase + k);
+    }
+  }
+
+  /// Liga/desliga a previsão do tempo. Guarda a preferência + pede permissão;
+  /// quem BUSCA e agenda é o chamador (precisa de login/rede): ao ligar, chamar
+  /// [agendarPrevisaoTempo] com os dias do servidor; ao desligar já cancela aqui.
+  Future<bool> configurarPrevisaoTempo(bool ativo) async {
+    if (!_pronto) await init();
+    if (ativo && !await pedirPermissao()) return false;
+    _tempoAtivo = ativo;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_chaveTempoAtivo, ativo);
+    if (!ativo) await _cancelarTempo();
+    notifyListeners();
+    return true;
+  }
+
+  /// (Re)agenda as próximas 3 manhãs ÚTEIS (pula domingo) às 6:15 com o tempo de
+  /// cada dia. [dias] = lista do servidor (`{data 'AAAA-MM-DD', titulo, corpo}`).
+  /// Como o alarme local guarda o texto no agendamento, isto roda ao ABRIR o app
+  /// (conteúdo fresco) e ao ligar o toggle. No-op se desligado ou lista vazia
+  /// (mantém o que já estava agendado — ex.: sem rede no boot).
+  Future<void> agendarPrevisaoTempo(List<Map<String, String>> dias) async {
+    if (!_pronto) await init();
+    if (!_tempoAtivo || dias.isEmpty) return;
+    final porData = {for (final d in dias) (d['data'] ?? ''): d};
+    await _cancelarTempo();
+    final agora = DateTime.now();
+    var slot = 0;
+    for (var off = 0; off < 12 && slot < _tempoSlots; off++) {
+      final base = DateTime(agora.year, agora.month, agora.day + off);
+      if (base.weekday == DateTime.sunday) continue; // pula domingo
+      final quando =
+          DateTime(base.year, base.month, base.day, _tempoHora, _tempoMin);
+      if (!quando.isAfter(agora)) continue; // 6:15 de hoje já passou
+      final iso = '${base.year.toString().padLeft(4, '0')}-'
+          '${base.month.toString().padLeft(2, '0')}-'
+          '${base.day.toString().padLeft(2, '0')}';
+      final msg = porData[iso];
+      if (msg == null) continue; // sem dado p/ esse dia
+      final titulo =
+          (msg['titulo'] ?? '').isEmpty ? 'Previsão do tempo' : msg['titulo']!;
+      final corpo = msg['corpo'] ?? '';
+      final agendado = tz.TZDateTime.fromMillisecondsSinceEpoch(
+          tz.UTC, quando.millisecondsSinceEpoch);
+      await _plugin.zonedSchedule(
+        _idTempoBase + slot,
+        titulo,
+        corpo,
+        agendado,
+        _detalhesTempo(titulo, corpo),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+      slot++;
+    }
   }
 
   /// Pede a permissão de notificação (Android 13+). Retorna true se concedida

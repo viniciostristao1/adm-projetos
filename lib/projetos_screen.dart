@@ -12,6 +12,7 @@ import 'barra_config.dart';
 import 'caixa3d.dart';
 import 'chat/chat_config.dart';
 import 'chat/chat_screen.dart';
+import 'chat/chat_service.dart';
 import 'chat/chat_store.dart';
 import 'cores.dart';
 import 'editor.dart';
@@ -24,6 +25,21 @@ import 'sync_service.dart';
 import 'tema.dart';
 import 'versao.dart';
 import 'voz_config.dart';
+
+/// Busca a previsão do servidor (autenticado) e reagenda as próximas manhãs
+/// (6:15, exceto domingo). Silencioso: no-op se desligado, sem login ou sem
+/// rede (mantém o que já estava agendado). Chamado no `initState` da tela e ao
+/// ligar o toggle em Configurações.
+Future<void> sincronizarPrevisaoTempo() async {
+  try {
+    if (!LembretesService.instance.previsaoTempoAtiva) return;
+    if (!ChatConfig.habilitado) return;
+    final dias = await ChatService.buscarTempoNotif();
+    if (dias.isNotEmpty) {
+      await LembretesService.instance.agendarPrevisaoTempo(dias);
+    }
+  } catch (_) {}
+}
 
 const Map<String, Color> mapaCoresPasta = {
   'azul': Color(0xFF3B82F6),
@@ -92,6 +108,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     // + decodifica o histórico fora do caminho quente) p/ a 1ª abertura do chat
     // não piscar ~1s na tela de loading. Só com o chat habilitado; ignora erro.
     if (ChatConfig.habilitado) ChatStore.aquecer();
+    // Previsão do tempo: re-agenda as próximas manhãs (6:15) com conteúdo fresco.
+    sincronizarPrevisaoTempo();
   }
 
   /// Atalho ao segurar o ícone do app (App Shortcut): "Nova nota" cria uma
@@ -2425,6 +2443,40 @@ class _ConfigSheet extends StatelessWidget {
                           'Uma notificação semanal para você NÃO esquecer de '
                           'salvar/enviar o backup. Não faz backup sozinho — a '
                           'nuvem continua 100% manual.',
+                          dim,
+                        ),
+                        const Divider(height: 14),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          secondary: const Icon(Icons.cloud_outlined),
+                          title: const Text('Previsão do tempo (6:15)',
+                              style: TextStyle(fontSize: 14)),
+                          subtitle: Text(
+                            lem.previsaoTempoAtiva
+                                ? 'Toda manhã às 06:15, exceto domingo · Lajeado'
+                                : 'Desligado',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          value: lem.previsaoTempoAtiva,
+                          onChanged: (v) async {
+                            final ok = await LembretesService.instance
+                                .configurarPrevisaoTempo(v);
+                            if (!ok) {
+                              if (context.mounted) {
+                                mostrarAviso(context,
+                                    'Permissão de notificação negada.');
+                              }
+                              return;
+                            }
+                            if (v) await sincronizarPrevisaoTempo();
+                          },
+                        ),
+                        _dica(
+                          'A Muse te manda a previsão de Lajeado toda manhã às '
+                          '6:15 (menos domingo): mínima/máxima, chuva do dia com '
+                          'horários e os próximos 3 dias em mm. Atualiza quando '
+                          'você abre o Taskix.',
                           dim,
                         ),
                       ],
