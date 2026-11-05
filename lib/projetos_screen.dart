@@ -2445,45 +2445,56 @@ class _ConfigSheet extends StatelessWidget {
                           'nuvem continua 100% manual.',
                           dim,
                         ),
-                        const Divider(height: 14),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          secondary: const Icon(Icons.cloud_outlined),
-                          title: const Text('Previsão do tempo (6:15)',
-                              style: TextStyle(fontSize: 14)),
-                          subtitle: Text(
-                            lem.previsaoTempoAtiva
-                                ? 'Toda manhã às 06:15, exceto domingo · Lajeado'
-                                : 'Desligado',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          value: lem.previsaoTempoAtiva,
-                          onChanged: (v) async {
-                            final ok = await LembretesService.instance
-                                .configurarPrevisaoTempo(v);
-                            if (!ok) {
-                              if (context.mounted) {
-                                mostrarAviso(context,
-                                    'Permissão de notificação negada.');
-                              }
-                              return;
-                            }
-                            if (v) await sincronizarPrevisaoTempo();
-                          },
-                        ),
-                        _dica(
-                          'A Muse te manda a previsão de Lajeado toda manhã às '
-                          '6:15 (menos domingo): mínima/máxima, chuva do dia com '
-                          'horários e os próximos 3 dias em mm. Atualiza quando '
-                          'você abre o Taskix.',
-                          dim,
-                        ),
                       ],
                     );
                   },
                 ),
               ],
+            ),
+
+            // ================= Previsão do tempo =================
+            ListenableBuilder(
+              listenable: LembretesService.instance,
+              builder: (context, _) {
+                final lem = LembretesService.instance;
+                return _sec(
+                  icone: Icons.cloud_outlined,
+                  titulo: 'Previsão do tempo',
+                  subtitulo: lem.previsaoTempoAtiva
+                      ? 'Todo dia 06:15 (exceto domingo)'
+                      : 'Desligado',
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: const Text('Avisar a previsão às 6:15',
+                          style: TextStyle(fontSize: 14)),
+                      subtitle: const Text('Lajeado · exceto domingo',
+                          style: TextStyle(fontSize: 12)),
+                      value: lem.previsaoTempoAtiva,
+                      onChanged: (v) async {
+                        final ok = await LembretesService.instance
+                            .configurarPrevisaoTempo(v);
+                        if (!ok) {
+                          if (context.mounted) {
+                            mostrarAviso(
+                                context, 'Permissão de notificação negada.');
+                          }
+                          return;
+                        }
+                        if (v) await sincronizarPrevisaoTempo();
+                      },
+                    ),
+                    _dica(
+                      'A Muse te manda a previsão de Lajeado toda manhã às 6:15 '
+                      '(menos domingo): mínima/máxima, chuva do dia com horários '
+                      'e os próximos 3 dias em mm. Atualiza quando você abre o '
+                      'Taskix.',
+                      dim,
+                    ),
+                  ],
+                );
+              },
             ),
 
             // ================= Nuvem =================
