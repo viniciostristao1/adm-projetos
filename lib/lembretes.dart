@@ -7,6 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'refresh_madrugada.dart'
+    show armarRefreshMadrugada, calcularSlotsTempo;
+
 /// Dias da semana (1=segunda..7=domingo) p/ o rótulo de recorrência semanal.
 const List<String> _diasSem = [
   'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'
@@ -171,11 +174,11 @@ class LembretesService extends ChangeNotifier {
   static const String _canalTempoId = 'tempo_v1';
   static const String _canalTempoNome = 'Previsão do tempo';
   static const String _canalTempoDesc = 'Previsão de Lajeado às 6:15 (exceto domingo)';
-  static const int _idTempoBase = 910000;
-  static const int _tempoSlots = 3;
-  static const int _tempoHora = 6;
-  static const int _tempoMin = 15;
-  static const String _chaveTempoAtivo = 'tempo_ativo_v1';
+  static const int idTempoBase = 910000;
+  static const int tempoSlots = 3;
+  static const int tempoHora = 6;
+  static const int tempoMin = 15;
+  static const String chaveTempoAtivo = 'tempo_ativo_v1';
 
   bool _tempoAtivo = false;
   bool get previsaoTempoAtiva => _tempoAtivo;
@@ -322,7 +325,7 @@ class LembretesService extends ChangeNotifier {
       _bkpWeekday = prefs.getInt(_chaveBkpWeekday) ?? DateTime.sunday;
       _bkpHora = prefs.getInt(_chaveBkpHora) ?? 19;
       _bkpMin = prefs.getInt(_chaveBkpMin) ?? 0;
-      _tempoAtivo = prefs.getBool(_chaveTempoAtivo) ?? false;
+      _tempoAtivo = prefs.getBool(chaveTempoAtivo) ?? false;
     } catch (_) {}
   }
 
@@ -390,7 +393,7 @@ class LembretesService extends ChangeNotifier {
 
   // ===== Previsão do tempo: detalhes + agendamento =====
 
-  static NotificationDetails _detalhesTempo(String titulo, String corpo) {
+  static NotificationDetails detalhesTempo(String titulo, String corpo) {
     return NotificationDetails(
       android: AndroidNotificationDetails(
         _canalTempoId,
@@ -414,8 +417,8 @@ class LembretesService extends ChangeNotifier {
   }
 
   Future<void> _cancelarTempo() async {
-    for (var k = 0; k < _tempoSlots; k++) {
-      await _plugin.cancel(_idTempoBase + k);
+    for (var k = 0; k < tempoSlots; k++) {
+      await _plugin.cancel(idTempoBase + k);
     }
   }
 
@@ -427,7 +430,7 @@ class LembretesService extends ChangeNotifier {
     if (ativo && !await pedirPermissao()) return false;
     _tempoAtivo = ativo;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_chaveTempoAtivo, ativo);
+    await prefs.setBool(chaveTempoAtivo, ativo);
     if (!ativo) await _cancelarTempo();
     notifyListeners();
     return true;
@@ -442,53 +445,42 @@ class LembretesService extends ChangeNotifier {
   /// vinha ANTES do `zonedSchedule` — se o agendamento lançava (ex.: alarme
   /// exato negado), os alarmes bons da noite anterior já tinham ido embora e o
   /// dia amanhecia em silêncio total. Agora cada slot sobrescreve o antigo no
-  /// agendar (sucesso troca, falha preserva) e só os slots excedentes são
-  /// cancelados — e só se ≥1 novo entrou.
+  /// agendar (sucesso troca, falha em `try/catch` preserva) e só os slots
+  /// excedentes são cancelados — e só se ≥1 novo entrou. Os slots vêm de
+  /// `calcularSlotsTempo` (regra única com o refresh de madrugada).
   Future<void> agendarPrevisaoTempo(List<Map<String, String>> dias) async {
     if (!_pronto) await init();
     if (!_tempoAtivo || dias.isEmpty) return;
-    final porData = {for (final d in dias) (d['data'] ?? ''): d};
     final agora = DateTime.now();
-    var slot = 0;
     var ok = 0;
-    for (var off = 0; off < 12 && slot < _tempoSlots; off++) {
-      final base = DateTime(agora.year, agora.month, agora.day + off);
-      if (base.weekday == DateTime.sunday) continue; // pula domingo
-      final quando =
-          DateTime(base.year, base.month, base.day, _tempoHora, _tempoMin);
-      if (!quando.isAfter(agora)) continue; // 6:15 de hoje já passou
-      final iso = '${base.year.toString().padLeft(4, '0')}-'
-          '${base.month.toString().padLeft(2, '0')}-'
-          '${base.day.toString().padLeft(2, '0')}';
-      final msg = porData[iso];
-      if (msg == null) continue; // sem dado p/ esse dia
-      final titulo =
-          (msg['titulo'] ?? '').isEmpty ? 'Previsão do tempo' : msg['titulo']!;
-      final corpo = msg['corpo'] ?? '';
+    for (final s in calcularSlotsTempo(dias, agora)) {
       final agendado = tz.TZDateTime.fromMillisecondsSinceEpoch(
-          tz.UTC, quando.millisecondsSinceEpoch);
+          tz.UTC, s.quandoLocal.millisecondsSinceEpoch);
       try {
         await _plugin.zonedSchedule(
-          _idTempoBase + slot,
-          titulo,
-          corpo,
+          idTempoBase + s.slot,
+          s.titulo,
+          s.corpo,
           agendado,
-          _detalhesTempo(titulo, corpo),
+          detalhesTempo(s.titulo, s.corpo),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         );
         ok++;
       } catch (_) {
         break; // falha preserva os alarmes antigos no lugar
       }
-      slot++;
     }
     if (ok > 0) {
-      for (var k = ok; k < _tempoSlots; k++) {
+      for (var k = ok; k < tempoSlots; k++) {
         try {
-          await _plugin.cancel(_idTempoBase + k);
+          await _plugin.cancel(idTempoBase + k);
         } catch (_) {}
       }
     }
+    // Mantém a cadeia do refresh de madrugada viva (reagendar é idempotente).
+    try {
+      await armarRefreshMadrugada();
+    } catch (_) {}
   }
 
   /// Pede a permissão de notificação (Android 13+). Retorna true se concedida

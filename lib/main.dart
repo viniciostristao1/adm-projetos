@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -53,6 +54,13 @@ Future<void> main() async {
     // Lembretes (notificação local) — se falhar, o app segue sem o recurso.
     try {
       await LembretesService.instance.init();
+      // Motor do refresh de madrugada da previsão (alarme exato 05:30 que
+      // reescreve os 6:15 com dado fresco; auto-perpétuo a partir daqui).
+      try {
+        await AndroidAlarmManager.initialize();
+      } catch (e) {
+        debugPrint('AlarmManager indisponível: $e');
+      }
     } catch (e) {
       debugPrint('Lembretes indisponíveis: $e');
     }
