@@ -2144,7 +2144,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // chips dividem a largura (Flexible) e ENCOLHEM/elipsam antes de quebrar —
     // nunca passam p/ outra linha (Row). Padding de baixo separa da caixa.
     return Padding(
-      padding: const EdgeInsets.only(left: 2, right: 8, bottom: 6),
+      padding: const EdgeInsets.only(left: 2, right: 8, bottom: 2),
       child: Row(
         children: [
           for (var i = 0; i < ops.length; i++) ...[
