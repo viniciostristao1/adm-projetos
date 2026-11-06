@@ -130,6 +130,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _streamTexto = ''; // resposta parcial sendo recebida (balão ao vivo)
   String _proxSep = ' '; // separador antes da próxima frase ('\n\n' após parágrafo)
   String _vozParag = ''; // parágrafo em montagem p/ a voz (fala por PARÁGRAFO, não frase)
+  bool _vozCortouSug = false; // já achou o bloco [[SUGESTOES]] no stream → não fala daqui
   StreamSubscription<MuseEvent>? _subStream;
   // Fila de voz PRODUTOR-CONSUMIDOR: a SÍNTESE roda ADIANTADA (um trecho por vez,
   // sem contenção de CPU) e fica À FRENTE da reprodução → começa cedo e sem vão
@@ -1136,6 +1137,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _streamTexto = '';
       _proxSep = ' ';
       _vozParag = '';
+      _vozCortouSug = false;
       _inicioEnvio = DateTime.now();
       _anexo = null;
       _imagensB64.clear();
@@ -1214,9 +1216,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             // MAS só se já tiver texto suficiente (~80 chars) — assim uma 1ª linha
             // curta/título NÃO é falada sozinha (ela "secaria" antes do próximo
             // ficar pronto, criando o vão); junta com o próximo numa fala só.
-            if (_modoAudio) {
-              _vozParag = _vozParag.isEmpty ? limpa : '$_vozParag $limpa';
-              if (e.fimParagrafo && _vozParag.trim().length >= 80) {
+            if (_modoAudio && !_vozCortouSug) {
+              var fala = limpa;
+              // O bloco [[SUGESTOES]] (respostas de 1 toque) é só UI: corta aqui
+              // e PARA de narrar daqui pra frente — robusto a chunk partido, pois
+              // a flag persiste (ACAO já foi removido por ChatActions.limpar).
+              final iSug = fala.indexOf('[[');
+              if (iSug >= 0) {
+                fala = fala.substring(0, iSug);
+                _vozCortouSug = true;
+              }
+              if (fala.trim().isNotEmpty) {
+                _vozParag = _vozParag.isEmpty ? fala : '$_vozParag $fala';
+              }
+              final fecha = _vozCortouSug ||
+                  (e.fimParagrafo && _vozParag.trim().length >= 80);
+              if (fecha && _vozParag.trim().isNotEmpty) {
                 _enfileirarVoz(_vozParag.trim());
                 _vozParag = '';
               }
@@ -1972,39 +1987,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (ops.isEmpty) return const SizedBox.shrink();
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final cs = Theme.of(context).colorScheme;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 2),
-        child: Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final o in ops)
-            Material(
-              color: cs.surface,
-              shape: StadiumBorder(
-                  side: BorderSide(color: app.fab.withValues(alpha: 0.5))),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => _usarSugestao(o),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.subdirectory_arrow_left,
-                        size: 16, color: app.fab),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(o,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: cs.onSurface)),
-                    ),
-                  ]),
+    // Coluna VERTICAL encostada à DIREITA (alinhada com os botões da barra), uma
+    // resposta abaixo da outra — em vez de uma faixa horizontal larga. NÃO toca
+    // na caixa de texto (fica acima dela, hugging a borda direita).
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 12, 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < ops.length; i++) ...[
+            if (i > 0) const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Material(
+                color: cs.surface,
+                shape: StadiumBorder(
+                    side: BorderSide(color: app.fab.withValues(alpha: 0.5))),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _usarSugestao(ops[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 13, vertical: 8),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.subdirectory_arrow_left,
+                          size: 15, color: app.fab),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(ops[i],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: cs.onSurface)),
+                      ),
+                    ]),
+                  ),
                 ),
               ),
             ),
-        ]),
+          ],
+        ],
       ),
     );
   }
@@ -2250,6 +2274,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _streamTexto = '';
       _proxSep = ' ';
       _vozParag = '';
+      _vozCortouSug = false;
       _inicioEnvio = DateTime.now();
     });
     _tick?.cancel();
