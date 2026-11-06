@@ -438,13 +438,19 @@ class LembretesService extends ChangeNotifier {
   /// Como o alarme local guarda o texto no agendamento, isto roda ao ABRIR o app
   /// (conteúdo fresco) e ao ligar o toggle. No-op se desligado ou lista vazia
   /// (mantém o que já estava agendado — ex.: sem rede no boot).
+  /// ⚠️ NUNCA apaga antes de conseguir agendar (V0.1.193): o `_cancelarTempo`
+  /// vinha ANTES do `zonedSchedule` — se o agendamento lançava (ex.: alarme
+  /// exato negado), os alarmes bons da noite anterior já tinham ido embora e o
+  /// dia amanhecia em silêncio total. Agora cada slot sobrescreve o antigo no
+  /// agendar (sucesso troca, falha preserva) e só os slots excedentes são
+  /// cancelados — e só se ≥1 novo entrou.
   Future<void> agendarPrevisaoTempo(List<Map<String, String>> dias) async {
     if (!_pronto) await init();
     if (!_tempoAtivo || dias.isEmpty) return;
     final porData = {for (final d in dias) (d['data'] ?? ''): d};
-    await _cancelarTempo();
     final agora = DateTime.now();
     var slot = 0;
+    var ok = 0;
     for (var off = 0; off < 12 && slot < _tempoSlots; off++) {
       final base = DateTime(agora.year, agora.month, agora.day + off);
       if (base.weekday == DateTime.sunday) continue; // pula domingo
@@ -461,15 +467,27 @@ class LembretesService extends ChangeNotifier {
       final corpo = msg['corpo'] ?? '';
       final agendado = tz.TZDateTime.fromMillisecondsSinceEpoch(
           tz.UTC, quando.millisecondsSinceEpoch);
-      await _plugin.zonedSchedule(
-        _idTempoBase + slot,
-        titulo,
-        corpo,
-        agendado,
-        _detalhesTempo(titulo, corpo),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      );
+      try {
+        await _plugin.zonedSchedule(
+          _idTempoBase + slot,
+          titulo,
+          corpo,
+          agendado,
+          _detalhesTempo(titulo, corpo),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+        ok++;
+      } catch (_) {
+        break; // falha preserva os alarmes antigos no lugar
+      }
       slot++;
+    }
+    if (ok > 0) {
+      for (var k = ok; k < _tempoSlots; k++) {
+        try {
+          await _plugin.cancel(_idTempoBase + k);
+        } catch (_) {}
+      }
     }
   }
 
