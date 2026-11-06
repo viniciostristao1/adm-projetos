@@ -352,6 +352,101 @@ class AdmProjetosApp extends StatelessWidget {
         appBarColor: const Color(0xFFEAEEF4),
       );
 
+  /// Temas Creme/Papel (V0.1.195, do Nestwallet) — mesma estrutura clara do
+  /// Calis, mas: intervenções/botões em PRETO, detalhe próprio (terracota no
+  /// Creme, verde no Papel) e títulos serifados. O builder recebe o detalhe
+  /// como acento (abas/chips) e o preto sobrescreve FAB/primária.
+  ThemeData _temaCremePapel({
+    required Color bg,
+    required Color surface,
+    required Color surface2,
+    required Color text,
+    required Color detalhe,
+    required AppCores app,
+    required Color appBarColor,
+  }) {
+    const preto = AppCores.kPretoCremePapel;
+    const onPreto = Colors.white;
+    final t = _temaClaroCalis(
+      bg: bg,
+      surface: surface,
+      surface2: surface2,
+      text: text,
+      accent: detalhe,
+      onAccent: Colors.white,
+      app: app,
+      appBarColor: appBarColor,
+    );
+    TextStyle serif(TextStyle? s) =>
+        (s ?? const TextStyle()).copyWith(fontFamily: 'SourceSerif');
+    final tx = t.textTheme;
+    return t.copyWith(
+      colorScheme: t.colorScheme.copyWith(
+        primary: preto,
+        onPrimary: onPreto,
+        secondary: detalhe,
+        tertiary: detalhe,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: preto,
+        foregroundColor: onPreto,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
+      ),
+      tabBarTheme: t.tabBarTheme.copyWith(labelColor: preto),
+      textTheme: tx.copyWith(
+        displayLarge: serif(tx.displayLarge),
+        displayMedium: serif(tx.displayMedium),
+        displaySmall: serif(tx.displaySmall),
+        headlineLarge: serif(tx.headlineLarge),
+        headlineMedium: serif(tx.headlineMedium),
+        headlineSmall: serif(tx.headlineSmall),
+        titleLarge: serif(tx.titleLarge),
+      ),
+      appBarTheme: t.appBarTheme.copyWith(
+        titleTextStyle: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
+          color: text,
+          fontFamily: 'SourceSerif',
+        ),
+      ),
+      dialogTheme: t.dialogTheme.copyWith(
+        titleTextStyle: TextStyle(
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+          color: text,
+          fontFamily: 'SourceSerif',
+        ),
+      ),
+    );
+  }
+
+  /// Tema Creme — fundo bege, botões pretos, detalhe terracota.
+  ThemeData _temaCreme() => _temaCremePapel(
+        bg: const Color(0xFFF5F0E6),
+        surface: const Color(0xFFFFFFFF),
+        surface2: const Color(0xFFEFE7D8),
+        text: const Color(0xFF1F1B16),
+        detalhe: const Color(0xFFC96F4A),
+        app: AppCores.creme,
+        appBarColor: const Color(0xFFF5F0E6),
+      );
+
+  /// Tema Papel — fundo off-white, botões pretos, detalhe verde.
+  ThemeData _temaPapel() => _temaCremePapel(
+        bg: const Color(0xFFFAF8F5),
+        surface: const Color(0xFFFFFFFF),
+        surface2: const Color(0xFFF0EBE4),
+        text: const Color(0xFF1A1A1A),
+        detalhe: const Color(0xFF1E9E6A),
+        app: AppCores.papel,
+        appBarColor: const Color(0xFFFAF8F5),
+      );
+
   ThemeData _temaEscuro() => _temaBase(ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E3A8A),
@@ -655,8 +750,12 @@ class AdmProjetosApp extends StatelessWidget {
       builder: (context, _) {
         final modo = temaController.modo;
         final scale = temaController.fonte.scale;
-        // Bege (madeira) e Claro (mockups) são os claros; demais escuros.
-        final claro = modo == Modo.bege || modo == Modo.luz;
+        // Bege (madeira), Claro (mockups), Creme e Papel são os claros;
+        // demais escuros.
+        final claro = modo == Modo.bege ||
+            modo == Modo.luz ||
+            modo == Modo.creme ||
+            modo == Modo.papel;
         final theme = switch (modo) {
           Modo.azul => _temaAzul(),
           Modo.escuro => _temaEscuro(),
@@ -665,6 +764,8 @@ class AdmProjetosApp extends StatelessWidget {
           Modo.claude => _temaClaude(),
           Modo.onix => _temaOnix(),
           Modo.luz => _temaLuz(),
+          Modo.creme => _temaCreme(),
+          Modo.papel => _temaPapel(),
         };
         return MaterialApp(
           title: 'Taskix',

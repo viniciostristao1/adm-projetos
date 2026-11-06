@@ -1489,9 +1489,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 // borda 1px #2A2A2B e acento terracota no "em andamento".
                 final ehClaude = app == AppCores.claude;
                 final ehOnix = app == AppCores.onix;
-                // Claro (V0.1.174): cartão BRANCO flutuante com sombra suave
-                // (o visual dos mockups), em vez de borda.
-                final ehLuz = app == AppCores.luz;
+                // Claro/Creme/Papel (V0.1.174/V0.1.195): cartão BRANCO flutuante
+                // com sombra suave (o visual dos mockups), em vez de borda.
+                final ehLuz = app == AppCores.luz ||
+                    app == AppCores.creme ||
+                    app == AppCores.papel;
                 // Bege e Ônix: pastas SEM caixa nem borda (linhas lisas sobre o
                 // fundo). Os demais temas mantêm o cartão.
                 final semCaixa = ehBege || ehOnix;

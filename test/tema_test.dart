@@ -13,15 +13,17 @@ AppCores _coresDe(Modo m) => switch (m) {
       Modo.claude => AppCores.claude,
       Modo.onix => AppCores.onix,
       Modo.luz => AppCores.luz,
+      Modo.creme => AppCores.creme,
+      Modo.papel => AppCores.papel,
     };
 
 void main() {
-  test('Modo tem exatamente 7 temas (Azul, Escuro, Dark Game, Bege, Terracota, Ônix, Claro)',
+  test('Modo tem exatamente 9 temas (Azul, Escuro, Dark Game, Bege, Terracota, Ônix, Claro, Creme, Papel)',
       () {
-    expect(Modo.values.length, 7);
+    expect(Modo.values.length, 9);
     expect(
       Modo.values.map((m) => m.rotulo).toList(),
-      ['Azul', 'Escuro', 'Dark Game', 'Bege', 'Terracota', 'Ônix', 'Claro'],
+      ['Azul', 'Escuro', 'Dark Game', 'Bege', 'Terracota', 'Ônix', 'Claro', 'Creme', 'Papel'],
     );
   });
 

@@ -199,6 +199,48 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFF121418),
   );
 
+  /// Preto das intervenções/botões nos temas claros novos (contraste com o
+  /// bege/off-white — vindo das refs estilo Claude do Nestwallet, V0.1.195).
+  static const kPretoCremePapel = Color(0xFF1B1B1B);
+
+  /// Tema Creme (V0.1.195) — fundo bege (#F5F0E6), cartões brancos flutuantes,
+  /// texto marrom-quase-preto, intervenções/botões PRETOS e detalhe terracota
+  /// (#C96F4A). Títulos serifados. Plano. Roda em `ThemeMode.light`.
+  static const AppCores creme = AppCores(
+    notaInicio: Color(0xFFFFFFFF),
+    notaFim: Color(0xFFFFFFFF),
+    notaBorda: Color(0x141F1B16),
+    projetoCard: Color(0xFFFFFFFF),
+    projetoCardFim: Color(0xFFFFFFFF),
+    projetoTxt: Color(0xFF1F1B16),
+    fab: Color(0xFFC96F4A),
+    fabIcone: Color(0xFFFFF6F0),
+    barraFerramentas: Color(0xFFEFE7D8),
+    barraFerramentasFim: Color(0xFFEFE7D8),
+    fundoInicio: Color(0xFFF5F0E6),
+    fundoFim: Color(0xFFEFE7D8),
+    textoUI: Color(0xFF1F1B16),
+  );
+
+  /// Tema Papel (V0.1.195) — fundo off-white (#FAF8F5), cartões brancos
+  /// flutuantes, texto quase-preto, intervenções/botões PRETOS e detalhe verde
+  /// (#1E9E6A). Títulos serifados. Plano. Roda em `ThemeMode.light`.
+  static const AppCores papel = AppCores(
+    notaInicio: Color(0xFFFFFFFF),
+    notaFim: Color(0xFFFFFFFF),
+    notaBorda: Color(0x141A1A1A),
+    projetoCard: Color(0xFFFFFFFF),
+    projetoCardFim: Color(0xFFFFFFFF),
+    projetoTxt: Color(0xFF1A1A1A),
+    fab: Color(0xFF1E9E6A),
+    fabIcone: Color(0xFFEFFBF4),
+    barraFerramentas: Color(0xFFF0EBE4),
+    barraFerramentasFim: Color(0xFFF0EBE4),
+    fundoInicio: Color(0xFFFAF8F5),
+    fundoFim: Color(0xFFF0EBE4),
+    textoUI: Color(0xFF1A1A1A),
+  );
+
   @override
   AppCores copyWith({
     Color? notaInicio,

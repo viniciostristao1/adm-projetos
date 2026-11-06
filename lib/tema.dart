@@ -13,7 +13,12 @@ enum Modo {
   // cartões brancos flutuantes, acento azul, fonte sem serifa limpa. `name` é
   // `luz` (não `claro`) de propósito: `claro` é um nome legado migrado p/ azul
   // na carga (não reaproveitar, senão o tema novo cairia na migração).
-  luz('Claro');
+  luz('Claro'),
+  // Dois temas claros do Nestwallet (V0.1.195, das refs estilo Claude):
+  // botões/intervenções em PRETO sobre fundo claro + detalhe próprio —
+  // terracota no Creme (bege), verde no Papel (off-white). Títulos serifados.
+  creme('Creme'),
+  papel('Papel');
 
   const Modo(this.rotulo);
   final String rotulo;
@@ -74,9 +79,13 @@ class TemaController extends ChangeNotifier {
   /// true no modo Compacto (linhas/cartões mais próximos).
   bool get compacto => _densidade == Densidade.compacto;
 
-  /// Modo usado pelo [MaterialApp] — Bege e Claro são claros; os demais escuros.
+  /// Modo usado pelo [MaterialApp] — Bege, Claro, Creme e Papel são claros;
+  /// os demais escuros.
   ThemeMode get themeFlutter =>
-      (_modo == Modo.bege || _modo == Modo.luz)
+      (_modo == Modo.bege ||
+              _modo == Modo.luz ||
+              _modo == Modo.creme ||
+              _modo == Modo.papel)
           ? ThemeMode.light
           : ThemeMode.dark;
 
