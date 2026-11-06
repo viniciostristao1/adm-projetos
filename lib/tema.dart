@@ -6,14 +6,8 @@ enum Modo {
   azul('Azul'),
   escuro('Escuro'),
   neumB('Dark Game'),
-  bege('Bege'),
   claude('Terracota'),
   onix('Ônix'),
-  // Tema CLARO (V0.1.174): o visual dos mockups de redesenho — cinza-claro frio,
-  // cartões brancos flutuantes, acento azul, fonte sem serifa limpa. `name` é
-  // `luz` (não `claro`) de propósito: `claro` é um nome legado migrado p/ azul
-  // na carga (não reaproveitar, senão o tema novo cairia na migração).
-  luz('Claro'),
   // Dois temas claros do Nestwallet (V0.1.195, das refs estilo Claude):
   // botões/intervenções em PRETO sobre fundo claro + detalhe próprio —
   // terracota no Creme (bege), verde no Papel (off-white). Títulos serifados.
@@ -46,7 +40,7 @@ enum Densidade {
   final String rotulo;
 }
 
-/// Controla o tema (claro/escuro/bege), tamanho da fonte e densidade,
+/// Controla o tema, tamanho da fonte e densidade,
 /// salvando as escolhas.
 class TemaController extends ChangeNotifier {
   static const _chave = 'tema_v2';
@@ -79,27 +73,23 @@ class TemaController extends ChangeNotifier {
   /// true no modo Compacto (linhas/cartões mais próximos).
   bool get compacto => _densidade == Densidade.compacto;
 
-  /// Modo usado pelo [MaterialApp] — Bege, Claro, Creme e Papel são claros;
+  /// Modo usado pelo [MaterialApp] — Creme e Papel são claros;
   /// os demais escuros.
   ThemeMode get themeFlutter =>
-      (_modo == Modo.bege ||
-              _modo == Modo.luz ||
-              _modo == Modo.creme ||
-              _modo == Modo.papel)
+      (_modo == Modo.creme || _modo == Modo.papel)
           ? ThemeMode.light
           : ThemeMode.dark;
 
   /// Carrega as preferências salvas (chamar no início do app). Temas antigos
-  /// removidos migram para os novos: claro → azul, espresso → bege,
-  /// bege/begeNeum → bege.
+  /// removidos migram para o Azul: claro → azul, espresso/bege/begeNeum → azul
+  /// (o Bege virou tema em V0.1.197), luz → azul.
   Future<void> carregar() async {
     final prefs = await SharedPreferences.getInstance();
     final antigo = prefs.getBool(_chaveAntiga);
     final salvo = prefs.getString(_chave) ??
         (antigo == true ? 'escuro' : 'azul');
     final migrado = switch (salvo) {
-      'claro' => 'azul',
-      'espresso' || 'bege' || 'begeNeum' => 'bege',
+      'claro' || 'espresso' || 'bege' || 'begeNeum' || 'luz' => 'azul',
       _ => salvo,
     };
     _modo = Modo.values

@@ -1228,10 +1228,6 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     return Fundo(
       child: Scaffold(
-      // Home "sem caixa" (Bege): o fundo da tela inicial fica na cor da caixinha
-      // (bege queimado #E0D1B9) e as pastas ficam lisas por cima. Ônix já tem o
-      // fundo preto pelo próprio tema.
-      backgroundColor: app == AppCores.bege ? app.projetoCard : null,
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1477,26 +1473,22 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                         ));
                   }
 
-                // Temas planos (Azul, Escuro, Bege e Claude): cartão na cor
-                // do tema (no Bege, a mesma cor das caixinhas) com o nome +
-                // bolinhas. No Claude, vira "linha": borda de 1px, sem
-                // sombras, e o projeto em andamento ganha uma BARRA TERRACOTA
-                // à esquerda com o "v" terracota (em vez de verde).
-                // No Bege, o check de "em andamento" fica como o quadradinho
-                // dentro das caixinhas: bolinha PRETA com "v" bege.
-                final ehBege = app == AppCores.bege;
+                // Temas planos (Azul, Escuro e Claude): cartão na cor
+                // do tema com o nome + bolinhas. No Claude, vira "linha":
+                // borda de 1px, sem sombras, e o projeto em andamento ganha
+                // uma BARRA TERRACOTA à esquerda com o "v" terracota
+                // (em vez de verde).
                 // No Claude/Terracota: bolinhas invisíveis (ícones apagados),
                 // borda 1px #2A2A2B e acento terracota no "em andamento".
                 final ehClaude = app == AppCores.claude;
                 final ehOnix = app == AppCores.onix;
-                // Claro/Creme/Papel (V0.1.174/V0.1.195): cartão BRANCO flutuante
+                // Creme/Papel: cartão BRANCO flutuante
                 // com sombra suave (o visual dos mockups), em vez de borda.
-                final ehLuz = app == AppCores.luz ||
-                    app == AppCores.creme ||
+                final ehLuz = app == AppCores.creme ||
                     app == AppCores.papel;
-                // Bege e Ônix: pastas SEM caixa nem borda (linhas lisas sobre o
+                // Ônix: pastas SEM caixa nem borda (linhas lisas sobre o
                 // fundo). Os demais temas mantêm o cartão.
-                final semCaixa = ehBege || ehOnix;
+                final semCaixa = ehOnix;
                 final arrastarCor = ehClaude
                     ? app.projetoTxt.withValues(alpha: 0.45)
                     : app.projetoTxt;
@@ -1505,14 +1497,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 final iconeCor = ehClaude
                     ? app.projetoTxt.withValues(alpha: 0.45)
                     : app.projetoTxt;
-                final corBolaAndamento = ehBege
-                    ? Colors.black
-                    : (ehClaude ? Colors.transparent : bolaCor);
-                final corCheckAndamento = ehBege
-                    ? app.notaInicio
-                    : ((ehClaude || ehOnix)
-                        ? app.fab
-                        : const Color(0xFF4ADE80));
+                final corBolaAndamento =
+                    ehClaude ? Colors.transparent : bolaCor;
+                final corCheckAndamento = (ehClaude || ehOnix)
+                    ? app.fab
+                    : const Color(0xFF4ADE80);
 
                 BoxDecoration? baseDecor;
                 if (semCaixa) {

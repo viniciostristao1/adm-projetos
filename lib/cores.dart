@@ -116,26 +116,6 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFFEDEFF1),
   );
 
-  /// Tema Bege (estilo Calis Timer — madeira): tons amadeirados claros
-  /// (bege/madeira) com accent laranja-marrom. Plano, sem relevo neumórfico.
-  /// FUNDO da página principal em bege CLARO; pastas/caixinhas em bege
-  /// escuro (#E0D1B9).
-  static const AppCores bege = AppCores(
-    notaInicio: Color(0xFFE0D1B9),
-    notaFim: Color(0xFFCBB897),
-    notaBorda: Color(0x14000000),
-    projetoCard: Color(0xFFE0D1B9),
-    projetoCardFim: Color(0xFFD8C7AC),
-    projetoTxt: Color(0xFF382E20),
-    fab: Color(0xFFB5652E),
-    fabIcone: Color(0xFFFFF3E7),
-    barraFerramentas: Color(0xFFCBB897),
-    barraFerramentasFim: Color(0xFFCBB897),
-    fundoInicio: Color(0xFFF2E8D6),
-    fundoFim: Color(0xFFEADFC8),
-    textoUI: Color(0xFF382E20),
-  );
-
   /// Tema Claude Code: preto-quente sólido (#0C0C0D), superfícies #161617
   /// com borda de 1px (#2A2A2B), acento terracota (#D97757) e fonte
   /// monoespaçada (JetBrains Mono). Plano, sem sombras, estilo terminal.
@@ -177,26 +157,6 @@ class AppCores extends ThemeExtension<AppCores> {
     fundoInicio: Color(0xFF0D0D0D),
     fundoFim: Color(0xFF0D0D0D),
     textoUI: Color(0xFFECECEC),
-  );
-
-  /// Tema Claro (V0.1.174) — o visual dos mockups de redesenho: fundo cinza-claro
-  /// FRIO (#EEF1F6→#E6EBF2), cartões/caixinhas BRANCOS (flutuam com sombra suave),
-  /// texto quase-preto (#121418), acento AZUL (#2E6BFF). Plano, sem relevo. Roda
-  /// em `ThemeMode.light`. (Mesma linguagem da barra flutuante e da Muse.)
-  static const AppCores luz = AppCores(
-    notaInicio: Color(0xFFFFFFFF),
-    notaFim: Color(0xFFFFFFFF),
-    notaBorda: Color(0x14121418),
-    projetoCard: Color(0xFFFFFFFF),
-    projetoCardFim: Color(0xFFFFFFFF),
-    projetoTxt: Color(0xFF121418),
-    fab: Color(0xFF2E6BFF),
-    fabIcone: Color(0xFFF4F8FF),
-    barraFerramentas: Color(0xFFF1F4F9),
-    barraFerramentasFim: Color(0xFFF1F4F9),
-    fundoInicio: Color(0xFFEEF1F6),
-    fundoFim: Color(0xFFE6EBF2),
-    textoUI: Color(0xFF121418),
   );
 
   /// Preto das intervenções/botões nos temas claros novos (contraste com o

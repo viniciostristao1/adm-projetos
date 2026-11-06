@@ -1579,8 +1579,8 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   }
 
   /// Barra de ferramentas da caixinha (cor separada ou embutida na superfície
-  /// neumórfica, com linha interna sutil embaixo; no tema bege, gradiente
-  /// marrom próprio). Fica OCULTA quando a caixinha está minimizada.
+  /// neumórfica, com linha interna sutil embaixo). Fica OCULTA quando a
+  /// caixinha está minimizada.
   Widget _barraFerramentas(Color corFerramentas, Color onBarra) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     return Container(
@@ -1983,8 +1983,8 @@ class _BotaoMini extends StatelessWidget {
       );
     }
     final corIcone = isDanger ? Colors.redAccent : (cor ?? Colors.white);
-    // Botão segue o gradiente da barra quando ela tem cor própria (bege:
-    // marrom); senão usa a superfície padrão do tema.
+    // Botão segue o gradiente da barra quando ela tem cor própria;
+    // senão usa a superfície padrão do tema.
     final barraPropria = app.barraFerramentas != app.notaInicio ||
         app.barraFerramentas != app.notaFim;
     return BotaoNeum(

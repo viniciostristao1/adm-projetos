@@ -20,10 +20,8 @@ class MuseBlob extends StatelessWidget {
   static String _nomeTema(AppCores app) {
     if (app == AppCores.escuro) return 'escuro';
     if (app == AppCores.neumB) return 'darkgame';
-    if (app == AppCores.bege) return 'bege';
     if (app == AppCores.claude) return 'terracota';
     if (app == AppCores.onix) return 'onix';
-    if (app == AppCores.luz) return 'claro';
     if (app == AppCores.creme) return 'terracota';
     if (app == AppCores.papel) return 'claro';
     return 'azul';

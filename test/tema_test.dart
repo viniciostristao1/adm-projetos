@@ -9,29 +9,29 @@ AppCores _coresDe(Modo m) => switch (m) {
       Modo.azul => AppCores.azul,
       Modo.escuro => AppCores.escuro,
       Modo.neumB => AppCores.neumB,
-      Modo.bege => AppCores.bege,
       Modo.claude => AppCores.claude,
       Modo.onix => AppCores.onix,
-      Modo.luz => AppCores.luz,
       Modo.creme => AppCores.creme,
       Modo.papel => AppCores.papel,
     };
 
 void main() {
-  test('Modo tem exatamente 9 temas (Azul, Escuro, Dark Game, Bege, Terracota, Ônix, Claro, Creme, Papel)',
+  test('Modo tem exatamente 7 temas (Azul, Escuro, Dark Game, Terracota, Ônix, Creme, Papel)',
       () {
-    expect(Modo.values.length, 9);
+    expect(Modo.values.length, 7);
     expect(
       Modo.values.map((m) => m.rotulo).toList(),
-      ['Azul', 'Escuro', 'Dark Game', 'Bege', 'Terracota', 'Ônix', 'Claro', 'Creme', 'Papel'],
+      ['Azul', 'Escuro', 'Dark Game', 'Terracota', 'Ônix', 'Creme', 'Papel'],
     );
   });
 
-  test('Temas antigos migram: claro→Azul, espresso/bege→Bege', () async {
+  test('Temas antigos migram: claro/espresso/bege/begeNeum/luz→Azul', () async {
     final nomes = Modo.values.map((m) => m.name).toSet();
     expect(nomes.contains('claro'), isFalse);
     expect(nomes.contains('espresso'), isFalse);
     expect(nomes.contains('begeNeum'), isFalse);
+    expect(nomes.contains('bege'), isFalse);
+    expect(nomes.contains('luz'), isFalse);
   });
 
   test('Densidade tem Confortável e Compacto', () {

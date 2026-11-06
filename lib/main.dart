@@ -324,35 +324,6 @@ class AdmProjetosApp extends StatelessWidget {
     );
   }
 
-  ThemeData _temaBege() => _temaClaroCalis(
-        // Fundo da página principal: bege CLARO.
-        bg: const Color(0xFFF2E8D6),
-        surface: const Color(0xFFE0D1B9),
-        surface2: const Color(0xFFCBB897),
-        text: const Color(0xFF382E20),
-        accent: const Color(0xFFB5652E),
-        onAccent: const Color(0xFFFFF3E7),
-        app: AppCores.bege,
-        // Barra superior (página principal e projeto) na cor bege escuro —
-        // a mesma do interior das caixinhas.
-        appBarColor: const Color(0xFFE0D1B9),
-      );
-
-  /// Tema Claro (V0.1.174) — o visual dos mockups: fundo cinza-claro frio,
-  /// cartões brancos, acento azul, fonte limpa (sistema). Reusa a estrutura
-  /// clara do Calis; a AppBar blenda com a página (sem barra colorida).
-  ThemeData _temaLuz() => _temaClaroCalis(
-        bg: const Color(0xFFEAEEF4),
-        surface: const Color(0xFFFFFFFF),
-        surface2: const Color(0xFFF1F4F9),
-        text: const Color(0xFF121418),
-        accent: const Color(0xFF2E6BFF),
-        onAccent: const Color(0xFFF4F8FF),
-        app: AppCores.luz,
-        appBarColor: const Color(0xFFEAEEF4),
-      );
-
-  /// Temas Creme/Papel (V0.1.195, do Nestwallet) — mesma estrutura clara do
   /// Calis, mas: intervenções/botões em PRETO, detalhe próprio (terracota no
   /// Creme, verde no Papel) e títulos serifados. O builder recebe o detalhe
   /// como acento (abas/chips) e o preto sobrescreve FAB/primária.
@@ -750,20 +721,14 @@ class AdmProjetosApp extends StatelessWidget {
       builder: (context, _) {
         final modo = temaController.modo;
         final scale = temaController.fonte.scale;
-        // Bege (madeira), Claro (mockups), Creme e Papel são os claros;
-        // demais escuros.
-        final claro = modo == Modo.bege ||
-            modo == Modo.luz ||
-            modo == Modo.creme ||
-            modo == Modo.papel;
+        // Creme e Papel são os claros; demais escuros.
+        final claro = modo == Modo.creme || modo == Modo.papel;
         final theme = switch (modo) {
           Modo.azul => _temaAzul(),
           Modo.escuro => _temaEscuro(),
           Modo.neumB => _temaNeumB(),
-          Modo.bege => _temaBege(),
           Modo.claude => _temaClaude(),
           Modo.onix => _temaOnix(),
-          Modo.luz => _temaLuz(),
           Modo.creme => _temaCreme(),
           Modo.papel => _temaPapel(),
         };
