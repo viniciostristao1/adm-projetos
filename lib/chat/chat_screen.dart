@@ -2140,52 +2140,53 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (ops.isEmpty) return const SizedBox.shrink();
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final cs = Theme.of(context).colorScheme;
-    // Linha HORIZONTAL à ESQUERDA, no vão acima da caixa (na altura do mic). Os
-    // chips dividem a largura (Flexible) e ENCOLHEM/elipsam antes de quebrar —
-    // nunca passam p/ outra linha (Row). Padding de baixo separa da caixa.
+    // Coluna VERTICAL à ESQUERDA, no vão acima da caixa (na altura do mic): uma
+    // resposta ABAIXO da outra, cada chip do tamanho do seu TEXTO INTEIRO (sem
+    // elipse/espremer — faz wrap de até 2 linhas só p/ textos bem longos).
+    // `right`/`bottom` dão respiro p/ o microfone azul e p/ a caixa; o
+    // `SizedBox(height)` separa um chip do outro.
     return Padding(
-      padding: const EdgeInsets.only(left: 2, right: 8, bottom: 2),
-      child: Row(
+      padding: const EdgeInsets.only(left: 2, right: 14, bottom: 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var i = 0; i < ops.length; i++) ...[
-            if (i > 0) const SizedBox(width: 6),
-            Flexible(
-              child: Material(
-                color: cs.surface,
-                shape: StadiumBorder(
-                  side: BorderSide(color: app.fab.withValues(alpha: 0.5)),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => _usarSugestao(ops[i]),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.subdirectory_arrow_left,
-                          size: 14,
-                          color: app.fab,
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            ops[i],
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: cs.onSurface,
-                            ),
+            if (i > 0) const SizedBox(height: 8),
+            Material(
+              color: cs.surface,
+              shape: StadiumBorder(
+                side: BorderSide(color: app.fab.withValues(alpha: 0.5)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => _usarSugestao(ops[i]),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.subdirectory_arrow_left,
+                        size: 16,
+                        color: app.fab,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          ops[i],
+                          maxLines: 2,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
