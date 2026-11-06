@@ -29,12 +29,13 @@ import 'tts_ondevice.dart';
 /// de conversas (local). Com [presetInicial]+[perguntaInicial] (alarme
 /// inteligente), abre na conversa daquele modo e já envia a pergunta sozinho.
 class ChatScreen extends StatefulWidget {
-  const ChatScreen(
-      {super.key,
-      this.conversaId,
-      this.iniciarNova = false,
-      this.presetInicial,
-      this.perguntaInicial});
+  const ChatScreen({
+    super.key,
+    this.conversaId,
+    this.iniciarNova = false,
+    this.presetInicial,
+    this.perguntaInicial,
+  });
 
   /// Conversa a abrir (id). Vem da LISTA de conversas (aba Muse). Quando nulo
   /// (e sem alarme), cai no comportamento legado: reabre a ÚLTIMA usada (atalho
@@ -65,7 +66,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _buscaCtrl = TextEditingController();
   bool _buscando = false; // modo busca na conversa
   String _busca = '';
-  List<(int, int)> _hits = []; // ocorrências: (índice da mensagem, posição no texto)
+  List<(int, int)> _hits =
+      []; // ocorrências: (índice da mensagem, posição no texto)
   int _hitAtual = -1;
   Conversa _conv = Conversa.nova(ChatPreset.coach);
   bool _enviando = false;
@@ -116,8 +118,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // PAUSA da leitura (botão do alto-falante): pausa de verdade e retoma de onde
   // parou (player.pause/resume). Diferente de parar (que zera a fila).
   bool _pausado = false; // leitura pausada (retomável)
-  bool _pausaChunkTts = false; // o trecho pausado era do TTS do aparelho (re-fala ele)
-  bool _trocandoVoz = false; // troca play/pause/stop em voo (ignora toques duplos)
+  bool _pausaChunkTts =
+      false; // o trecho pausado era do TTS do aparelho (re-fala ele)
+  bool _trocandoVoz =
+      false; // troca play/pause/stop em voo (ignora toques duplos)
   // MODO ÁUDIO (segurar o botão enviar): a resposta da Muse toca sozinha, sem
   // tocar no alto-falante — semi-conversação (você dita no Gboard, ela responde
   // em texto + voz). Fica salvo só em memória (default desligado a cada abertura).
@@ -128,33 +132,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // STREAMING da resposta (fala enquanto escreve): a resposta chega frase a frase.
   bool _streamando = false;
   String _streamTexto = ''; // resposta parcial sendo recebida (balão ao vivo)
-  String _proxSep = ' '; // separador antes da próxima frase ('\n\n' após parágrafo)
-  String _vozParag = ''; // parágrafo em montagem p/ a voz (fala por PARÁGRAFO, não frase)
-  bool _vozCortouSug = false; // já achou o bloco [[SUGESTOES]] no stream → não fala daqui
+  String _proxSep =
+      ' '; // separador antes da próxima frase ('\n\n' após parágrafo)
+  String _vozParag =
+      ''; // parágrafo em montagem p/ a voz (fala por PARÁGRAFO, não frase)
+  bool _vozCortouSug =
+      false; // já achou o bloco [[SUGESTOES]] no stream → não fala daqui
   StreamSubscription<MuseEvent>? _subStream;
   // Fila de voz PRODUTOR-CONSUMIDOR: a SÍNTESE roda ADIANTADA (um trecho por vez,
   // sem contenção de CPU) e fica À FRENTE da reprodução → começa cedo e sem vão
   // entre trechos. Vale pro streaming (por parágrafo) e pro replay (toque manual).
   final List<String> _vozTextos = []; // textos a falar, na ordem
-  final List<Uint8List?> _vozAudios = []; // áudios já sintetizados (alinhado a _vozTextos); null = falhou
+  final List<Uint8List?> _vozAudios =
+      []; // áudios já sintetizados (alinhado a _vozTextos); null = falhou
   int _vozTocarIdx = 0; // próximo índice a tocar
   bool _vozSintetizando = false;
   bool _vozTocando = false;
-  int? _vozMsgIdx; // se a fila é de um REPLAY de mensagem, qual índice (p/ limpar o ícone no fim)
+  int?
+  _vozMsgIdx; // se a fila é de um REPLAY de mensagem, qual índice (p/ limpar o ícone no fim)
 
   /// Ícone de cada modo.
   static IconData _icone(ChatPreset p) => switch (p) {
-        ChatPreset.coach => Icons.fitness_center,
-        ChatPreset.projetos => Icons.folder_outlined,
-        ChatPreset.geral => Icons.forum_outlined,
-      };
+    ChatPreset.coach => Icons.fitness_center,
+    ChatPreset.projetos => Icons.folder_outlined,
+    ChatPreset.geral => Icons.forum_outlined,
+  };
 
   /// Nome do asset do dot de cada MODO (usado no botão de enviar). V0.1.181.
   static String _modoAsset(ChatPreset p) => switch (p) {
-        ChatPreset.coach => 'calis',
-        ChatPreset.projetos => 'projetos',
-        ChatPreset.geral => 'geral',
-      };
+    ChatPreset.coach => 'calis',
+    ChatPreset.projetos => 'projetos',
+    ChatPreset.geral => 'geral',
+  };
 
   @override
   void initState() {
@@ -165,9 +174,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _tts.setCompletionHandler(() {
       // Só limpa o ícone se a fila já acabou (sem isso, um trecho de fallback
       // do TTS concluído no MEIO da fila apagava o ícone com a leitura rolando).
-      if (mounted &&
-          _vozTocarIdx >= _vozTextos.length &&
-          !_vozSintetizando) {
+      if (mounted && _vozTocarIdx >= _vozTextos.length && !_vozSintetizando) {
         setState(() => _lendoIdx = null);
       }
     });
@@ -232,12 +239,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         final m = Map<String, dynamic>.from(v as Map);
         final loc = '${m['locale']}'.toLowerCase();
         final nome = '${m['name']}'.toLowerCase();
-        final fem = '${m['gender']}'.toLowerCase() == 'female' ||
+        final fem =
+            '${m['gender']}'.toLowerCase() == 'female' ||
             nome.contains('female') ||
             nome.contains('#f');
         if (loc.startsWith('pt') && fem) {
-          await _tts.setVoice(
-              {'name': '${m['name']}', 'locale': '${m['locale']}'});
+          await _tts.setVoice({
+            'name': '${m['name']}',
+            'locale': '${m['locale']}',
+          });
           break;
         }
       }
@@ -274,63 +284,90 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// o ritmo das Configurações (+ "devagar" desta conversa). A masculina (faber)
   /// só existe no servidor — pula o on-device direto.
   Future<Uint8List?> _sintetizarTrecho(String texto) async {
-    final v = vozController.velocidade +
+    final v =
+        vozController.velocidade +
         (_conv.falaDevagar ? VozController.devagarDelta : 0.0);
     if (!vozController.masculina && TtsOnDevice.pronto) {
-      final b = await TtsOnDevice.sintetizar(_normalizarFala(texto),
-          velocidade: v);
+      final b = await TtsOnDevice.sintetizar(
+        _normalizarFala(texto),
+        velocidade: v,
+      );
       if (b != null) return b;
     }
     // Servidor aplica a própria normalização.
-    return ChatService.audioNeural(texto,
-        voz: vozController.masculina ? 'faber' : null, velocidade: v);
+    return ChatService.audioNeural(
+      texto,
+      voz: vozController.masculina ? 'faber' : null,
+      velocidade: v,
+    );
   }
 
   /// Taxa do TTS do aparelho (último fallback): 0.5 é o padrão; acompanha o
   /// ritmo configurado (lengthScale maior = fala mais devagar = taxa menor).
   double _taxaFalaTts() {
-    final v = vozController.velocidade +
+    final v =
+        vozController.velocidade +
         (_conv.falaDevagar ? VozController.devagarDelta : 0.0);
-    return (0.5 * VozController.velocidadePadrao / v).clamp(0.1, 1.0).toDouble();
+    return (0.5 * VozController.velocidadePadrao / v)
+        .clamp(0.1, 1.0)
+        .toDouble();
   }
 
   /// Normalização de fala do CLIENTE (p/ a síntese on-device, que não passa pelo
   /// /tts) — espelha o dicionário do servidor: NxM→"N de M", bike→báik, etc.
   String _normalizarFala(String t) {
     t = t.replaceAllMapped(
-        RegExp(r'(\d+)\s*[xX]\s*(\d+)'), (m) => '${m[1]} de ${m[2]}');
+      RegExp(r'(\d+)\s*[xX]\s*(\d+)'),
+      (m) => '${m[1]} de ${m[2]}',
+    );
     // Contagens hifenizadas de UM dígito ("4-7-8", "4-4") → "4, 7, 8" (pausa curta
     // entre números, sem ler "menos"). Restrito a 1 dígito p/ não quebrar datas,
     // telefones e intervalos.
     t = t.replaceAllMapped(
-        RegExp(r'\b(\d(?:\s*-\s*\d)+)\b'),
-        (m) => m[1]!.replaceAll(RegExp(r'\s*-\s*'), ', '));
+      RegExp(r'\b(\d(?:\s*-\s*\d)+)\b'),
+      (m) => m[1]!.replaceAll(RegExp(r'\s*-\s*'), ', '),
+    );
     // "kg" (unidade) → "quilo(s)": "2 kg"→"2 quilos", "1 kg"→"1 quilo".
-    t = t.replaceAllMapped(RegExp(r'\b(\d+)\s*kg\b'),
-        (m) => '${m[1]} quilo${m[1] == "1" ? "" : "s"}');
+    t = t.replaceAllMapped(
+      RegExp(r'\b(\d+)\s*kg\b'),
+      (m) => '${m[1]} quilo${m[1] == "1" ? "" : "s"}',
+    );
     t = t.replaceAll(RegExp(r'\bkg\b'), 'quilos');
     // Vocativo: tira a vírgula antes do nome ("boa noite, Vinícios" → "…Vinícios").
     t = t.replaceAllMapped(
-        RegExp(r',\s*(Vin[ií]ci[ou]s)\b', caseSensitive: false),
-        (m) => ' ${m[1]}');
+      RegExp(r',\s*(Vin[ií]ci[ou]s)\b', caseSensitive: false),
+      (m) => ' ${m[1]}',
+    );
     const mapa = {
-      'bike': 'báik', 'bikes': 'báiks',
-      'delay': 'delei', 'delays': 'deleis',
-      'rep': 'repetição', 'reps': 'repetições',
-      'halter': 'altér', 'halteres': 'altéres',
-      'arrego': 'arrêgo', 'arregos': 'arrêgos',
-      'app': 'ép', 'apps': 'éps',
+      'bike': 'báik',
+      'bikes': 'báiks',
+      'delay': 'delei',
+      'delays': 'deleis',
+      'rep': 'repetição',
+      'reps': 'repetições',
+      'halter': 'altér',
+      'halteres': 'altéres',
+      'arrego': 'arrêgo',
+      'arregos': 'arrêgos',
+      'app': 'ép',
+      'apps': 'éps',
       'foram': 'fôram',
-      'hmm': 'hum', 'hm': 'hum',
-      'clean': 'clin', 'and': 'end',
-      'schopenhauer': 'chopenrráuer', 'nietzsche': 'níti',
-      'nietzschiano': 'nitiano', 'nietzscheano': 'nitiano',
+      'hmm': 'hum',
+      'hm': 'hum',
+      'clean': 'clin',
+      'and': 'end',
+      'schopenhauer': 'chopenrráuer',
+      'nietzsche': 'níti',
+      'nietzschiano': 'nitiano',
+      'nietzscheano': 'nitiano',
       'fati': 'fáti',
       'haha': 'rá rá rá',
     };
     mapa.forEach((p, g) {
       t = t.replaceAllMapped(
-          RegExp('\\b$p\\b', caseSensitive: false), (_) => g);
+        RegExp('\\b$p\\b', caseSensitive: false),
+        (_) => g,
+      );
     });
     return t;
   }
@@ -388,7 +425,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final i = _vozTocarIdx;
       final bytes = _vozAudios[i];
       _vozTocarIdx++;
-      if (mounted && _gerandoVoz) setState(() => _gerandoVoz = false); // 1º áudio saiu
+      if (mounted && _gerandoVoz)
+        setState(() => _gerandoVoz = false); // 1º áudio saiu
       if (bytes == null || bytes.isEmpty) {
         try {
           // Teto de 60s por trecho: se o motor do aparelho travar, não prende
@@ -451,17 +489,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// hoje/ontem ou dd/MM dentro do colchete p/ preservar "[📷 imagem]" etc.
   String _semCarimbo(String t) {
     t = t.replaceFirst(
-        RegExp(
-            r'^\s*(?:\[[^\]]*(?:\d{1,2}:\d{2}|hoje|ontem|\d{1,2}/\d{1,2})[^\]]*\]\s*)+',
-            caseSensitive: false),
-        '');
+      RegExp(
+        r'^\s*(?:\[[^\]]*(?:\d{1,2}:\d{2}|hoje|ontem|\d{1,2}/\d{1,2})[^\]]*\]\s*)+',
+        caseSensitive: false,
+      ),
+      '',
+    );
     // Remove o bloco de SUGESTÕES (respostas de 1 toque) do que é exibido/falado
     // — fica SÓ nos chips. `dotAll` pega o bloco e qualquer cauda; pega também um
     // bloco PARCIAL no fim do stream (evita o "flash" de `[[SUGEST…` ao vivo).
     t = t.replaceFirst(
-        RegExp(r'\n*\s*\[\[\s*SUGEST.*$',
-            caseSensitive: false, dotAll: true),
-        '');
+      RegExp(r'\n*\s*\[\[\s*SUGEST.*$', caseSensitive: false, dotAll: true),
+      '',
+    );
     return t.trimRight();
   }
 
@@ -528,7 +568,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Se o trecho atual é do TTS do aparelho (sem áudio neural), ele será
       // interrompido pelo stop — na retomada esse trecho é re-falado do início.
       final cur = _vozTocarIdx - 1;
-      _pausaChunkTts = cur >= 0 &&
+      _pausaChunkTts =
+          cur >= 0 &&
           cur < _vozAudios.length &&
           (_vozAudios[cur] == null || _vozAudios[cur]!.isEmpty);
       try {
@@ -689,7 +730,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (atual != null) setState(() => _conv = atual);
     } else {
       setState(() {
-        _conv.mensagens = [..._conv.mensagens, ChatMessage.ia('⚠️ ${res.erro}')];
+        _conv.mensagens = [
+          ..._conv.mensagens,
+          ChatMessage.ia('⚠️ ${res.erro}'),
+        ];
       });
       await ChatStore.salvar(_conv);
     }
@@ -741,7 +785,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Vai para a fila do ChatStore (não dá p/ esperar no dispose); como todo
     // envio já salva com await, aqui é só reforço.
     if (!_conv.vazia) {
-      ChatStore.salvar(_conv); // fila: não bloquear o dispose (segue em background)
+      ChatStore.salvar(
+        _conv,
+      ); // fila: não bloquear o dispose (segue em background)
       ChatStore.marcarUltima(_conv.id);
     }
     _ctrl.dispose();
@@ -783,14 +829,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final n = _conv.mensagens.length;
       if (n > 0 && _scroll.hasClients) {
         final alvo = n - 1 + (_enviando ? 1 : 0);
-        final pos = (inicioResposta &&
-                !_enviando &&
-                !_conv.mensagens.last.ehUsuario)
+        final pos =
+            (inicioResposta && !_enviando && !_conv.mensagens.last.ehUsuario)
             ? AutoScrollPosition.begin
             : AutoScrollPosition.end;
-        _scroll.scrollToIndex(alvo,
-            preferPosition: pos,
-            duration: Duration(milliseconds: instantaneo ? 1 : 250));
+        _scroll.scrollToIndex(
+          alvo,
+          preferPosition: pos,
+          duration: Duration(milliseconds: instantaneo ? 1 : 250),
+        );
       }
     });
   }
@@ -814,9 +861,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
       final n = _conv.mensagens.length;
       if (n > 0 && !_enviando && !_conv.mensagens.last.ehUsuario) {
-        _scroll.scrollToIndex(n - 1,
-            preferPosition: AutoScrollPosition.begin,
-            duration: const Duration(milliseconds: 1));
+        _scroll.scrollToIndex(
+          n - 1,
+          preferPosition: AutoScrollPosition.begin,
+          duration: const Duration(milliseconds: 1),
+        );
       }
     });
   }
@@ -863,19 +912,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } else {
       // Garante os handlers atuais (o pré-aquecimento pode ter registrado outros).
       try {
-        await _stt.initialize(
-          onStatus: _aoStatusStt,
-          onError: _aoErroStt,
-        );
+        await _stt.initialize(onStatus: _aoStatusStt, onError: _aoErroStt);
       } catch (_) {}
     }
     // Travado: mesmo que o dedo já tenha soltado durante a inicialização/permissão,
     // a gravação continua — a parada é explícita (toque em enviar ou X).
     _prepararVozOffline(); // garante a voz da resposta pronta (silenciosa)
-    final sessao = ++_sessaoVoz; // id deste ditado (resultados velhos são descartados)
+    final sessao =
+        ++_sessaoVoz; // id deste ditado (resultados velhos são descartados)
     Diagnostico.registrar('voz', 'inicio');
     _vigiaVoz = Timer.periodic(
-        const Duration(seconds: 2), (_) => _vigiarVoz(sessao));
+      const Duration(seconds: 2),
+      (_) => _vigiarVoz(sessao),
+    );
     _ouvirUmaVez(sessao);
   }
 
@@ -903,14 +952,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             // Só metadados (sem o texto falado): o relatório pode ser
             // compartilhado sem expor o conteúdo ditado.
             Diagnostico.registrar(
-                'voz', 'final len=${atual.length} base=${_textoBase.length}');
+              'voz',
+              'final len=${atual.length} base=${_textoBase.length}',
+            );
           }
           // Parcial vazio nunca apaga: no fim da sessão o reconhecedor costuma
           // emitir um resultado vazio — sem este guarda ele ZERAVA a caixa e o
           // `_aoStatusStt` comitava o vazio como base (ditado "recomeçava").
           if (atual.isEmpty) return;
-          final combinado =
-              _textoBase.isEmpty ? atual : '$_textoBase $atual';
+          final combinado = _textoBase.isEmpty ? atual : '$_textoBase $atual';
           // Nunca encolhe: resultado atrasado/ revisado p/ menos não pode apagar
           // o que já estava transcrito (a pausa p/ pensar não apaga nada).
           if (combinado.length < _ctrl.text.length) return;
@@ -952,21 +1002,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// status e o botão segue vermelho sem transcrever). Força recomeço limpo:
   /// cancela (o que atualiza o `isListening` travado) e escuta de novo.
   Future<void> _vigiarVoz(int sessao) async {
-    if (sessao != _sessaoVoz ||
-        !_gravando ||
-        _paradaManual ||
-        !mounted) {
+    if (sessao != _sessaoVoz || !_gravando || _paradaManual || !mounted) {
       _vigiaVoz?.cancel();
       _vigiaVoz = null;
       return;
     }
-    final paradoHa =
-        DateTime.now().millisecondsSinceEpoch - _ultimoEventoVozAt;
+    final paradoHa = DateTime.now().millisecondsSinceEpoch - _ultimoEventoVozAt;
     // 3s (era 6s): recupera mais rápido um encerramento silencioso do Android —
     // o restart ativo do erro transitório (_reabrirVoz) cobre o caso comum da
     // pausa curta; o vigia é só o backstop para a morte sem status nem erro.
     if (paradoHa < 3000) return;
-    Diagnostico.registrar('voz', 'watchdog: $paradoHa ms sem evento, recomeçando');
+    Diagnostico.registrar(
+      'voz',
+      'watchdog: $paradoHa ms sem evento, recomeçando',
+    );
     try {
       await _stt.cancel();
     } catch (e, st) {
@@ -986,7 +1035,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Metadados p/ diagnóstico (sem o texto): ajuda a ver no relatório se o
       // restart está acontecendo a cada pausa.
       Diagnostico.registrar(
-          'voz', 'status=$s base=${_textoBase.length}c caixa=${_ctrl.text.length}c');
+        'voz',
+        'status=$s base=${_textoBase.length}c caixa=${_ctrl.text.length}c',
+      );
       if (_ctrl.text.trim().isNotEmpty) _textoBase = _ctrl.text.trim();
       final sessao = _sessaoVoz;
       // Pequeno respiro antes de reabrir (evita loop apertado em erro contínuo).
@@ -1123,8 +1174,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ? texto
         : (texto.isEmpty ? _anexo! : '$texto\n\n--- Anexo ---\n${_anexo!}');
     if (imgs.isNotEmpty) {
-      final marca =
-          imgs.length == 1 ? '[📷 imagem anexada]' : '[📷 ${imgs.length} imagens anexadas]';
+      final marca = imgs.length == 1
+          ? '[📷 imagem anexada]'
+          : '[📷 ${imgs.length} imagens anexadas]';
       conteudo = conteudo.isEmpty ? marca : '$conteudo\n$marca';
     }
     _ctrl.clear();
@@ -1159,11 +1211,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final imgsEnvio = imgs.isEmpty ? null : imgs;
     _escutarStream(
       idOrigem,
-      ChatService.enviarStream(idOrigem, snapshot,
-          presetId: _conv.preset.id,
-          modeloId: _conv.modelo.id,
-          tamanhoId: _conv.tamanho.id,
-          imagensB64: imgsEnvio),
+      ChatService.enviarStream(
+        idOrigem,
+        snapshot,
+        presetId: _conv.preset.id,
+        modeloId: _conv.modelo.id,
+        tamanhoId: _conv.tamanho.id,
+        imagensB64: imgsEnvio,
+      ),
       snapshot,
       imgsEnvio,
     );
@@ -1172,8 +1227,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Escuta o stream de frases: mostra o texto ao vivo + fala por frase (modo
   /// áudio). Ao concluir, recarrega a conversa do store (fonte da verdade).
-  void _escutarStream(String idOrigem, Stream<MuseEvent> stream,
-      List<ChatMessage> snapshot, List<String>? imgs) {
+  void _escutarStream(
+    String idOrigem,
+    Stream<MuseEvent> stream,
+    List<ChatMessage> snapshot,
+    List<String>? imgs,
+  ) {
     _subStream?.cancel();
     var recebeu = false;
 
@@ -1194,72 +1253,83 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _rolarFim(inicioResposta: true);
     }
 
-    _subStream = stream.listen((e) {
-      if (!mounted) return;
-      final mesma = _conv.id == idOrigem;
-      switch (e.tipo) {
-        case 'frase':
-          recebeu = true;
-          if (mesma) {
-            // O bloco [[ACAO:...]] não aparece nem é falado (só executa no fim).
-            final limpa = ChatActions.limpar(e.texto);
-            if (limpa.isEmpty) break;
-            // Texto ao vivo: parágrafos preservados (quebra dupla ao fim de parágrafo).
-            setState(() {
-              _streamTexto = _streamTexto.isEmpty
-                  ? limpa
-                  : '$_streamTexto$_proxSep$limpa';
-              _proxSep = e.fimParagrafo ? '\n\n' : ' ';
-            });
-            _rolarFim();
-            // Voz por PARÁGRAFO: acumula as frases e fala quando o parágrafo fecha,
-            // MAS só se já tiver texto suficiente (~80 chars) — assim uma 1ª linha
-            // curta/título NÃO é falada sozinha (ela "secaria" antes do próximo
-            // ficar pronto, criando o vão); junta com o próximo numa fala só.
-            if (_modoAudio && !_vozCortouSug) {
-              var fala = limpa;
-              // O bloco [[SUGESTOES]] (respostas de 1 toque) é só UI: corta aqui
-              // e PARA de narrar daqui pra frente — robusto a chunk partido, pois
-              // a flag persiste (ACAO já foi removido por ChatActions.limpar).
-              final iSug = fala.indexOf('[[');
-              if (iSug >= 0) {
-                fala = fala.substring(0, iSug);
-                _vozCortouSug = true;
-              }
-              if (fala.trim().isNotEmpty) {
-                _vozParag = _vozParag.isEmpty ? fala : '$_vozParag $fala';
-              }
-              final fecha = _vozCortouSug ||
-                  (e.fimParagrafo && _vozParag.trim().length >= 80);
-              if (fecha && _vozParag.trim().isNotEmpty) {
-                _enfileirarVoz(_vozParag.trim());
-                _vozParag = '';
+    _subStream = stream.listen(
+      (e) {
+        if (!mounted) return;
+        final mesma = _conv.id == idOrigem;
+        switch (e.tipo) {
+          case 'frase':
+            recebeu = true;
+            if (mesma) {
+              // O bloco [[ACAO:...]] não aparece nem é falado (só executa no fim).
+              final limpa = ChatActions.limpar(e.texto);
+              if (limpa.isEmpty) break;
+              // Texto ao vivo: parágrafos preservados (quebra dupla ao fim de parágrafo).
+              setState(() {
+                _streamTexto = _streamTexto.isEmpty
+                    ? limpa
+                    : '$_streamTexto$_proxSep$limpa';
+                _proxSep = e.fimParagrafo ? '\n\n' : ' ';
+              });
+              _rolarFim();
+              // Voz por PARÁGRAFO: acumula as frases e fala quando o parágrafo fecha,
+              // MAS só se já tiver texto suficiente (~80 chars) — assim uma 1ª linha
+              // curta/título NÃO é falada sozinha (ela "secaria" antes do próximo
+              // ficar pronto, criando o vão); junta com o próximo numa fala só.
+              if (_modoAudio && !_vozCortouSug) {
+                var fala = limpa;
+                // O bloco [[SUGESTOES]] (respostas de 1 toque) é só UI: corta aqui
+                // e PARA de narrar daqui pra frente — robusto a chunk partido, pois
+                // a flag persiste (ACAO já foi removido por ChatActions.limpar).
+                final iSug = fala.indexOf('[[');
+                if (iSug >= 0) {
+                  fala = fala.substring(0, iSug);
+                  _vozCortouSug = true;
+                }
+                if (fala.trim().isNotEmpty) {
+                  _vozParag = _vozParag.isEmpty ? fala : '$_vozParag $fala';
+                }
+                final fecha =
+                    _vozCortouSug ||
+                    (e.fimParagrafo && _vozParag.trim().length >= 80);
+                if (fecha && _vozParag.trim().isNotEmpty) {
+                  _enfileirarVoz(_vozParag.trim());
+                  _vozParag = '';
+                }
               }
             }
-          }
-        case 'done':
-          _tick?.cancel();
-          if (mesma) finalizar();
-        case 'acao':
-          // Confirmação de ação executada (lembrete/nota criados).
-          if (mesma) _snack(e.texto);
-        case 'erro':
-          _tick?.cancel();
-          if (!recebeu) {
-            _fallbackEnvio(idOrigem, snapshot, imgs); // nada veio: envio normal
-          } else if (mesma) {
-            finalizar(); // já salvou o parcial; só recarrega
-          }
-      }
-    }, onError: (_) {
-      if (!recebeu) _fallbackEnvio(idOrigem, snapshot, imgs);
-    });
+          case 'done':
+            _tick?.cancel();
+            if (mesma) finalizar();
+          case 'acao':
+            // Confirmação de ação executada (lembrete/nota criados).
+            if (mesma) _snack(e.texto);
+          case 'erro':
+            _tick?.cancel();
+            if (!recebeu) {
+              _fallbackEnvio(
+                idOrigem,
+                snapshot,
+                imgs,
+              ); // nada veio: envio normal
+            } else if (mesma) {
+              finalizar(); // já salvou o parcial; só recarrega
+            }
+        }
+      },
+      onError: (_) {
+        if (!recebeu) _fallbackEnvio(idOrigem, snapshot, imgs);
+      },
+    );
   }
 
   /// Caminho de RESERVA (robusto, como antes do streaming): usado se o streaming
   /// falhar sem produzir nada. Sobrevive ao voltar e salva via `anexarIa`.
   Future<void> _fallbackEnvio(
-      String idOrigem, List<ChatMessage> snapshot, List<String>? imgs) async {
+    String idOrigem,
+    List<ChatMessage> snapshot,
+    List<String>? imgs,
+  ) async {
     if (mounted) {
       setState(() {
         _streamando = false;
@@ -1271,18 +1341,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (mounted) setState(() => _enviando = false);
       return;
     }
-    final res = await ChatService.enviarNaConversa(idOrigem, snapshot,
-        presetId: _conv.preset.id,
-        modeloId: _conv.modelo.id,
-        tamanhoId: _conv.tamanho.id,
-        imagensB64: imgs);
+    final res = await ChatService.enviarNaConversa(
+      idOrigem,
+      snapshot,
+      presetId: _conv.preset.id,
+      modeloId: _conv.modelo.id,
+      tamanhoId: _conv.tamanho.id,
+      imagensB64: imgs,
+    );
     _tick?.cancel();
     if (!mounted) return;
     if (_conv.id != idOrigem) {
       if (!res.sucesso) {
         final orig = await ChatStore.porId(idOrigem);
         if (orig != null) {
-          orig.mensagens = [...orig.mensagens, ChatMessage.ia('⚠️ ${res.erro}')];
+          orig.mensagens = [
+            ...orig.mensagens,
+            ChatMessage.ia('⚠️ ${res.erro}'),
+          ];
           await ChatStore.salvar(orig);
         }
         if (!mounted) return;
@@ -1304,7 +1380,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     } else {
       setState(() {
-        _conv.mensagens = [..._conv.mensagens, ChatMessage.ia('⚠️ ${res.erro}')];
+        _conv.mensagens = [
+          ..._conv.mensagens,
+          ChatMessage.ia('⚠️ ${res.erro}'),
+        ];
         _enviando = false;
       });
       await ChatStore.salvar(_conv);
@@ -1334,10 +1413,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(c, ctrl.text.trim()),
-              child: const Text('Salvar')),
+            onPressed: () => Navigator.pop(c, ctrl.text.trim()),
+            child: const Text('Salvar'),
+          ),
         ],
       ),
     );
@@ -1355,13 +1437,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // do chat retorna para ela.)
 
   PopupMenuItem<String> _item(String v, IconData ic, String t) => PopupMenuItem(
-        value: v,
-        child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(ic),
-            title: Text(t)),
-      );
+    value: v,
+    child: ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(ic),
+      title: Text(t),
+    ),
+  );
 
   Future<void> _acaoMenu(String v) async {
     switch (v) {
@@ -1382,9 +1465,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       case 'devagar':
         setState(() => _conv.falaDevagar = !_conv.falaDevagar);
         await ChatStore.salvar(_conv);
-        _snack(_conv.falaDevagar
-            ? 'Fala devagar ativada nesta conversa'
-            : 'Fala devagar desativada');
+        _snack(
+          _conv.falaDevagar
+              ? 'Fala devagar ativada nesta conversa'
+              : 'Fala devagar desativada',
+        );
     }
   }
 
@@ -1394,18 +1479,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       context: context,
       showDragHandle: true,
       builder: (c) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          for (final mdl in ChatModelo.values)
-            ListTile(
-              leading: Icon(_conv.modelo == mdl
-                  ? Icons.check
-                  : Icons.smart_toy_outlined),
-              title: Text(mdl.rotulo),
-              subtitle: Text(mdl.descricao),
-              selected: _conv.modelo == mdl,
-              onTap: () => Navigator.pop(c, mdl),
-            ),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final mdl in ChatModelo.values)
+              ListTile(
+                leading: Icon(
+                  _conv.modelo == mdl ? Icons.check : Icons.smart_toy_outlined,
+                ),
+                title: Text(mdl.rotulo),
+                subtitle: Text(mdl.descricao),
+                selected: _conv.modelo == mdl,
+                onTap: () => Navigator.pop(c, mdl),
+              ),
+          ],
+        ),
       ),
     );
     if (esc == null) return;
@@ -1420,25 +1508,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       context: context,
       showDragHandle: true,
       builder: (c) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          for (final tam in ChatTamanho.values)
-            ListTile(
-              leading: Icon(
-                  _conv.tamanho == tam ? Icons.check : Icons.straighten),
-              title: Text(tam.rotulo),
-              subtitle: Text(tam.descricao),
-              selected: _conv.tamanho == tam,
-              onTap: () => Navigator.pop(c, tam),
-            ),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final tam in ChatTamanho.values)
+              ListTile(
+                leading: Icon(
+                  _conv.tamanho == tam ? Icons.check : Icons.straighten,
+                ),
+                title: Text(tam.rotulo),
+                subtitle: Text(tam.descricao),
+                selected: _conv.tamanho == tam,
+                onTap: () => Navigator.pop(c, tam),
+              ),
+          ],
+        ),
       ),
     );
     if (esc == null) return;
     setState(() => _conv.tamanho = esc);
     await ChatStore.salvar(_conv);
-    _snack(_conv.tamanho == ChatTamanho.curto
-        ? 'Respostas curtas (cerca de metade, sem cortar)'
-        : 'Respostas longas (tamanho completo)');
+    _snack(
+      _conv.tamanho == ChatTamanho.curto
+          ? 'Respostas curtas (cerca de metade, sem cortar)'
+          : 'Respostas longas (tamanho completo)',
+    );
   }
 
   /// Mostra as falhas capturadas (Diagnostico) e deixa ENVIAR (ao proxy do
@@ -1455,8 +1549,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
-            child: SelectableText(texto,
-                style: const TextStyle(fontSize: 12, height: 1.3)),
+            child: SelectableText(
+              texto,
+              style: const TextStyle(fontSize: 12, height: 1.3),
+            ),
           ),
         ),
         actions: [
@@ -1471,8 +1567,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             child: const Text('Limpar'),
           ),
           TextButton(
-            onPressed: () => SharePlus.instance.share(ShareParams(
-                text: texto, subject: 'Taskix — relatório de erros')),
+            onPressed: () => SharePlus.instance.share(
+              ShareParams(text: texto, subject: 'Taskix — relatório de erros'),
+            ),
             child: const Text('Compartilhar'),
           ),
           FilledButton(
@@ -1482,9 +1579,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     final ok = await Diagnostico.enviar();
                     if (!ctx.mounted) return;
                     Navigator.pop(ctx);
-                    _snack(ok
-                        ? 'Relatório enviado. Obrigado!'
-                        : 'Falha ao enviar — tente Compartilhar.');
+                    _snack(
+                      ok
+                          ? 'Relatório enviado. Obrigado!'
+                          : 'Falha ao enviar — tente Compartilhar.',
+                    );
                   },
             child: const Text('Enviar'),
           ),
@@ -1534,34 +1633,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _irPara(int msgIdx) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.scrollToIndex(msgIdx,
-            preferPosition: AutoScrollPosition.middle,
-            duration: const Duration(milliseconds: 300));
+        _scroll.scrollToIndex(
+          msgIdx,
+          preferPosition: AutoScrollPosition.middle,
+          duration: const Duration(milliseconds: 300),
+        );
       }
     });
   }
 
   List<Widget> _acoesBusca() => [
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Text(
-              _busca.isEmpty
-                  ? ''
-                  : (_hits.isEmpty ? '0' : '${_hitAtual + 1}/${_hits.length}'),
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
+    Center(
+      child: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Text(
+          _busca.isEmpty
+              ? ''
+              : (_hits.isEmpty ? '0' : '${_hitAtual + 1}/${_hits.length}'),
+          style: const TextStyle(fontSize: 13),
         ),
-        IconButton(
-            icon: const Icon(Icons.keyboard_arrow_up),
-            tooltip: 'Anterior',
-            onPressed: _hits.isEmpty ? null : () => _irHit(-1)),
-        IconButton(
-            icon: const Icon(Icons.keyboard_arrow_down),
-            tooltip: 'Próximo',
-            onPressed: _hits.isEmpty ? null : () => _irHit(1)),
-      ];
+      ),
+    ),
+    IconButton(
+      icon: const Icon(Icons.keyboard_arrow_up),
+      tooltip: 'Anterior',
+      onPressed: _hits.isEmpty ? null : () => _irHit(-1),
+    ),
+    IconButton(
+      icon: const Icon(Icons.keyboard_arrow_down),
+      tooltip: 'Próximo',
+      onPressed: _hits.isEmpty ? null : () => _irHit(1),
+    ),
+  ];
 
   /// Quebra o texto em trechos, grifando as ocorrências; a ocorrência ATUAL
   /// (a que a navegação ▲/▼ aponta) fica em laranja/negrito.
@@ -1584,13 +1687,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         spans.add(TextSpan(text: texto.substring(start, i), style: base));
       }
       final ehAtual = i == atual;
-      spans.add(TextSpan(
-        text: texto.substring(i, i + q.length),
-        style: base.copyWith(
+      spans.add(
+        TextSpan(
+          text: texto.substring(i, i + q.length),
+          style: base.copyWith(
             backgroundColor: ehAtual ? Colors.orange : Colors.amber,
             color: Colors.black,
-            fontWeight: ehAtual ? FontWeight.bold : null),
-      ));
+            fontWeight: ehAtual ? FontWeight.bold : null,
+          ),
+        ),
+      );
       start = i + q.length;
     }
     return spans;
@@ -1603,11 +1709,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
     showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()));
-    final res = await ChatService.enviar(_conv.mensagens,
-        presetId: 'resumo', modeloId: _conv.modelo.id);
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    final res = await ChatService.enviar(
+      _conv.mensagens,
+      presetId: 'resumo',
+      modeloId: _conv.modelo.id,
+    );
     if (!mounted) return;
     Navigator.of(context, rootNavigator: true).pop(); // fecha o loading
     final texto = res.sucesso ? res.reply! : '⚠️ ${res.erro}';
@@ -1621,7 +1731,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(c), child: const Text('Fechar')),
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Fechar'),
+          ),
           if (res.sucesso)
             FilledButton.icon(
               icon: const Icon(Icons.copy, size: 18),
@@ -1642,7 +1754,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-          SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
+      );
   }
 
   /// Rótulo de hora de UMA mensagem (embaixo da bolha): hoje = só HH:mm,
@@ -1691,36 +1804,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 onSubmitted: (_) => _irHit(1), // Enter = próxima ocorrência
                 textInputAction: TextInputAction.search,
                 decoration: const InputDecoration(
-                    hintText: 'Buscar na conversa…', border: InputBorder.none),
+                  hintText: 'Buscar na conversa…',
+                  border: InputBorder.none,
+                ),
               )
             // Pílula de status com CONTORNO na cor do tema; a frase inteira cabe
             // (FittedBox encolhe se faltar largura). Sem a foto ao lado. (V0.1.179)
             : Center(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: app.fab, width: 1.5),
                   ),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(
-                        'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}',
-                        maxLines: 1,
-                        style: TextStyle(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Modo ${_conv.preset.rotulo} • ${_conv.tamanho.rotulo} • ${_conv.modelo.rotulo}',
+                          maxLines: 1,
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: cs.onSurface),
-                      ),
-                      // "Fala devagar" vira só o ícone de velocidade (sem a
-                      // palavra "Devagar" na barra). (V0.1.181)
-                      if (_conv.falaDevagar) ...[
-                        const SizedBox(width: 6),
-                        Icon(Icons.speed, size: 16, color: cs.onSurface),
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        // "Fala devagar" vira só o ícone de velocidade (sem a
+                        // palavra "Devagar" na barra). (V0.1.181)
+                        if (_conv.falaDevagar) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.speed, size: 16, color: cs.onSurface),
+                        ],
                       ],
-                    ]),
+                    ),
                   ),
                 ),
               ),
@@ -1734,46 +1855,66 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   tooltip: 'Menu',
                   onSelected: _acaoMenu,
                   itemBuilder: (_) => [
-              // Nome da conversa como CABEÇALHO do menu (V0.1.177).
-              PopupMenuItem<String>(
-                enabled: false,
-                height: 36,
-                child: Text(
-                  _conv.titulo,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800, color: cs.onSurface),
-                ),
-              ),
-              const PopupMenuDivider(),
-              _item('buscar', Icons.search, 'Buscar na conversa'),
-              _item('nova', Icons.add_comment_outlined, 'Nova conversa'),
-              _item('resumo', Icons.summarize_outlined, 'Resumo da conversa'),
-              _item('renomear', Icons.edit_outlined, 'Renomear conversa'),
-              _item('relatorio', Icons.bug_report_outlined, 'Relatório de erros'),
-              const PopupMenuDivider(),
-              // Modelo e Tamanho ESCONDIDOS atrás de um toque (abrem um seletor)
-              // — antes ficavam expandidos no menu. (V0.1.179) Mostram o atual.
-              _item('modelo', Icons.smart_toy_outlined,
-                  'Modelo: ${_conv.modelo.rotulo}'),
-              _item('tamanho', Icons.straighten,
-                  'Tamanho: ${_conv.tamanho.rotulo}'),
-              const PopupMenuDivider(),
-              // Fala devagar SÓ nesta conversa (soma ao ritmo das Configurações).
-              PopupMenuItem(
-                value: 'devagar',
-                child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(_conv.falaDevagar
-                      ? Icons.check
-                      : Icons.speed_outlined),
-                  title: const Text('Fala devagar'),
-                  subtitle: const Text('Respostas faladas mais devagar (só aqui)'),
-                ),
-              ),
-            ],
+                    // Nome da conversa como CABEÇALHO do menu (V0.1.177).
+                    PopupMenuItem<String>(
+                      enabled: false,
+                      height: 36,
+                      child: Text(
+                        _conv.titulo,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    _item('buscar', Icons.search, 'Buscar na conversa'),
+                    _item('nova', Icons.add_comment_outlined, 'Nova conversa'),
+                    _item(
+                      'resumo',
+                      Icons.summarize_outlined,
+                      'Resumo da conversa',
+                    ),
+                    _item('renomear', Icons.edit_outlined, 'Renomear conversa'),
+                    _item(
+                      'relatorio',
+                      Icons.bug_report_outlined,
+                      'Relatório de erros',
+                    ),
+                    const PopupMenuDivider(),
+                    // Modelo e Tamanho ESCONDIDOS atrás de um toque (abrem um seletor)
+                    // — antes ficavam expandidos no menu. (V0.1.179) Mostram o atual.
+                    _item(
+                      'modelo',
+                      Icons.smart_toy_outlined,
+                      'Modelo: ${_conv.modelo.rotulo}',
+                    ),
+                    _item(
+                      'tamanho',
+                      Icons.straighten,
+                      'Tamanho: ${_conv.tamanho.rotulo}',
+                    ),
+                    const PopupMenuDivider(),
+                    // Fala devagar SÓ nesta conversa (soma ao ritmo das Configurações).
+                    PopupMenuItem(
+                      value: 'devagar',
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          _conv.falaDevagar
+                              ? Icons.check
+                              : Icons.speed_outlined,
+                        ),
+                        title: const Text('Fala devagar'),
+                        subtitle: const Text(
+                          'Respostas faladas mais devagar (só aqui)',
+                        ),
+                      ),
+                    ),
+                  ],
                   filho: const Icon(Icons.menu, size: 24),
                 ),
                 // M — MODO da Muse (Calis/Projetos/Geral). Mostra a inicial do
@@ -1793,14 +1934,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         child: ListTile(
                           dense: true,
                           contentPadding: EdgeInsets.zero,
-                          leading: Icon(_icone(p),
-                              color: _conv.preset == p
-                                  ? Theme.of(context).colorScheme.primary
-                                  : null),
+                          leading: Icon(
+                            _icone(p),
+                            color: _conv.preset == p
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
+                          ),
                           title: Text(p.rotulo),
                           subtitle: Text(p.descricao),
-                          trailing:
-                              _conv.preset == p ? const Icon(Icons.check) : null,
+                          trailing: _conv.preset == p
+                              ? const Icon(Icons.check)
+                              : null,
                         ),
                       ),
                   ],
@@ -1808,21 +1952,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   filho: Text(
                     _conv.preset.rotulo.substring(0, 1).toUpperCase(),
                     style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        height: 1.0,
-                        color: (Theme.of(context).extension<AppCores>() ??
-                                AppCores.azul)
-                            .fab),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0,
+                      color:
+                          (Theme.of(context).extension<AppCores>() ??
+                                  AppCores.azul)
+                              .fab,
+                    ),
                   ),
                 ),
-        ],
+              ],
       ),
       body: _carregando
           ? const Center(child: CircularProgressIndicator())
           : logado
-              ? _conversa(context)
-              : _conviteLogin(context),
+          ? _conversa(context)
+          : _conviteLogin(context),
     );
   }
 
@@ -1835,8 +1981,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     required Widget filho,
     double largura = 40,
   }) {
-    final cor =
-        (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
+    final cor = (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
     final tile = Container(
       width: largura,
       height: 40,
@@ -1848,7 +1993,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
     if (onTap == null) {
       return Opacity(
-          opacity: 0.45, child: Tooltip(message: tooltip, child: tile));
+        opacity: 0.45,
+        child: Tooltip(message: tooltip, child: tile),
+      );
     }
     return Tooltip(
       message: tooltip,
@@ -1875,8 +2022,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     T? initialValue,
     double largura = 48,
   }) {
-    final cor =
-        (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
+    final cor = (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
     return Tooltip(
       message: tooltip,
       child: IconTheme(
@@ -1908,22 +2054,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.lock_outline,
-              size: 54, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 16),
-          const Text(
-            'Entre com sua conta Google para usar a Muse Spark.\n'
-            'Só a sua conta tem acesso — ninguém mais usa seus créditos.',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            icon: const Icon(Icons.login),
-            label: const Text('Entrar com Google'),
-            onPressed: () => SyncService.instance.entrarComGoogle(),
-          ),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 54,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Entre com sua conta Google para usar a Muse Spark.\n'
+              'Só a sua conta tem acesso — ninguém mais usa seus créditos.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              icon: const Icon(Icons.login),
+              label: const Text('Entrar com Google'),
+              onPressed: () => SyncService.instance.entrarComGoogle(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1931,48 +2083,49 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget _conversa(BuildContext context) {
     // (A pílula de status subiu para o TÍTULO da AppBar na V0.1.177 — aqui a
     // conversa começa direto, sem banner, ganhando espaço no topo.)
-    return Column(children: [
-      Expanded(
-        child: _conv.vazia
-            ? _vazio(context)
-            // Scrollbar CONTIDO na lista de mensagens (antes a rolagem "vazava"
-            // pra viewport). Mesmo controller da lista.
-            : Scrollbar(
-                controller: _scroll,
-                child: ListView.builder(
-                controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-                itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
-                itemBuilder: (c, i) {
-                  // O "pensando" tem tag própria (índice n) p/ o _rolarFim mirar nele
-                  // durante o envio — sem isso o scroll parava na msg enviada e o
-                  // contador ficava escondido embaixo.
-                  if (i == _conv.mensagens.length) {
-                    // Durante o streaming, mostra a resposta chegando AO VIVO; antes
-                    // da 1ª frase, o "pensando…" com o contador.
-                    return AutoScrollTag(
-                      key: const ValueKey('pensando'),
-                      controller: _scroll,
-                      index: i,
-                      child: (_streamando && _streamTexto.isNotEmpty)
-                          ? _bolhaStream(context)
-                          : _pensando(context),
-                    );
-                  }
-                  // AutoScrollTag permite pular até a mensagem na busca.
-                  return AutoScrollTag(
-                    key: ValueKey('msg_$i'),
+    return Column(
+      children: [
+        Expanded(
+          child: _conv.vazia
+              ? _vazio(context)
+              // Scrollbar CONTIDO na lista de mensagens (antes a rolagem "vazava"
+              // pra viewport). Mesmo controller da lista.
+              : Scrollbar(
+                  controller: _scroll,
+                  child: ListView.builder(
                     controller: _scroll,
-                    index: i,
-                    child: _bolha(context, _conv.mensagens[i], i),
-                  );
-                },
-              ),
-            ),
-      ),
-      _sugestoes(context),
-      _barraEntrada(context),
-    ]);
+                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                    itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
+                    itemBuilder: (c, i) {
+                      // O "pensando" tem tag própria (índice n) p/ o _rolarFim mirar nele
+                      // durante o envio — sem isso o scroll parava na msg enviada e o
+                      // contador ficava escondido embaixo.
+                      if (i == _conv.mensagens.length) {
+                        // Durante o streaming, mostra a resposta chegando AO VIVO; antes
+                        // da 1ª frase, o "pensando…" com o contador.
+                        return AutoScrollTag(
+                          key: const ValueKey('pensando'),
+                          controller: _scroll,
+                          index: i,
+                          child: (_streamando && _streamTexto.isNotEmpty)
+                              ? _bolhaStream(context)
+                              : _pensando(context),
+                        );
+                      }
+                      // AutoScrollTag permite pular até a mensagem na busca.
+                      return AutoScrollTag(
+                        key: ValueKey('msg_$i'),
+                        controller: _scroll,
+                        index: i,
+                        child: _bolha(context, _conv.mensagens[i], i),
+                      );
+                    },
+                  ),
+                ),
+        ),
+        _barraEntrada(context),
+      ],
+    );
   }
 
   /// Respostas de 1 toque: chips que a Muse propôs no fim da ÚLTIMA resposta.
@@ -1987,42 +2140,52 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (ops.isEmpty) return const SizedBox.shrink();
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final cs = Theme.of(context).colorScheme;
-    // Coluna VERTICAL encostada à DIREITA (alinhada com os botões da barra), uma
-    // resposta abaixo da outra — em vez de uma faixa horizontal larga. NÃO toca
-    // na caixa de texto (fica acima dela, hugging a borda direita).
+    // Linha HORIZONTAL à ESQUERDA, no vão acima da caixa (na altura do mic). Os
+    // chips dividem a largura (Flexible) e ENCOLHEM/elipsam antes de quebrar —
+    // nunca passam p/ outra linha (Row). Padding de baixo separa da caixa.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 12, 4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      padding: const EdgeInsets.only(left: 2, right: 8, bottom: 6),
+      child: Row(
         children: [
           for (var i = 0; i < ops.length; i++) ...[
-            if (i > 0) const SizedBox(height: 6),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 260),
+            if (i > 0) const SizedBox(width: 6),
+            Flexible(
               child: Material(
                 color: cs.surface,
                 shape: StadiumBorder(
-                    side: BorderSide(color: app.fab.withValues(alpha: 0.5))),
+                  side: BorderSide(color: app.fab.withValues(alpha: 0.5)),
+                ),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () => _usarSugestao(ops[i]),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 13, vertical: 8),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.subdirectory_arrow_left,
-                          size: 15, color: app.fab),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(ops[i],
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.subdirectory_arrow_left,
+                          size: 14,
+                          color: app.fab,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            ops[i],
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: cs.onSurface)),
-                      ),
-                    ]),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -2042,23 +2205,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _vazio(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Text(
-            _conv.preset == ChatPreset.coach
-                ? 'Peça uma análise do seu treino, ou diga "oi" que a Muse Spark te dá o panorama.'
-                : 'Mande uma mensagem para começar a discutir seus projetos.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Theme.of(context).hintColor),
-          ),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Text(
+        _conv.preset == ChatPreset.coach
+            ? 'Peça uma análise do seu treino, ou diga "oi" que a Muse Spark te dá o panorama.'
+            : 'Mande uma mensagem para começar a discutir seus projetos.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Theme.of(context).hintColor),
+      ),
+    ),
+  );
 
   Widget _bolha(BuildContext context, ChatMessage m, int idx) {
     final cs = Theme.of(context).colorScheme;
     final ehEu = m.ehUsuario;
-    final estilo =
-        TextStyle(color: ehEu ? cs.onPrimary : cs.onSurface, height: 1.3);
+    final estilo = TextStyle(
+      color: ehEu ? cs.onPrimary : cs.onSurface,
+      height: 1.3,
+    );
     // Texto SEM o carimbo de data/hora (some da escrita; só o servidor usa p/
     // contexto). Na busca, grifa as ocorrências; senão texto simples.
     final txt = _semCarimbo(m.texto);
@@ -2067,11 +2232,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // o menu de segurar (copiar/editar).
     final texto = ehEu
         ? (_busca.isEmpty
-            ? Text(txt, style: estilo)
-            : Text.rich(TextSpan(children: _grifar(txt, estilo, idx))))
+              ? Text(txt, style: estilo)
+              : Text.rich(TextSpan(children: _grifar(txt, estilo, idx))))
         : (_busca.isEmpty
-            ? SelectableText(txt, style: estilo)
-            : SelectableText.rich(TextSpan(children: _grifar(txt, estilo, idx))));
+              ? SelectableText(txt, style: estilo)
+              : SelectableText.rich(
+                  TextSpan(children: _grifar(txt, estilo, idx)),
+                ));
     final podeRegerar =
         !ehEu && idx == _conv.mensagens.length - 1 && !_enviando;
     final hora = _rotuloHora(m.hora);
@@ -2079,8 +2246,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       alignment: ehEu ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment:
-            ehEu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: ehEu
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           // Segurar = menu com Copiar / Salvar no Estudos (mensagem INTEIRA, sem
           // precisar selecionar tudo).
@@ -2088,10 +2256,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             builder: (context) {
               final bolha = Container(
                 margin: const EdgeInsets.only(top: 4, bottom: 2),
-                padding:
-                    EdgeInsets.fromLTRB(14, 10, ehEu ? 14 : 6, ehEu ? 10 : 2),
+                padding: EdgeInsets.fromLTRB(
+                  14,
+                  10,
+                  ehEu ? 14 : 6,
+                  ehEu ? 10 : 2,
+                ),
                 constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.9),
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
                 decoration: BoxDecoration(
                   color: ehEu ? cs.primary : cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.only(
@@ -2109,43 +2282,56 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: texto),
+                            padding: const EdgeInsets.only(right: 8),
+                            child: texto,
+                          ),
                           Align(
                             alignment: Alignment.centerRight,
                             child: Wrap(
                               alignment: WrapAlignment.end,
                               children: [
                                 // Recomeçar a leitura do INÍCIO desta mensagem.
-                                _acaoBolha(Icons.replay, 24,
-                                    onTap: () => _recomecarFala(idx, m.texto)),
+                                _acaoBolha(
+                                  Icons.replay,
+                                  24,
+                                  onTap: () => _recomecarFala(idx, m.texto),
+                                ),
                                 // Alto-falante: tocar = play/pausa; segurar = parar.
                                 _acaoBolha(
                                   _lendoIdx == idx
                                       ? (_gerandoVoz
-                                          ? Icons.hourglass_bottom_outlined
-                                          : (_pausado
-                                              ? Icons.play_circle_outline
-                                              : Icons.pause_circle_outline))
+                                            ? Icons.hourglass_bottom_outlined
+                                            : (_pausado
+                                                  ? Icons.play_circle_outline
+                                                  : Icons.pause_circle_outline))
                                       : Icons.volume_up_outlined,
                                   26,
                                   onTap: () => _falar(idx, m.texto),
                                   onLongPress: () => _pararReplay(),
                                 ),
                                 // Copiar TUDO (segurar o texto seleciona só uma parte).
-                                _acaoBolha(Icons.copy_rounded, 21,
-                                    tooltip: 'Copiar tudo',
-                                    onTap: () => _copiar(_semCarimbo(m.texto))),
+                                _acaoBolha(
+                                  Icons.copy_rounded,
+                                  21,
+                                  tooltip: 'Copiar tudo',
+                                  onTap: () => _copiar(_semCarimbo(m.texto)),
+                                ),
                                 // Regerar (só a última resposta) — ícone distinto do replay.
                                 if (podeRegerar)
-                                  _acaoBolha(Icons.autorenew_rounded, 22,
-                                      tooltip: 'Regerar',
-                                      onTap: () => _regenerar()),
+                                  _acaoBolha(
+                                    Icons.autorenew_rounded,
+                                    22,
+                                    tooltip: 'Regerar',
+                                    onTap: () => _regenerar(),
+                                  ),
                                 // Salvar nos Estudos.
-                                _acaoBolha(Icons.menu_book_outlined, 22,
-                                    tooltip: 'Salvar nos Estudos',
-                                    onTap: () =>
-                                        _salvarNoEstudos(_semCarimbo(m.texto))),
+                                _acaoBolha(
+                                  Icons.menu_book_outlined,
+                                  22,
+                                  tooltip: 'Salvar nos Estudos',
+                                  onTap: () =>
+                                      _salvarNoEstudos(_semCarimbo(m.texto)),
+                                ),
                               ],
                             ),
                           ),
@@ -2154,7 +2340,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               );
               return ehEu
                   ? GestureDetector(
-                      onLongPress: () => _acoesMensagem(m, idx), child: bolha)
+                      onLongPress: () => _acoesMensagem(m, idx),
+                      child: bolha,
+                    )
                   : bolha;
             },
           ),
@@ -2162,10 +2350,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           if (hora.isNotEmpty)
             Padding(
               padding: EdgeInsets.only(
-                  left: ehEu ? 0 : 4, right: ehEu ? 4 : 0, bottom: 4),
-              child: Text(hora,
-                  style: TextStyle(
-                      fontSize: 11, color: Theme.of(context).hintColor)),
+                left: ehEu ? 0 : 4,
+                right: ehEu ? 4 : 0,
+                bottom: 4,
+              ),
+              child: Text(
+                hora,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).hintColor,
+                ),
+              ),
             ),
         ],
       ),
@@ -2173,8 +2368,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Um botão de ação da bolha da Muse (voz, copiar, regerar, estudos).
-  Widget _acaoBolha(IconData icone, double size,
-      {required VoidCallback onTap, VoidCallback? onLongPress, String? tooltip}) {
+  Widget _acaoBolha(
+    IconData icone,
+    double size, {
+    required VoidCallback onTap,
+    VoidCallback? onLongPress,
+    String? tooltip,
+  }) {
     final cs = Theme.of(context).colorScheme;
     Widget w = InkWell(
       onTap: onTap,
@@ -2194,10 +2394,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(
-        content: Text('Mensagem copiada'),
-        duration: Duration(seconds: 1),
-      ));
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Mensagem copiada'),
+          duration: Duration(seconds: 1),
+        ),
+      );
   }
 
   /// Menu ao segurar uma mensagem: copiar ou mandar para o projeto "Estudos".
@@ -2224,14 +2426,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ListTile(
                 leading: const Icon(Icons.refresh),
                 title: const Text('Tentar de novo'),
-                subtitle: const Text('Gera outra resposta para a mesma pergunta'),
+                subtitle: const Text(
+                  'Gera outra resposta para a mesma pergunta',
+                ),
                 onTap: () => Navigator.pop(ctx, 'regenerar'),
               ),
             if (podeEditar)
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
                 title: const Text('Editar e reenviar'),
-                subtitle: const Text('Corrige o que você enviou, sem reescrever tudo'),
+                subtitle: const Text(
+                  'Corrige o que você enviou, sem reescrever tudo',
+                ),
                 onTap: () => Navigator.pop(ctx, 'editar'),
               ),
             ListTile(
@@ -2265,10 +2471,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _regenerar() async {
     if (_enviando) return;
     final msgs = _conv.mensagens;
-    if (msgs.isEmpty || msgs.last.ehUsuario) return; // precisa de uma resposta no fim
+    if (msgs.isEmpty || msgs.last.ehUsuario)
+      return; // precisa de uma resposta no fim
     await _pararFala();
     setState(() {
-      _conv.mensagens = msgs.sublist(0, msgs.length - 1); // tira a resposta antiga
+      _conv.mensagens = msgs.sublist(
+        0,
+        msgs.length - 1,
+      ); // tira a resposta antiga
       _enviando = true;
       _streamando = true;
       _streamTexto = '';
@@ -2288,10 +2498,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final snapshot = List<ChatMessage>.from(_conv.mensagens);
     _escutarStream(
       idOrigem,
-      ChatService.enviarStream(idOrigem, snapshot,
-          presetId: _conv.preset.id,
-          modeloId: _conv.modelo.id,
-          tamanhoId: _conv.tamanho.id),
+      ChatService.enviarStream(
+        idOrigem,
+        snapshot,
+        presetId: _conv.preset.id,
+        modeloId: _conv.modelo.id,
+        tamanhoId: _conv.tamanho.id,
+      ),
       snapshot,
       null,
     );
@@ -2326,32 +2539,40 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(
-        content: Text('Salvo no Estudos'),
-        duration: Duration(seconds: 1),
-      ));
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Salvo no Estudos'),
+          duration: Duration(seconds: 1),
+        ),
+      );
   }
 
   Widget _pensando(BuildContext context) => Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+    alignment: Alignment.centerLeft,
+    child: Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2)),
-            const SizedBox(width: 10),
-            Text('pensando… ${_tempoEspera()}s',
-                style: TextStyle(color: Theme.of(context).hintColor)),
-          ]),
-        ),
-      );
+          const SizedBox(width: 10),
+          Text(
+            'pensando… ${_tempoEspera()}s',
+            style: TextStyle(color: Theme.of(context).hintColor),
+          ),
+        ],
+      ),
+    ),
+  );
 
   /// Balão da resposta chegando AO VIVO (streaming): mesmo estilo da bolha da IA,
   /// com um cursorzinho piscando no fim p/ indicar que ainda está escrevendo.
@@ -2362,8 +2583,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       child: Container(
         margin: const EdgeInsets.only(top: 4, bottom: 2),
         padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
-        constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.9),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.9,
+        ),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest,
           borderRadius: const BorderRadius.only(
@@ -2373,8 +2595,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             bottomRight: Radius.circular(16),
           ),
         ),
-        child: Text('${_semCarimbo(_streamTexto)} ▌',
-            style: TextStyle(color: cs.onSurface, height: 1.3)),
+        child: Text(
+          '${_semCarimbo(_streamTexto)} ▌',
+          style: TextStyle(color: cs.onSurface, height: 1.3),
+        ),
       ),
     );
   }
@@ -2392,26 +2616,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final escolha = await showModalBottomSheet<String>(
       context: context,
       builder: (c) => SafeArea(
-        child: Wrap(children: [
-          ListTile(
-            leading: const Icon(Icons.content_paste),
-            title: const Text('Colar / escrever um texto'),
-            subtitle: const Text('Ex.: um texto copiado da internet'),
-            onTap: () => Navigator.pop(c, 'texto'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.attach_file),
-            title: const Text('Anexar arquivo de texto'),
-            subtitle: const Text('.txt, .md, .csv…'),
-            onTap: () => Navigator.pop(c, 'arquivo'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.image_outlined),
-            title: const Text('Anexar imagens (até 3)'),
-            subtitle: const Text('A Muse Spark analisa as fotos (visão)'),
-            onTap: () => Navigator.pop(c, 'imagem'),
-          ),
-        ]),
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.content_paste),
+              title: const Text('Colar / escrever um texto'),
+              subtitle: const Text('Ex.: um texto copiado da internet'),
+              onTap: () => Navigator.pop(c, 'texto'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.attach_file),
+              title: const Text('Anexar arquivo de texto'),
+              subtitle: const Text('.txt, .md, .csv…'),
+              onTap: () => Navigator.pop(c, 'arquivo'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.image_outlined),
+              title: const Text('Anexar imagens (até 3)'),
+              subtitle: const Text('A Muse Spark analisa as fotos (visão)'),
+              onTap: () => Navigator.pop(c, 'imagem'),
+            ),
+          ],
+        ),
       ),
     );
     if (escolha == 'texto') await _anexarTexto();
@@ -2426,7 +2652,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         return;
       }
       final xs = await ImagePicker().pickMultiImage(
-          maxWidth: 1280, imageQuality: 70);
+        maxWidth: 1280,
+        imageQuality: 70,
+      );
       if (xs.isEmpty) return;
       final faltam = _maxImagens - _imagensB64.length;
       var avisou = false;
@@ -2453,14 +2681,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           autofocus: true,
           minLines: 4,
           maxLines: 10,
-          decoration:
-              const InputDecoration(hintText: 'Cole aqui o texto para a Muse Spark analisar…'),
+          decoration: const InputDecoration(
+            hintText: 'Cole aqui o texto para a Muse Spark analisar…',
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(c, ctrl.text.trim()),
-              child: const Text('Anexar')),
+            onPressed: () => Navigator.pop(c, ctrl.text.trim()),
+            child: const Text('Anexar'),
+          ),
         ],
       ),
     );
@@ -2492,201 +2725,242 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(6, 6, 10, 10),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (_anexo != null || _imagensB64.isNotEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8, bottom: 4),
-                child: Wrap(spacing: 6, children: [
-                  if (_anexo != null)
-                    Chip(
-                      avatar: const Icon(Icons.attach_file, size: 16),
-                      label: Text('Anexo (${_anexo!.length} caracteres)'),
-                      onDeleted: () => setState(() => _anexo = null),
-                    ),
-                  for (var i = 0; i < _imagensB64.length; i++)
-                    Chip(
-                      avatar: const Icon(Icons.image, size: 16),
-                      label: Text(_imagensB64.length == 1
-                          ? 'Imagem anexada'
-                          : 'Imagem ${i + 1}'),
-                      onDeleted: () => setState(() => _imagensB64.removeAt(i)),
-                    ),
-                ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_anexo != null || _imagensB64.isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8, bottom: 4),
+                  child: Wrap(
+                    spacing: 6,
+                    children: [
+                      if (_anexo != null)
+                        Chip(
+                          avatar: const Icon(Icons.attach_file, size: 16),
+                          label: Text('Anexo (${_anexo!.length} caracteres)'),
+                          onDeleted: () => setState(() => _anexo = null),
+                        ),
+                      for (var i = 0; i < _imagensB64.length; i++)
+                        Chip(
+                          avatar: const Icon(Icons.image, size: 16),
+                          label: Text(
+                            _imagensB64.length == 1
+                                ? 'Imagem anexada'
+                                : 'Imagem ${i + 1}',
+                          ),
+                          onDeleted: () =>
+                              setState(() => _imagensB64.removeAt(i)),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Expanded(
-              // Sem Scrollbar aqui: a barra "sempre visível" vazava pra viewport
-              // (flutuava sobre o fundo). A caixa ainda rola internamente (até 10
-              // linhas); a barra de rolagem vive só na LISTA de mensagens agora.
-              child: TextField(
-                controller: _ctrl,
-                focusNode: _foco,
-                scrollController: _caixaScroll,
-                // Altura inicial acompanha a coluna da direita (anexo + enviar):
-                // 3 linhas ≈ mesma altura total dos dois botões empilhados.
-                // Teto de 10 linhas como no WhatsApp (corta pelo topo e rola).
-                minLines: 3,
-                maxLines: 10,
-                textCapitalization: TextCapitalization.sentences,
-                textInputAction: TextInputAction.newline,
-                onTap: () {
-                  // Gravando: tocar na caixa PARA a gravação mantendo o texto
-                  // (equivale ao antigo X lateral, sem comer largura da caixa).
-                  if (_gravando && !_enviando) _micCancel();
-                  _rolarFim();
-                  // NÃO rola a caixa p/ o fim aqui: o toque posiciona o cursor
-                  // e o próprio campo o revela; forçar o fim escondia o trecho
-                  // tocado em mensagem longa.
-                },
-                // Digitando a caixa cresce (1→5 linhas) e o teclado pode cobrir o
-                // fim: mantém a última mensagem visível + o fim do texto da caixa
-                // SÓ quando o cursor está no fim (digitando/ditando no fim).
-                // Editando no meio do texto, forçar o fim escondia o trecho.
-                onChanged: (_) {
-                  _rolarFim(instantaneo: true);
-                  if (_ctrl.selection.extentOffset >= _ctrl.text.length) {
-                    _rolarCaixaFim();
-                  }
-                },
-                decoration: InputDecoration(
-                  hintText: _gravando
-                      ? 'Ouvindo… toque aqui p/ parar ou no enviar p/ concluir'
-                      : 'Escreva sua mensagem…',
-                  isDense: true,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(22)),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  // X p/ limpar o que está escrito/ditado (texto + anexo + imagens).
-                  // ValueListenable mostra/esconde sem setState a cada tecla.
-                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _ctrl,
-                    builder: (context, v, child) {
-                      final temAlgo = v.text.isNotEmpty ||
-                          _anexo != null ||
-                          _imagensB64.isNotEmpty;
-                      if (!temAlgo) return const SizedBox.shrink();
-                      return IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        tooltip: 'Limpar',
-                        onPressed: _enviando ? null : _limparCaixa,
-                      );
-                    },
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  // Sem Scrollbar aqui: a barra "sempre visível" vazava pra viewport
+                  // (flutuava sobre o fundo). A caixa ainda rola internamente (até 10
+                  // linhas); a barra de rolagem vive só na LISTA de mensagens agora.
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Respostas de 1 toque: linha HORIZONTAL à ESQUERDA, no espaço
+                      // vazio acima da caixa (na altura do mic/botões). A caixa NÃO
+                      // se move (segue bottom-aligned); as sugestões só ocupam o vão.
+                      _sugestoes(context),
+                      TextField(
+                        controller: _ctrl,
+                        focusNode: _foco,
+                        scrollController: _caixaScroll,
+                        // Altura inicial acompanha a coluna da direita (anexo + enviar):
+                        // 3 linhas ≈ mesma altura total dos dois botões empilhados.
+                        // Teto de 10 linhas como no WhatsApp (corta pelo topo e rola).
+                        minLines: 3,
+                        maxLines: 10,
+                        textCapitalization: TextCapitalization.sentences,
+                        textInputAction: TextInputAction.newline,
+                        onTap: () {
+                          // Gravando: tocar na caixa PARA a gravação mantendo o texto
+                          // (equivale ao antigo X lateral, sem comer largura da caixa).
+                          if (_gravando && !_enviando) _micCancel();
+                          _rolarFim();
+                          // NÃO rola a caixa p/ o fim aqui: o toque posiciona o cursor
+                          // e o próprio campo o revela; forçar o fim escondia o trecho
+                          // tocado em mensagem longa.
+                        },
+                        // Digitando a caixa cresce (1→5 linhas) e o teclado pode cobrir o
+                        // fim: mantém a última mensagem visível + o fim do texto da caixa
+                        // SÓ quando o cursor está no fim (digitando/ditando no fim).
+                        // Editando no meio do texto, forçar o fim escondia o trecho.
+                        onChanged: (_) {
+                          _rolarFim(instantaneo: true);
+                          if (_ctrl.selection.extentOffset >=
+                              _ctrl.text.length) {
+                            _rolarCaixaFim();
+                          }
+                        },
+                        decoration: InputDecoration(
+                          hintText: _gravando
+                              ? 'Ouvindo… toque aqui p/ parar ou no enviar p/ concluir'
+                              : 'Escreva sua mensagem…',
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          // X p/ limpar o que está escrito/ditado (texto + anexo + imagens).
+                          // ValueListenable mostra/esconde sem setState a cada tecla.
+                          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: _ctrl,
+                            builder: (context, v, child) {
+                              final temAlgo =
+                                  v.text.isNotEmpty ||
+                                  _anexo != null ||
+                                  _imagensB64.isNotEmpty;
+                              if (!temAlgo) return const SizedBox.shrink();
+                              return IconButton(
+                                icon: const Icon(Icons.close, size: 20),
+                                tooltip: 'Limpar',
+                                onPressed: _enviando ? null : _limparCaixa,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                ),
-            ),
-            // Coluna da direita: ANEXO (pequeno) em cima + ENVIAR (grande) embaixo.
-            //  • TOQUE no enviar = envia o texto digitado (não fala a resposta).
-            //  • SEGURAR o enviar = inicia e TRAVA a gravação (vermelho); soltar
-            //    NÃO para. Com gravando: TOQUE no enviar conclui e envia (voz→voz);
-            //    TOQUE na caixa para a gravação mantendo o texto (sem X lateral,
-            //    p/ não estreitar a caixa). A Row é ancorada embaixo (end) p/ a caixa
-            //    crescer para cima sem deslocar o botão de baixo do dedo.
-            // O toque vai no FAB.onPressed; o segurar, no GestureDetector.
-            // ⚠️ NÃO pôr tooltip no FAB: o Tooltip consome o long-press p/ exibir
-            // o balão e o onLongPressStart nunca dispara (bug da V0.1.137).
-            const SizedBox(width: 6),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Microfone AZUL (3º botão, acima do anexar): envia o que você
-                // ditou pelo teclado (mic do Gboard) e faz a Muse RESPONDER POR
-                // VOZ. Contorna o "segurar" (STT nativo morre nas pausas): o
-                // Gboard lida bem com pausas, e este botão só força a voz.
-                IconButton(
-                  icon: const Icon(Icons.mic,
-                      size: 20, color: Color(0xFF3B82F6)),
-                  tooltip: 'Enviar e responder por voz',
-                  padding: const EdgeInsets.all(6),
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  splashRadius: 16,
-                  onPressed: (_enviando || _gravando)
-                      ? null
-                      : () {
-                          _modoAudio = true; // resposta FALADA
-                          _enviar();
-                        },
-                ),
-                const SizedBox(height: 8),
-                IconButton(
-                  icon: Icon(Icons.attach_file,
-                      size: 20,
-                      color: (_anexo != null || _imagensB64.isNotEmpty)
-                          ? Theme.of(context).colorScheme.primary
-                          : null),
-                  tooltip: 'Anexar',
-                  padding: const EdgeInsets.all(6),
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  splashRadius: 16,
-                  onPressed:
-                      (_enviando || _gravando) ? null : () => _anexar(),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onLongPressStart: (_) => _micStart(),
-                  // Travado de propósito: soltar/cancelar o gesto NÃO encerra.
-                  onLongPressEnd: (_) {},
-                  onLongPressCancel: () {},
-                  // Botão redondo em DEGRADÊ (gravando = vermelho sólido).
-                  child: Material(
-                    color: Colors.transparent,
-                    shape: const CircleBorder(),
-                    // Clip.none p/ o PULO da Muse (enquanto pensa) não ser cortado.
-                    clipBehavior: Clip.none,
-                    elevation: 2,
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        // Gravando = vermelho + mic; senão o rosto da Muse (dot do
-                        // MODO) é o botão — e PULA enquanto ela pensa (V0.1.184).
-                        color: _gravando ? Colors.red : null,
+                // Coluna da direita: ANEXO (pequeno) em cima + ENVIAR (grande) embaixo.
+                //  • TOQUE no enviar = envia o texto digitado (não fala a resposta).
+                //  • SEGURAR o enviar = inicia e TRAVA a gravação (vermelho); soltar
+                //    NÃO para. Com gravando: TOQUE no enviar conclui e envia (voz→voz);
+                //    TOQUE na caixa para a gravação mantendo o texto (sem X lateral,
+                //    p/ não estreitar a caixa). A Row é ancorada embaixo (end) p/ a caixa
+                //    crescer para cima sem deslocar o botão de baixo do dedo.
+                // O toque vai no FAB.onPressed; o segurar, no GestureDetector.
+                // ⚠️ NÃO pôr tooltip no FAB: o Tooltip consome o long-press p/ exibir
+                // o balão e o onLongPressStart nunca dispara (bug da V0.1.137).
+                const SizedBox(width: 6),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Microfone AZUL (3º botão, acima do anexar): envia o que você
+                    // ditou pelo teclado (mic do Gboard) e faz a Muse RESPONDER POR
+                    // VOZ. Contorna o "segurar" (STT nativo morre nas pausas): o
+                    // Gboard lida bem com pausas, e este botão só força a voz.
+                    IconButton(
+                      icon: const Icon(
+                        Icons.mic,
+                        size: 20,
+                        color: Color(0xFF3B82F6),
                       ),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: _enviando
-                            ? null
-                            : () {
-                                if (_gravando) {
-                                  _micStop(); // conclui a gravação travada e envia
-                                } else {
-                                  _modoAudio = false; // digitou → resposta em texto
-                                  _enviar();
-                                }
-                              },
-                        child: _gravando
-                            ? const SizedBox(
-                                width: 56,
-                                height: 56,
-                                child: Icon(Icons.mic,
-                                    size: 28, color: Colors.white),
-                              )
-                            // Dot do MODO (Calis/Geral/Projetos) é o botão; PULA
-                            // enquanto a Muse pensa (_enviando). (V0.1.184)
-                            : MusePula(
-                                ativo: _enviando,
-                                size: 56,
-                                child: Image.asset(
-                                  'assets/muse/modo_${_modoAsset(_conv.preset)}.png',
-                                  width: 56,
-                                  height: 56,
-                                  filterQuality: FilterQuality.high,
-                                ),
-                              ),
+                      tooltip: 'Enviar e responder por voz',
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      splashRadius: 16,
+                      onPressed: (_enviando || _gravando)
+                          ? null
+                          : () {
+                              _modoAudio = true; // resposta FALADA
+                              _enviar();
+                            },
+                    ),
+                    const SizedBox(height: 8),
+                    IconButton(
+                      icon: Icon(
+                        Icons.attach_file,
+                        size: 20,
+                        color: (_anexo != null || _imagensB64.isNotEmpty)
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      tooltip: 'Anexar',
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      splashRadius: 16,
+                      onPressed: (_enviando || _gravando)
+                          ? null
+                          : () => _anexar(),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onLongPressStart: (_) => _micStart(),
+                      // Travado de propósito: soltar/cancelar o gesto NÃO encerra.
+                      onLongPressEnd: (_) {},
+                      onLongPressCancel: () {},
+                      // Botão redondo em DEGRADÊ (gravando = vermelho sólido).
+                      child: Material(
+                        color: Colors.transparent,
+                        shape: const CircleBorder(),
+                        // Clip.none p/ o PULO da Muse (enquanto pensa) não ser cortado.
+                        clipBehavior: Clip.none,
+                        elevation: 2,
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            // Gravando = vermelho + mic; senão o rosto da Muse (dot do
+                            // MODO) é o botão — e PULA enquanto ela pensa (V0.1.184).
+                            color: _gravando ? Colors.red : null,
+                          ),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _enviando
+                                ? null
+                                : () {
+                                    if (_gravando) {
+                                      _micStop(); // conclui a gravação travada e envia
+                                    } else {
+                                      _modoAudio =
+                                          false; // digitou → resposta em texto
+                                      _enviar();
+                                    }
+                                  },
+                            child: _gravando
+                                ? const SizedBox(
+                                    width: 56,
+                                    height: 56,
+                                    child: Icon(
+                                      Icons.mic,
+                                      size: 28,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                // Dot do MODO (Calis/Geral/Projetos) é o botão; PULA
+                                // enquanto a Muse pensa (_enviando). (V0.1.184)
+                                : MusePula(
+                                    ativo: _enviando,
+                                    size: 56,
+                                    child: Image.asset(
+                                      'assets/muse/modo_${_modoAsset(_conv.preset)}.png',
+                                      width: 56,
+                                      height: 56,
+                                      filterQuality: FilterQuality.high,
+                                    ),
+                                  ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
-          ]),
-        ]),
+          ],
+        ),
       ),
     );
   }
