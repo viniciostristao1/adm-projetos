@@ -18,9 +18,7 @@ class ChatResult {
   final String? erro;
   final List<String> acoes;
   const ChatResult.ok(this.reply, [this.acoes = const []]) : erro = null;
-  const ChatResult.falha(this.erro)
-      : reply = null,
-        acoes = const [];
+  const ChatResult.falha(this.erro) : reply = null, acoes = const [];
   bool get sucesso => reply != null;
 }
 
@@ -46,20 +44,25 @@ class ChatService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return const [];
       final token = (await user.getIdToken()) ?? '';
-      final resp = await http.get(
-        Uri.parse('${ChatConfig.url}/tempo_notif'),
-        headers: {'Authorization': 'Bearer $token'},
-      ).timeout(const Duration(seconds: 20));
+      final resp = await http
+          .get(
+            Uri.parse('${ChatConfig.url}/tempo_notif'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 20));
       if (resp.statusCode != 200) return const [];
-      final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      final data =
+          jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
       final dias = (data['dias'] as List?) ?? const [];
       return dias
           .whereType<Map>()
-          .map((e) => {
-                'data': (e['data'] ?? '').toString(),
-                'titulo': (e['titulo'] ?? '').toString(),
-                'corpo': (e['corpo'] ?? '').toString(),
-              })
+          .map(
+            (e) => {
+              'data': (e['data'] ?? '').toString(),
+              'titulo': (e['titulo'] ?? '').toString(),
+              'corpo': (e['corpo'] ?? '').toString(),
+            },
+          )
           .toList();
     } catch (_) {
       return const [];
@@ -70,8 +73,11 @@ class ChatService {
   /// `velocidade` (lengthScale) são opcionais — ausentes = padrão do servidor.
   /// Devolve os bytes do áudio ou null em qualquer falha (o chamador cai para
   /// o TTS local do aparelho).
-  static Future<Uint8List?> audioNeural(String texto,
-      {String? voz, double? velocidade}) async {
+  static Future<Uint8List?> audioNeural(
+    String texto, {
+    String? voz,
+    double? velocidade,
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
     String token;
@@ -127,16 +133,18 @@ class ChatService {
   }) {
     final exist = _voando[conversaId];
     if (exist != null) return exist;
-    final fut = enviar(historico,
-            presetId: presetId,
-            modeloId: modeloId,
-            tamanhoId: tamanhoId,
-            imagensB64: imagensB64)
-        .then((res) async {
-      _voando.remove(conversaId);
-      if (res.sucesso) await ChatStore.anexarIa(conversaId, res.reply!);
-      return res;
-    });
+    final fut =
+        enviar(
+          historico,
+          presetId: presetId,
+          modeloId: modeloId,
+          tamanhoId: tamanhoId,
+          imagensB64: imagensB64,
+        ).then((res) async {
+          _voando.remove(conversaId);
+          if (res.sucesso) await ChatStore.anexarIa(conversaId, res.reply!);
+          return res;
+        });
     _voando[conversaId] = fut;
     return fut;
   }
@@ -165,7 +173,15 @@ class ChatService {
     if (exist != null) return exist.stream;
     final ctrl = StreamController<MuseEvent>.broadcast();
     _stream[conversaId] = ctrl;
-    _rodar(conversaId, historico, presetId, modeloId, tamanhoId, imagensB64, ctrl);
+    _rodar(
+      conversaId,
+      historico,
+      presetId,
+      modeloId,
+      tamanhoId,
+      imagensB64,
+      ctrl,
+    );
     return ctrl.stream;
   }
 
@@ -183,6 +199,7 @@ class ChatService {
     }
 
     final full = StringBuffer();
+    http.Client? client;
     try {
       final user = FirebaseAuth.instance.currentUser;
       final token = user == null ? '' : (await user.getIdToken() ?? '');
@@ -191,33 +208,45 @@ class ChatService {
         return;
       }
       final msgs = historico
-          .map((m) => {
-                'role': m.role,
-                'content': m.texto,
-                'hora': m.hora.millisecondsSinceEpoch,
-              })
+          .map(
+            (m) => {
+              'role': m.role,
+              'content': m.texto,
+              'hora': m.hora.millisecondsSinceEpoch,
+            },
+          )
           .toList(growable: false);
-      final req = http.Request('POST', Uri.parse('${ChatConfig.url}/chat_stream'))
-        ..headers['content-type'] = 'application/json'
-        ..headers['Authorization'] = 'Bearer $token'
-        ..body = jsonEncode({
-          'messages': msgs,
-          'preset': presetId,
-          'model': modeloId,
-          'tamanho': tamanhoId,
-          'imagens_b64': ?imagensB64,
-        });
-      final resp =
-          await http.Client().send(req).timeout(const Duration(seconds: 190));
+      final req =
+          http.Request('POST', Uri.parse('${ChatConfig.url}/chat_stream'))
+            ..headers['content-type'] = 'application/json'
+            ..headers['Authorization'] = 'Bearer $token'
+            ..body = jsonEncode({
+              'messages': msgs,
+              'preset': presetId,
+              'model': modeloId,
+              'tamanho': tamanhoId,
+              'imagens_b64': ?imagensB64,
+            });
+      client = http.Client();
+      // Timeout de CONEXÃO curto: numa StreamingResponse o servidor manda os
+      // cabeçalhos na hora, então se não vierem em 25s a conexão está morta
+      // (rede móvel) → cai no fallback robusto em vez de pendurar por 190s.
+      final resp = await client.send(req).timeout(const Duration(seconds: 25));
       if (resp.statusCode != 200) {
         Diagnostico.registrar('muse', 'chat_stream HTTP ${resp.statusCode}');
         emit(MuseEvent('erro', 'HTTP ${resp.statusCode}'));
         return;
       }
       String? replyFinal;
-      await for (final line in resp.stream
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())) {
+      // Cão de guarda de INATIVIDADE: se nenhum pedaço chega por 20s (a conexão
+      // móvel travou no meio — NAT/variação de sinal), lança TimeoutException →
+      // o catch salva o parcial ou dispara o fallback. Sem isto o loop pendurava
+      // p/ sempre e só "recuperava" saindo e voltando na conversa (bug 07/11).
+      await for (final line
+          in resp.stream
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())
+              .timeout(const Duration(seconds: 20))) {
         if (!line.startsWith('data:')) continue;
         final data = line.substring(5).trim();
         if (data.isEmpty) continue;
@@ -269,6 +298,7 @@ class ChatService {
         emit(const MuseEvent('erro', 'rede'));
       }
     } finally {
+      client?.close(); // fecha a conexão (aborta socket pendurado)
       _stream.remove(id);
       await ctrl.close();
     }
@@ -285,25 +315,29 @@ class ChatService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return const ChatResult.falha(
-          'Entre na sua conta Google (Config → nuvem) para usar o chat.');
+        'Entre na sua conta Google (Config → nuvem) para usar o chat.',
+      );
     }
     String token;
     try {
       token = (await user.getIdToken()) ?? '';
     } catch (_) {
       return const ChatResult.falha(
-          'Não consegui validar seu login. Saia e entre de novo.');
+        'Não consegui validar seu login. Saia e entre de novo.',
+      );
     }
     if (token.isEmpty) {
       return const ChatResult.falha('Login inválido. Saia e entre de novo.');
     }
 
     final msgs = historico
-        .map((m) => {
-              'role': m.role,
-              'content': m.texto,
-              'hora': m.hora.millisecondsSinceEpoch,
-            })
+        .map(
+          (m) => {
+            'role': m.role,
+            'content': m.texto,
+            'hora': m.hora.millisecondsSinceEpoch,
+          },
+        )
         .toList(growable: false);
     try {
       final r = await http
@@ -325,8 +359,8 @@ class ChatService {
           .timeout(const Duration(seconds: 170));
 
       if (r.statusCode == 200) {
-        final reply =
-            (jsonDecode(utf8.decode(r.bodyBytes))['reply'] as String?)?.trim();
+        final reply = (jsonDecode(utf8.decode(r.bodyBytes))['reply'] as String?)
+            ?.trim();
         if (reply != null && reply.isNotEmpty) {
           final exec = await ChatActions.executarTodos(reply);
           return ChatResult.ok(exec.texto, exec.confirmacoes);
@@ -342,7 +376,8 @@ class ChatService {
     } catch (e, st) {
       Diagnostico.registrar('muse', 'chat: $e', st);
       return const ChatResult.falha(
-          'Sem resposta (rede ou tempo esgotado). Tente de novo.');
+        'Sem resposta (rede ou tempo esgotado). Tente de novo.',
+      );
     }
   }
 }

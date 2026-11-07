@@ -1192,6 +1192,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final texto = capitalizarFrases(_ctrl.text.trim());
     final imgs = List<String>.from(_imagensB64);
     if (texto.isEmpty && _anexo == null && imgs.isEmpty) return;
+    // Minimiza o teclado ao enviar (blob ou microfone) p/ não tapar a resposta
+    // da Muse enquanto você lê (pedido do usuário 07/11).
+    _foco.unfocus();
     // Junta o anexo (clip) e/ou as imagens à mensagem, se houver.
     var conteudo = _anexo == null
         ? texto
@@ -1245,7 +1248,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       snapshot,
       imgsEnvio,
     );
-    _foco.requestFocus();
+    // NÃO reabrir o teclado após enviar (ficava tapando a resposta da Muse).
+    _foco.unfocus();
   }
 
   /// Escuta o stream de frases: mostra o texto ao vivo + fala por frase (modo
@@ -1411,7 +1415,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
       await ChatStore.salvar(_conv);
     }
-    _foco.requestFocus();
+    // Teclado minimizado também no caminho de reserva (envio sem streaming).
+    _foco.unfocus();
   }
 
   Future<void> _novaConversa() async {
@@ -2266,8 +2271,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Tema Dark (espelha o app do Claude): texto serifado; a SUA bolha é
     // preenchida em cinza escuro e a resposta da Muse vai direta no fundo
     // (sem bolha). Nos demais temas, o comportamento segue igual.
-    final ehDark =
-        Theme.of(context).extension<AppCores>() == AppCores.dark;
+    final ehDark = Theme.of(context).extension<AppCores>() == AppCores.dark;
     final estilo = TextStyle(
       color: ehEu
           ? (ehDark ? const Color(0xFFF5F1EA) : cs.onPrimary)
@@ -2320,9 +2324,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ? null
                     : BoxDecoration(
                         color: ehEu
-                            ? (ehDark
-                                ? const Color(0xFF2E2D2C)
-                                : cs.primary)
+                            ? (ehDark ? const Color(0xFF2E2D2C) : cs.primary)
                             : cs.surfaceContainerHighest,
                         borderRadius: BorderRadius.only(
                           topLeft: const Radius.circular(16),
@@ -2635,8 +2637,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// com um cursorzinho piscando no fim p/ indicar que ainda está escrevendo.
   Widget _bolhaStream(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final ehDark =
-        Theme.of(context).extension<AppCores>() == AppCores.dark;
+    final ehDark = Theme.of(context).extension<AppCores>() == AppCores.dark;
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -2788,8 +2789,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // pensa; gravando vira vermelho + mic. (V0.1.184)
     // Tema Dark (espelha o app do Claude): caixa com contorno visível e
     // cantos bem redondos; nos demais temas a borda padrão segue igual.
-    final ehDark =
-        Theme.of(context).extension<AppCores>() == AppCores.dark;
+    final ehDark = Theme.of(context).extension<AppCores>() == AppCores.dark;
     const bordaDark = OutlineInputBorder(
       borderRadius: BorderRadius.all(Radius.circular(26)),
       borderSide: BorderSide(color: Color(0xFF3A3836)),
