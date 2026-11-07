@@ -51,7 +51,8 @@ const Map<String, Color> mapaCoresPasta = {
   'bege': Color(0xFFD7B98E),
 };
 
-Color? corPastaDeNome(String? nome) => nome == null ? null : mapaCoresPasta[nome];
+Color? corPastaDeNome(String? nome) =>
+    nome == null ? null : mapaCoresPasta[nome];
 
 Color? corEfetivaPasta(Projeto p, AppCores app) {
   if (p.emAndamento) return app.fab;
@@ -135,8 +136,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         const ShortcutItem(type: 'nova_nota', localizedTitle: 'Nova nota'),
         // Atalho para o Muse (só com o chat habilitado).
         if (ChatConfig.habilitado)
-          const ShortcutItem(
-              type: 'muse', localizedTitle: 'Muse Spark'),
+          const ShortcutItem(type: 'muse', localizedTitle: 'Muse Spark'),
       ]);
     } catch (_) {
       // Sem atalhos (plataforma sem suporte) o app segue normal.
@@ -150,14 +150,16 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   void _abrirMuse() {
     if (!ChatConfig.habilitado || _museAberto) return;
     _museAberto = true; // trava já aqui (disparo duplo no MESMO frame)
-    if (mounted) setState(() {}); // esconde a lista já neste frame (vira loading)
+    if (mounted)
+      setState(() {}); // esconde a lista já neste frame (vira loading)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) {
         _museAberto = false;
         return;
       }
-      await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const ChatScreen()));
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ChatScreen()));
       if (!mounted) return;
       setState(() => _museAberto = false); // libera ao fechar (permite reabrir)
     });
@@ -175,9 +177,12 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         _museAberto = false;
         return;
       }
-      await Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => ChatScreen(
-              presetInicial: presetId, perguntaInicial: pergunta)));
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              ChatScreen(presetInicial: presetId, perguntaInicial: pergunta),
+        ),
+      );
       if (!mounted) return;
       setState(() => _museAberto = false);
     });
@@ -200,8 +205,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     }
     if (achado == null) {
       achado = Projeto(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          nome: _projetoNotasRapidas);
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        nome: _projetoNotasRapidas,
+      );
       _projetos.add(achado);
       await _salvar();
     }
@@ -402,8 +408,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     final texto = buf.toString();
     await Clipboard.setData(ClipboardData(text: texto));
     if (!mounted) return;
-    mostrarAviso(context,
-        'Backup copiado — restaura tudo (caixinhas, comentários, links).');
+    mostrarAviso(
+      context,
+      'Backup copiado — restaura tudo (caixinhas, comentários, links).',
+    );
   }
 
   Future<void> _abrirConfig() async {
@@ -459,8 +467,12 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     final nome = await _pedirNome(context, titulo: 'Novo projeto');
     if (nome == null || nome.trim().isEmpty) return;
     setState(() {
-      _projetos.add(Projeto(id: DateTime.now().millisecondsSinceEpoch.toString(),
-          nome: nome.trim()));
+      _projetos.add(
+        Projeto(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          nome: nome.trim(),
+        ),
+      );
     });
     await _salvar();
   }
@@ -468,26 +480,29 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   /// Envolve o cartão de projeto num Dismissible: arrastar para a ESQUERDA
   /// exclui a pasta (com Desfazer via [_excluirComUndo]).
   Widget _arrastavel(Projeto p, Widget filho) => Dismissible(
-        key: ValueKey(p.id),
-        direction: DismissDirection.endToStart,
-        onDismissed: (_) => _excluirComUndo(p),
-        background: Container(
-          alignment: Alignment.centerRight,
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.only(right: 22),
-          decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(Icons.delete_outline, color: Colors.redAccent),
-        ),
-        child: filho,
-      );
+    key: ValueKey(p.id),
+    direction: DismissDirection.endToStart,
+    onDismissed: (_) => _excluirComUndo(p),
+    background: Container(
+      alignment: Alignment.centerRight,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(right: 22),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Icon(Icons.delete_outline, color: Colors.redAccent),
+    ),
+    child: filho,
+  );
 
   // ignore: unused_element - mantido para uso futuro / compatibilidade
   Future<void> _renomear(Projeto p) async {
-    final nome = await _pedirNome(context, titulo: 'Renomear projeto',
-        inicial: p.nome);
+    final nome = await _pedirNome(
+      context,
+      titulo: 'Renomear projeto',
+      inicial: p.nome,
+    );
     if (nome == null || nome.trim().isEmpty) return;
     setState(() => p.nome = nome.trim());
     await _salvar();
@@ -500,7 +515,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     setState(() {
       p.emAndamento = !p.emAndamento;
       if (!p.emAndamento) {
-        for (final n in [...p.tarefas, ...p.futuro, ...p.abasExtras.expand((a) => a.notas)]) {
+        for (final n in [
+          ...p.tarefas,
+          ...p.futuro,
+          ...p.abasExtras.expand((a) => a.notas),
+        ]) {
           n.concluida = false;
         }
       }
@@ -543,9 +562,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 decoration: InputDecoration(
                   labelText: rotuloCampo,
                   suffixIcon: IconButton(
-                    icon: Icon(oculto
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined),
+                    icon: Icon(
+                      oculto
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
                     onPressed: () => setLocal(() => oculto = !oculto),
                   ),
                 ),
@@ -555,11 +576,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancelar')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, ctrl.text),
-                child: Text(okLabel)),
+              onPressed: () => Navigator.pop(ctx, ctrl.text),
+              child: Text(okLabel),
+            ),
           ],
         ),
       ),
@@ -638,7 +661,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -646,8 +671,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Editar pasta',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Editar pasta',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -658,8 +685,13 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                           decoration: InputDecoration(
                             hintText: 'Nome da pasta',
                             isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                           ),
                           onSubmitted: (v) {
                             final t = v.trim();
@@ -695,14 +727,22 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   const SizedBox(height: 16),
                   const Divider(height: 1),
                   const SizedBox(height: 16),
-                  Text('Cor da pasta',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  Text(
+                    'Cor da pasta',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     p.emAndamento
                         ? 'Em andamento: mostra a cor do tema. Sua cor volta ao desmarcar.'
                         : 'Toque numa cor. Segure a pasta para trocar a qualquer hora.',
-                    style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   if (temaController.corFoco != null ||
                       temaController.corProximos != null) ...[
@@ -715,9 +755,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                           '${temaController.corProximos} = Próximos',
                       ].join('   ·   '),
                       style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(ctx).colorScheme.primary),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(ctx).colorScheme.primary,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -739,25 +780,30 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   const SizedBox(height: 16),
                   const Divider(height: 1),
                   const SizedBox(height: 12),
-                  const Text('Senha',
-                      style:
-                          TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Senha',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     p.temSenha
                         ? 'Protegido: a senha é pedida ao abrir. Tranca de '
-                            'conveniência — o conteúdo segue no backup.'
+                              'conveniência — o conteúdo segue no backup.'
                         : 'Proteja este projeto: a senha será pedida ao abrir.',
                     style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                      fontSize: 12,
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: p.temSenha
                         ? OutlinedButton.icon(
-                            icon: const Icon(Icons.lock_open_outlined, size: 18),
+                            icon: const Icon(
+                              Icons.lock_open_outlined,
+                              size: 18,
+                            ),
                             label: const Text('Remover senha'),
                             onPressed: () {
                               Navigator.pop(ctx);
@@ -783,7 +829,12 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     ctrl.dispose();
   }
 
-  Widget _bolhaCor2(String? nome, bool selecionado, BuildContext ctx, VoidCallback onTap) {
+  Widget _bolhaCor2(
+    String? nome,
+    bool selecionado,
+    BuildContext ctx,
+    VoidCallback onTap,
+  ) {
     final isNone = nome == null;
     final cor = isNone ? null : mapaCoresPasta[nome];
     return GestureDetector(
@@ -807,12 +858,17 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
             child: isNone
                 ? Icon(Icons.block, size: 16, color: Colors.grey.shade500)
                 : selecionado
-                    ? const Icon(Icons.check, color: Colors.white, size: 16)
-                    : null,
+                ? const Icon(Icons.check, color: Colors.white, size: 16)
+                : null,
           ),
           const SizedBox(height: 3),
-          Text(isNone ? 'sem cor' : nome!,
-              style: TextStyle(fontSize: 10, fontWeight: selecionado ? FontWeight.w700 : FontWeight.w500)),
+          Text(
+            isNone ? 'sem cor' : nome!,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: selecionado ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -832,18 +888,17 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     Storage.instance.removerRecente(p.id);
     _recarregarRecentes();
     if (!mounted) return;
-    mostrarAvisoAcao(
-      context,
-      'Projeto excluído',
-      'Desfazer',
-      () {
-        setState(() => _projetos.insert(
-            idx > _projetos.length ? _projetos.length : idx, p));
-        Storage.instance.registrarAbertura(p.id);
-        _recarregarRecentes();
-        _salvar();
-      },
-    );
+    mostrarAvisoAcao(context, 'Projeto excluído', 'Desfazer', () {
+      setState(
+        () => _projetos.insert(
+          idx > _projetos.length ? _projetos.length : idx,
+          p,
+        ),
+      );
+      Storage.instance.registrarAbertura(p.id);
+      _recarregarRecentes();
+      _salvar();
+    });
   }
 
   /// Abre o projeto (também registra na prateleira "Últimos abertos").
@@ -925,8 +980,9 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   /// texto/comentário contêm o termo, nas duas abas de todos os projetos.
   Widget _resultadosBusca(String q) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
-    final projetosNome =
-        _projetos.where((p) => p.nome.toLowerCase().contains(q)).toList();
+    final projetosNome = _projetos
+        .where((p) => p.nome.toLowerCase().contains(q))
+        .toList();
     final conteudo = <_ResultadoBusca>[];
     for (final p in _projetos) {
       // Projeto trancado não expõe o conteúdo na busca (o nome pode aparecer na
@@ -936,12 +992,14 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         for (final n in lista) {
           final alvo = '${n.texto}\n${n.comentario ?? ''}'.toLowerCase();
           if (alvo.contains(q)) {
-            conteudo.add(_ResultadoBusca(
-              projeto: p,
-              aba: aba,
-              nota: n,
-              trecho: _trecho(n.texto, n.comentario, q),
-            ));
+            conteudo.add(
+              _ResultadoBusca(
+                projeto: p,
+                aba: aba,
+                nota: n,
+                trecho: _trecho(n.texto, n.comentario, q),
+              ),
+            );
           }
         }
       }
@@ -959,8 +1017,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         .toList();
     if (projetosNome.isEmpty && conteudo.isEmpty && lembretes.isEmpty) {
       return const Center(
-          child: Text('Nada encontrado.',
-              style: TextStyle(color: Colors.grey)));
+        child: Text('Nada encontrado.', style: TextStyle(color: Colors.grey)),
+      );
     }
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 150),
@@ -991,8 +1049,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
       return null;
     }
 
-    final t = achar(texto) ??
-        (comentario != null ? achar(comentario) : null);
+    final t = achar(texto) ?? (comentario != null ? achar(comentario) : null);
     final base = (t == null || t.isEmpty)
         ? texto.trim().replaceAll('\n', ' ')
         : t;
@@ -1013,12 +1070,20 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   }
 
   /// Texto com as ocorrências do termo destacadas (fundo amarelo + negrito).
-  Widget _textoDestacado(String texto, String q, TextStyle base,
-      {int maxLines = 2}) {
+  Widget _textoDestacado(
+    String texto,
+    String q,
+    TextStyle base, {
+    int maxLines = 2,
+  }) {
     final lower = texto.toLowerCase();
     if (q.isEmpty || !lower.contains(q)) {
-      return Text(texto,
-          style: base, maxLines: maxLines, overflow: TextOverflow.ellipsis);
+      return Text(
+        texto,
+        style: base,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+      );
     }
     final spans = <TextSpan>[];
     var from = 0;
@@ -1029,13 +1094,15 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         break;
       }
       if (idx > from) spans.add(TextSpan(text: texto.substring(from, idx)));
-      spans.add(TextSpan(
-        text: texto.substring(idx, idx + q.length),
-        style: const TextStyle(
-          backgroundColor: Color(0x59FFC107),
-          fontWeight: FontWeight.w800,
+      spans.add(
+        TextSpan(
+          text: texto.substring(idx, idx + q.length),
+          style: const TextStyle(
+            backgroundColor: Color(0x59FFC107),
+            fontWeight: FontWeight.w800,
+          ),
         ),
-      ));
+      );
       from = idx + q.length;
     }
     return Text.rich(
@@ -1046,22 +1113,23 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   }
 
   Widget _cabecalhoResultado(String texto, AppCores app) => Padding(
-        padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
-        child: Text(
-          texto,
-          style: TextStyle(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.5,
-            color: app.textoUI.withValues(alpha: 0.55),
-          ),
-        ),
-      );
+    padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
+    child: Text(
+      texto,
+      style: TextStyle(
+        fontSize: 10.5,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.5,
+        color: app.textoUI.withValues(alpha: 0.55),
+      ),
+    ),
+  );
 
-  Widget _cartaoResultado(
-      {required AppCores app,
-      required VoidCallback onTap,
-      required Widget child}) {
+  Widget _cartaoResultado({
+    required AppCores app,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
     final ehClaude = app == AppCores.claude;
     final raio = ehClaude ? 10.0 : 14.0;
     return Padding(
@@ -1096,8 +1164,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
           padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
           child: Row(
             children: [
-              Icon(Icons.folder_outlined,
-                  size: 20, color: app.projetoTxt.withValues(alpha: 0.7)),
+              Icon(
+                Icons.folder_outlined,
+                size: 20,
+                color: app.projetoTxt.withValues(alpha: 0.7),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: _textoDestacado(
@@ -1111,8 +1182,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   maxLines: 1,
                 ),
               ),
-              Icon(Icons.chevron_right,
-                  size: 20, color: app.projetoTxt.withValues(alpha: 0.4)),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: app.projetoTxt.withValues(alpha: 0.4),
+              ),
             ],
           ),
         ),
@@ -1123,7 +1197,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     final agora = DateTime.now();
     final hoje = DateTime(agora.year, agora.month, agora.day);
     final dia = DateTime(dt.year, dt.month, dt.day);
-    final hm = '${dt.hour.toString().padLeft(2, '0')}:'
+    final hm =
+        '${dt.hour.toString().padLeft(2, '0')}:'
         '${dt.minute.toString().padLeft(2, '0')}';
     final d = dia.difference(hoje).inDays;
     if (d == 0) return 'hoje $hm';
@@ -1158,15 +1233,21 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                       maxLines: 1,
                     ),
                     const SizedBox(height: 2),
-                    Text(_quandoBreve(l.quando),
-                        style: TextStyle(
-                            fontSize: 11.5,
-                            color: app.projetoTxt.withValues(alpha: 0.6))),
+                    Text(
+                      _quandoBreve(l.quando),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: app.projetoTxt.withValues(alpha: 0.6),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right,
-                  size: 20, color: app.projetoTxt.withValues(alpha: 0.4)),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: app.projetoTxt.withValues(alpha: 0.4),
+              ),
             ],
           ),
         ),
@@ -1188,8 +1269,8 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                   r.aba == 0
                       ? Icons.check_circle_outline
                       : r.aba == 1
-                          ? Icons.lightbulb_outline
-                          : Icons.folder_outlined,
+                      ? Icons.lightbulb_outline
+                      : Icons.folder_outlined,
                   size: 14,
                   color: app.fab,
                 ),
@@ -1206,8 +1287,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                     ),
                   ),
                 ),
-                Icon(Icons.chevron_right,
-                    size: 18, color: app.projetoTxt.withValues(alpha: 0.4)),
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: app.projetoTxt.withValues(alpha: 0.4),
+                ),
               ],
             ),
             const SizedBox(height: 5),
@@ -1226,412 +1310,498 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   @override
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    // AppBar ESCURA no tom do tema (V0.1.202): em tema CLARO (Creme/Papel), o fundo
+    // da barra vira o tom escuro do texto (textoUI é escuro nele) e ícones/título
+    // ficam claros; em tema ESCURO, usa o tom escuro da barra de ferramentas e
+    // texto claro. Assim a barra do topo é sempre escura, seguindo a lógica.
+    final temaClaro =
+        ThemeData.estimateBrightnessForColor(app.fundoInicio) ==
+        Brightness.light;
+    final appBarFundo = temaClaro ? app.textoUI : app.barraFerramentas;
+    final appBarTexto = temaClaro ? app.fundoInicio : app.textoUI;
     return Fundo(
       child: Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.all(Radius.circular(8)),
-              child: Image.asset(
-                'assets/icono_titulo.png',
-                width: 24,
-                height: 24,
-                fit: BoxFit.cover,
+        appBar: AppBar(
+          backgroundColor: appBarFundo,
+          foregroundColor: appBarTexto,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.all(Radius.circular(8)),
+                child: Image.asset(
+                  'assets/icono_titulo.png',
+                  width: 24,
+                  height: 24,
+                  fit: BoxFit.cover,
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Taskix',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
+              const SizedBox(width: 10),
+              const Text(
+                'Taskix',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
               ),
+              // (Versão removida daqui na V0.1.176: já aparece em Configurações.)
+            ],
+          ),
+          centerTitle: false,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none),
+              tooltip: 'Lembrete rápido',
+              onPressed: _abrirLembretes,
             ),
-            // (Versão removida daqui na V0.1.176: já aparece em Configurações.)
+            IconButton(
+              icon: Icon(_buscando ? Icons.close : Icons.search),
+              tooltip: _buscando ? 'Fechar busca' : 'Buscar projeto',
+              onPressed: _alternarBusca,
+            ),
+            IconButton(
+              icon: const Icon(Icons.copy_all_rounded),
+              tooltip: 'Copiar backup',
+              onPressed: _copiarTudo,
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Configurações',
+              onPressed: _abrirConfig,
+            ),
           ],
         ),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            tooltip: 'Lembrete rápido',
-            onPressed: _abrirLembretes,
-          ),
-          IconButton(
-            icon: Icon(_buscando ? Icons.close : Icons.search),
-            tooltip: _buscando ? 'Fechar busca' : 'Buscar projeto',
-            onPressed: _alternarBusca,
-          ),
-          IconButton(
-            icon: const Icon(Icons.copy_all_rounded),
-            tooltip: 'Copiar backup',
-            onPressed: _copiarTudo,
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Configurações',
-            onPressed: _abrirConfig,
-          ),
-        ],
-      ),
-      // O chat da Muse agora é aberto pela caixinha "ASSISTENTE" nos acessos
-      // rápidos da home (módulo `lib/chat/`, separável pela flag CHAT).
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'fab_novo',
-        onPressed: _criarProjeto,
-        tooltip: 'Novo projeto',
-        child: const Icon(Icons.add),
-      ),
-      body: _museAberto
-          // Atalho "Muse Spark" (segurar o ícone): esconde a lista enquanto o
-          // ChatScreen empilha — sem isso aparece a pasta dos projetos + fantasma.
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-        children: [
-          if (_buscando)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-              child: TextField(
-                controller: _ctrlBusca,
-                focusNode: _focoBusca,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  hintText: 'Buscar em tudo (projetos, tarefas, ideias)…',
-                  isDense: true,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-          // Prateleira de acessos rápidos (Recentes · Assistente · Estudos)
-          // removida na V0.1.173 — navegação migrou para a barra flutuante
-          // inferior (Projetos · Muse · Estudos) no HomeShell.
-          Expanded(
-            child: Builder(builder: (ctx) {
-              if (_projetos.isEmpty) return const _Vazio();
-              final q = _ctrlBusca.text.trim().toLowerCase();
-              // Lupa global: com termo, mostra resultados de PROJETOS (nome) e
-              // do CONTEÚDO das caixinhas (Tarefas + Ideias). Sem termo, a
-              // lista normal de projetos (arrastável).
-              if (_buscando && q.isNotEmpty) return _resultadosBusca(q);
-              final visiveis = _projetos;
-              final compacto = temaController.compacto;
-              // Seções: FOCO → EM ANDAMENTO → PRÓXIMOS → OUTROS (cores conf.).
-              // null = sem seções → lista plana (reorder simples).
-              final linhasSec = _linhasComSecoes(visiveis);
-              final temSecoes = linhasSec != null;
-              final linhas = linhasSec ?? List<Object>.from(visiveis);
-              final app =
-                  Theme.of(context).extension<AppCores>() ?? AppCores.azul;
-              return ReorderableListView.builder(
-                padding: EdgeInsets.fromLTRB(
-                    16, compacto ? 6 : 12, 16, 150),
-                itemCount: linhas.length,
-                buildDefaultDragHandles: false,
-                onReorderItem:
-                    temSecoes ? _reordenarComSecoes : _reordenar,
-                itemBuilder: (_, i) {
-                  final item = linhas[i];
-                  if (item is String) {
-                    // Cabeçalho de seção (não é arrastável). FOCO e PRÓXIMOS
-                    // usam a própria cor escolhida, p/ amarrar à seção.
-                    final Color corCabecalho;
-                    if (item.startsWith('FOCO')) {
-                      corCabecalho =
-                          corPastaDeNome(temaController.corFoco) ?? app.fab;
-                    } else if (item.startsWith('EM ANDAMENTO')) {
-                      corCabecalho = app.fab;
-                    } else if (item.startsWith('PRÓXIMOS')) {
-                      corCabecalho =
-                          corPastaDeNome(temaController.corProximos) ?? app.fab;
-                    } else {
-                      corCabecalho = app.textoUI.withValues(alpha: 0.55);
-                    }
-                    // FOCO em peso/altura um tiquinho maior (destaque pedido).
-                    final ehFoco = item.startsWith('FOCO');
-                    return Padding(
-                      key: ValueKey('sec-$item'),
-                      padding: EdgeInsets.fromLTRB(
-                          2, compacto ? 8 : 14, 2, 6),
-                      child: Text(
-                        item,
-                        style: TextStyle(
-                          fontSize: ehFoco ? 11.5 : 10.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.5,
-                          color: corCabecalho,
-                        ),
-                      ),
-                    );
-                  }
-                  final p = item as Projeto;
-
-                  Future<void> onTapProjeto() => _abrirProjeto(p);
-
-                  final corEfetiva = corEfetivaPasta(p, app);
-                  if (app.neumorfico) {
-                    Widget card = Caixa3D(
-                      cor: app.projetoCard,
-                      corInicio: app.projetoCard,
-                      corFim: app.projetoCardFim,
-                      raio: 18,
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: onTapProjeto,
-                          onLongPress: () => _mostrarSeletorCor(p),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-                            child: Row(
-                              children: [
-                                q.isNotEmpty
-                                    ? Icon(Icons.drag_indicator,
-                                        color: app.projetoTxt
-                                            .withValues(alpha: 0.5))
-                                    : ReorderableDragStartListener(
-                                        index: i,
-                                        child: Icon(Icons.drag_indicator,
-                                            color: app.projetoTxt
-                                                .withValues(alpha: 0.5)),
-                                      ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      if (p.temSenha) ...[
-                                        Icon(Icons.lock,
-                                            size: 13,
-                                            color: app.projetoTxt
-                                                .withValues(alpha: 0.6)),
-                                        const SizedBox(width: 5),
-                                      ],
-                                      Expanded(
-                                        child: Text(
-                                          p.nome,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 15,
-                                            color: app.projetoTxt,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                BotaoNeum(
-                                  raio: 999,
-                                  padding: const EdgeInsets.all(7),
-                                  corInicio: app.projetoCard,
-                                  corFim: app.projetoCardFim,
-                                  tooltip: p.emAndamento
-                                      ? 'Parar (não está mais em andamento)'
-                                      : 'Marcar como em andamento',
-                                  onTap: () => _alternarAndamento(p),
-                                  child: Icon(
-                                      p.emAndamento
-                                          ? Icons.check_box
-                                          : Icons.check_box_outline_blank,
-                                      size: 17,
-                                      color: p.emAndamento
-                                          ? const Color(0xFF4ADE80)
-                                          : app.projetoTxt),
-                                ),
-                              ],
-                            ),
+        // O chat da Muse agora é aberto pela caixinha "ASSISTENTE" nos acessos
+        // rápidos da home (módulo `lib/chat/`, separável pela flag CHAT).
+        floatingActionButton: FloatingActionButton(
+          heroTag: 'fab_novo',
+          onPressed: _criarProjeto,
+          tooltip: 'Novo projeto',
+          child: const Icon(Icons.add),
+        ),
+        body: _museAberto
+            // Atalho "Muse Spark" (segurar o ícone): esconde a lista enquanto o
+            // ChatScreen empilha — sem isso aparece a pasta dos projetos + fantasma.
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  if (_buscando)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+                      child: TextField(
+                        controller: _ctrlBusca,
+                        focusNode: _focoBusca,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          hintText:
+                              'Buscar em tudo (projetos, tarefas, ideias)…',
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
                           ),
                         ),
+                        onChanged: (_) => setState(() {}),
                       ),
-                    );
-                    if (corEfetiva != null) {
-                      card = ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Stack(
-                          children: [
-                            card,
-                            Positioned(
-                              left: 0,
-                              top: 0,
-                              bottom: 0,
-                              child: Container(width: 4, color: corEfetiva),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    return _arrastavel(
-                        p,
-                        Padding(
-                          padding: EdgeInsets.only(bottom: compacto ? 8 : 16),
-                          child: card,
-                        ));
-                  }
-
-                // Temas planos (Azul, Escuro e Claude): cartão na cor
-                // do tema com o nome + bolinhas. No Claude, vira "linha":
-                // borda de 1px, sem sombras, e o projeto em andamento ganha
-                // uma BARRA TERRACOTA à esquerda com o "v" terracota
-                // (em vez de verde).
-                // No Claude/Terracota: bolinhas invisíveis (ícones apagados),
-                // borda 1px #2A2A2B e acento terracota no "em andamento".
-                final ehClaude = app == AppCores.claude;
-                final ehOnix = app == AppCores.onix;
-                // Creme/Papel: cartão BRANCO flutuante
-                // com sombra suave (o visual dos mockups), em vez de borda.
-                final ehLuz = app == AppCores.creme ||
-                    app == AppCores.papel;
-                // Ônix: pastas SEM caixa nem borda (linhas lisas sobre o
-                // fundo). Os demais temas mantêm o cartão.
-                final semCaixa = ehOnix;
-                final arrastarCor = ehClaude
-                    ? app.projetoTxt.withValues(alpha: 0.45)
-                    : app.projetoTxt;
-                final txtCor = app.projetoTxt;
-                final bolaCor = app.notaFim;
-                final iconeCor = ehClaude
-                    ? app.projetoTxt.withValues(alpha: 0.45)
-                    : app.projetoTxt;
-                final corBolaAndamento =
-                    ehClaude ? Colors.transparent : bolaCor;
-                final corCheckAndamento = (ehClaude || ehOnix)
-                    ? app.fab
-                    : const Color(0xFF4ADE80);
-
-                BoxDecoration? baseDecor;
-                if (semCaixa) {
-                  baseDecor = null;
-                } else if (ehClaude) {
-                  baseDecor = BoxDecoration(
-                    color: app.projetoCard,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF2A2A2B)),
-                  );
-                } else if (ehLuz) {
-                  baseDecor = BoxDecoration(
-                    color: app.projetoCard, // branco
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x14121A2E),
-                        blurRadius: 12,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  );
-                } else {
-                  baseDecor = BoxDecoration(
-                    color: app.projetoCard,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: app.projetoTxt.withValues(alpha: 0.08)),
-                  );
-                }
-
-                Widget cardPlano = Material(
-                  type: MaterialType.transparency,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(
-                        semCaixa ? 8 : (ehClaude ? 10 : (ehLuz ? 16 : 14))),
-                    onTap: onTapProjeto,
-                    onLongPress: () => _mostrarSeletorCor(p),
-                    child: Container(
-                      decoration: baseDecor,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 10, 4),
-                        child: Row(
-                          children: [
-                            q.isNotEmpty
-                                ? Icon(Icons.drag_indicator, color: arrastarCor)
-                                : ReorderableDragStartListener(
-                                    index: i,
-                                    child: Icon(Icons.drag_indicator, color: arrastarCor),
+                    ),
+                  // Prateleira de acessos rápidos (Recentes · Assistente · Estudos)
+                  // removida na V0.1.173 — navegação migrou para a barra flutuante
+                  // inferior (Projetos · Muse · Estudos) no HomeShell.
+                  Expanded(
+                    child: Builder(
+                      builder: (ctx) {
+                        if (_projetos.isEmpty) return const _Vazio();
+                        final q = _ctrlBusca.text.trim().toLowerCase();
+                        // Lupa global: com termo, mostra resultados de PROJETOS (nome) e
+                        // do CONTEÚDO das caixinhas (Tarefas + Ideias). Sem termo, a
+                        // lista normal de projetos (arrastável).
+                        if (_buscando && q.isNotEmpty)
+                          return _resultadosBusca(q);
+                        final visiveis = _projetos;
+                        final compacto = temaController.compacto;
+                        // Seções: FOCO → EM ANDAMENTO → PRÓXIMOS → OUTROS (cores conf.).
+                        // null = sem seções → lista plana (reorder simples).
+                        final linhasSec = _linhasComSecoes(visiveis);
+                        final temSecoes = linhasSec != null;
+                        final linhas = linhasSec ?? List<Object>.from(visiveis);
+                        final app =
+                            Theme.of(context).extension<AppCores>() ??
+                            AppCores.azul;
+                        return ReorderableListView.builder(
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            compacto ? 6 : 12,
+                            16,
+                            150,
+                          ),
+                          itemCount: linhas.length,
+                          buildDefaultDragHandles: false,
+                          onReorderItem: temSecoes
+                              ? _reordenarComSecoes
+                              : _reordenar,
+                          itemBuilder: (_, i) {
+                            final item = linhas[i];
+                            if (item is String) {
+                              // Cabeçalho de seção (não é arrastável). FOCO e PRÓXIMOS
+                              // usam a própria cor escolhida, p/ amarrar à seção.
+                              final Color corCabecalho;
+                              if (item.startsWith('FOCO')) {
+                                corCabecalho =
+                                    corPastaDeNome(temaController.corFoco) ??
+                                    app.fab;
+                              } else if (item.startsWith('EM ANDAMENTO')) {
+                                corCabecalho = app.fab;
+                              } else if (item.startsWith('PRÓXIMOS')) {
+                                corCabecalho =
+                                    corPastaDeNome(
+                                      temaController.corProximos,
+                                    ) ??
+                                    app.fab;
+                              } else {
+                                corCabecalho = app.textoUI.withValues(
+                                  alpha: 0.55,
+                                );
+                              }
+                              // FOCO em peso/altura um tiquinho maior (destaque pedido).
+                              final ehFoco = item.startsWith('FOCO');
+                              return Padding(
+                                key: ValueKey('sec-$item'),
+                                padding: EdgeInsets.fromLTRB(
+                                  2,
+                                  compacto ? 8 : 14,
+                                  2,
+                                  6,
+                                ),
+                                child: Text(
+                                  item,
+                                  style: TextStyle(
+                                    fontSize: ehFoco ? 11.5 : 10.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                    color: corCabecalho,
                                   ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: Row(
-                                  children: [
-                                    if (p.temSenha) ...[
-                                      Icon(Icons.lock,
-                                          size: 13,
-                                          color:
-                                              txtCor.withValues(alpha: 0.6)),
-                                      const SizedBox(width: 5),
-                                    ],
-                                    Expanded(
-                                      child: Text(
-                                        p.nome,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 15,
-                                          color: txtCor,
+                                ),
+                              );
+                            }
+                            final p = item as Projeto;
+
+                            Future<void> onTapProjeto() => _abrirProjeto(p);
+
+                            final corEfetiva = corEfetivaPasta(p, app);
+                            if (app.neumorfico) {
+                              Widget card = Caixa3D(
+                                cor: app.projetoCard,
+                                corInicio: app.projetoCard,
+                                corFim: app.projetoCardFim,
+                                raio: 18,
+                                child: Material(
+                                  type: MaterialType.transparency,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(18),
+                                    onTap: onTapProjeto,
+                                    onLongPress: () => _mostrarSeletorCor(p),
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        12,
+                                        10,
+                                        10,
+                                        10,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          q.isNotEmpty
+                                              ? Icon(
+                                                  Icons.drag_indicator,
+                                                  color: app.projetoTxt
+                                                      .withValues(alpha: 0.5),
+                                                )
+                                              : ReorderableDragStartListener(
+                                                  index: i,
+                                                  child: Icon(
+                                                    Icons.drag_indicator,
+                                                    color: app.projetoTxt
+                                                        .withValues(alpha: 0.5),
+                                                  ),
+                                                ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Row(
+                                              children: [
+                                                if (p.temSenha) ...[
+                                                  Icon(
+                                                    Icons.lock,
+                                                    size: 13,
+                                                    color: app.projetoTxt
+                                                        .withValues(alpha: 0.6),
+                                                  ),
+                                                  const SizedBox(width: 5),
+                                                ],
+                                                Expanded(
+                                                  child: Text(
+                                                    p.nome,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      fontSize: 15,
+                                                      color: app.projetoTxt,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          BotaoNeum(
+                                            raio: 999,
+                                            padding: const EdgeInsets.all(7),
+                                            corInicio: app.projetoCard,
+                                            corFim: app.projetoCardFim,
+                                            tooltip: p.emAndamento
+                                                ? 'Parar (não está mais em andamento)'
+                                                : 'Marcar como em andamento',
+                                            onTap: () => _alternarAndamento(p),
+                                            child: Icon(
+                                              p.emAndamento
+                                                  ? Icons.check_box
+                                                  : Icons
+                                                        .check_box_outline_blank,
+                                              size: 17,
+                                              color: p.emAndamento
+                                                  ? const Color(0xFF4ADE80)
+                                                  : app.projetoTxt,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                              if (corEfetiva != null) {
+                                card = ClipRRect(
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: Stack(
+                                    children: [
+                                      card,
+                                      Positioned(
+                                        left: 0,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: Container(
+                                          width: 4,
+                                          color: corEfetiva,
                                         ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                              return _arrastavel(
+                                p,
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: compacto ? 8 : 16,
+                                  ),
+                                  child: card,
+                                ),
+                              );
+                            }
+
+                            // Temas planos (Azul, Escuro e Claude): cartão na cor
+                            // do tema com o nome + bolinhas. No Claude, vira "linha":
+                            // borda de 1px, sem sombras, e o projeto em andamento ganha
+                            // uma BARRA TERRACOTA à esquerda com o "v" terracota
+                            // (em vez de verde).
+                            // No Claude/Terracota: bolinhas invisíveis (ícones apagados),
+                            // borda 1px #2A2A2B e acento terracota no "em andamento".
+                            final ehClaude = app == AppCores.claude;
+                            final ehOnix = app == AppCores.onix;
+                            // Creme/Papel: cartão BRANCO flutuante
+                            // com sombra suave (o visual dos mockups), em vez de borda.
+                            final ehLuz =
+                                app == AppCores.creme || app == AppCores.papel;
+                            // Ônix: pastas SEM caixa nem borda (linhas lisas sobre o
+                            // fundo). Os demais temas mantêm o cartão.
+                            final semCaixa = ehOnix;
+                            final arrastarCor = ehClaude
+                                ? app.projetoTxt.withValues(alpha: 0.45)
+                                : app.projetoTxt;
+                            final txtCor = app.projetoTxt;
+                            final bolaCor = app.notaFim;
+                            final iconeCor = ehClaude
+                                ? app.projetoTxt.withValues(alpha: 0.45)
+                                : app.projetoTxt;
+                            final corBolaAndamento = ehClaude
+                                ? Colors.transparent
+                                : bolaCor;
+                            final corCheckAndamento = (ehClaude || ehOnix)
+                                ? app.fab
+                                : const Color(0xFF4ADE80);
+
+                            // V0.1.202: o fundo do card FUNDE com o fundo da tela (sem o
+                            // retângulo mais claro). A separação fica só na BARRINHA colorida
+                            // à esquerda + o espaçamento. O Claude mantém a "linha" de 1px
+                            // (identidade terminal); o neumórfico (acima) mantém o relevo;
+                            // Ônix já era sem caixa. `ehLuz` segue valendo p/ o raio do InkWell.
+                            BoxDecoration? baseDecor;
+                            if (semCaixa) {
+                              baseDecor = null;
+                            } else if (ehClaude) {
+                              baseDecor = BoxDecoration(
+                                color: app.fundoInicio,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFF2A2A2B),
+                                ),
+                              );
+                            } else {
+                              // Creme/Papel/Azul/Escuro/Dark…: sem fundo próprio, sem sombra e
+                              // sem borda — o card some no fundo; sobra a barrinha + o texto.
+                              baseDecor = null;
+                            }
+
+                            Widget cardPlano = Material(
+                              type: MaterialType.transparency,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(
+                                  semCaixa
+                                      ? 8
+                                      : (ehClaude ? 10 : (ehLuz ? 16 : 14)),
+                                ),
+                                onTap: onTapProjeto,
+                                onLongPress: () => _mostrarSeletorCor(p),
+                                child: Container(
+                                  decoration: baseDecor,
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      4,
+                                      10,
+                                      4,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        q.isNotEmpty
+                                            ? Icon(
+                                                Icons.drag_indicator,
+                                                color: arrastarCor,
+                                              )
+                                            : ReorderableDragStartListener(
+                                                index: i,
+                                                child: Icon(
+                                                  Icons.drag_indicator,
+                                                  color: arrastarCor,
+                                                ),
+                                              ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 4,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                if (p.temSenha) ...[
+                                                  Icon(
+                                                    Icons.lock,
+                                                    size: 13,
+                                                    color: txtCor.withValues(
+                                                      alpha: 0.6,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 5),
+                                                ],
+                                                Expanded(
+                                                  child: Text(
+                                                    p.nome,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      fontSize: 15,
+                                                      color: txtCor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: p.emAndamento
+                                                ? corBolaAndamento
+                                                : bolaCor,
+                                          ),
+                                          child: IconButton(
+                                            icon: Icon(
+                                              p.emAndamento
+                                                  ? Icons.check
+                                                  : Icons
+                                                        .check_box_outline_blank,
+                                              size: 18,
+                                            ),
+                                            color: p.emAndamento
+                                                ? corCheckAndamento
+                                                : iconeCor,
+                                            tooltip: p.emAndamento
+                                                ? 'Parar (não está mais em andamento)'
+                                                : 'Marcar como em andamento',
+                                            onPressed: () =>
+                                                _alternarAndamento(p),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                            if (corEfetiva != null) {
+                              final raio = ehClaude ? 10.0 : 14.0;
+                              cardPlano = ClipRRect(
+                                borderRadius: BorderRadius.circular(raio),
+                                child: Stack(
+                                  children: [
+                                    cardPlano,
+                                    Positioned(
+                                      left: 0,
+                                      top: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        width: 4,
+                                        color: corEfetiva,
                                       ),
                                     ),
                                   ],
                                 ),
+                              );
+                            }
+                            return _arrastavel(
+                              p,
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: compacto ? 5 : 10,
+                                ),
+                                child: cardPlano,
                               ),
-                            ),
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: p.emAndamento ? corBolaAndamento : bolaCor,
-                          ),
-                          child: IconButton(
-                            icon: Icon(
-                                p.emAndamento ? Icons.check : Icons.check_box_outline_blank,
-                                size: 18),
-                            color: p.emAndamento ? corCheckAndamento : iconeCor,
-                            tooltip: p.emAndamento
-                                ? 'Parar (não está mais em andamento)'
-                                : 'Marcar como em andamento',
-                            onPressed: () => _alternarAndamento(p),
-                            padding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ],
+                            );
+                          },
+                        );
+                      },
                     ),
                   ),
-                ),
+                ],
               ),
-            );
-                if (corEfetiva != null) {
-                  final raio = ehClaude ? 10.0 : 14.0;
-                  cardPlano = ClipRRect(
-                    borderRadius: BorderRadius.circular(raio),
-                    child: Stack(
-                      children: [
-                        cardPlano,
-                        Positioned(
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
-                          child: Container(width: 4, color: corEfetiva),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return _arrastavel(
-                    p,
-                    Padding(
-                      padding: EdgeInsets.only(bottom: compacto ? 5 : 10),
-                      child: cardPlano,
-                    ));
-              },
-            );
-            }),
-          ),
-        ],
-      ),
       ),
     );
   }
@@ -1653,8 +1823,11 @@ class _ResultadoBusca {
   final String trecho;
 }
 
-Future<String?> _pedirNome(BuildContext context,
-    {required String titulo, String inicial = ''}) {
+Future<String?> _pedirNome(
+  BuildContext context, {
+  required String titulo,
+  String inicial = '',
+}) {
   final ctrl = TextEditingController(text: inicial);
   return showDialog<String>(
     context: context,
@@ -1668,11 +1841,14 @@ Future<String?> _pedirNome(BuildContext context,
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: const Text('Cancelar')),
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text('Cancelar'),
+        ),
         TextButton(
-            onPressed: () => Navigator.pop(context, capitalizarInicial(ctrl.text)),
-            child: const Text('Criar')),
+          onPressed: () =>
+              Navigator.pop(context, capitalizarInicial(ctrl.text)),
+          child: const Text('Criar'),
+        ),
       ],
     ),
   );
@@ -1686,15 +1862,18 @@ Future<void> _exportarBackup(BuildContext context) async {
     final dir = await getTemporaryDirectory();
     final agora = DateTime.now();
     String dois(int n) => n.toString().padLeft(2, '0');
-    final nome = 'adm-projetos-backup-${agora.year}-${dois(agora.month)}-'
+    final nome =
+        'adm-projetos-backup-${agora.year}-${dois(agora.month)}-'
         '${dois(agora.day)}-${dois(agora.hour)}${dois(agora.minute)}.json';
     final f = File('${dir.path}/$nome');
     await f.writeAsString(json);
-    await SharePlus.instance.share(ShareParams(
-      files: [XFile(f.path)],
-      subject: 'Backup ADM-projetos',
-      text: 'Backup dos seus projetos do ADM-projetos.',
-    ));
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(f.path)],
+        subject: 'Backup ADM-projetos',
+        text: 'Backup dos seus projetos do ADM-projetos.',
+      ),
+    );
   } catch (e) {
     if (context.mounted) mostrarAviso(context, 'Não foi possível exportar: $e');
   }
@@ -1717,12 +1896,16 @@ Future<void> _importarBackup(BuildContext context) async {
   } catch (_) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(
-          content: Text('Arquivo inválido: não é um backup do ADM-projetos.')));
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Arquivo inválido: não é um backup do ADM-projetos.'),
+        ),
+      );
     return;
   }
   if (novos.isEmpty) {
-    if (context.mounted) mostrarAviso(context, 'O arquivo não tem nenhum projeto.');
+    if (context.mounted)
+      mostrarAviso(context, 'O arquivo não tem nenhum projeto.');
     return;
   }
   if (!context.mounted) return;
@@ -1734,14 +1917,17 @@ Future<void> _importarBackup(BuildContext context) async {
       content: Text('O arquivo tem ${novos.length} projeto(s).'),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
         TextButton(
-            onPressed: () => Navigator.pop(context, 'somar'),
-            child: const Text('Somar ao que existe')),
+          onPressed: () => Navigator.pop(context, 'somar'),
+          child: const Text('Somar ao que existe'),
+        ),
         TextButton(
-            onPressed: () => Navigator.pop(context, 'substituir'),
-            child: const Text('Substituir tudo')),
+          onPressed: () => Navigator.pop(context, 'substituir'),
+          child: const Text('Substituir tudo'),
+        ),
       ],
     ),
   );
@@ -1752,10 +1938,7 @@ Future<void> _importarBackup(BuildContext context) async {
   } else {
     final atuais = await Storage.instance.carregar();
     final ids = atuais.map((p) => p.id).toSet();
-    final mesclados = [
-      ...atuais,
-      ...novos.where((p) => !ids.contains(p.id)),
-    ];
+    final mesclados = [...atuais, ...novos.where((p) => !ids.contains(p.id))];
     await Storage.instance.substituir(mesclados);
   }
   if (!context.mounted) return;
@@ -1822,9 +2005,11 @@ class _RestaurarTextoScreenState extends State<RestaurarTextoScreen> {
     if (_ocupado) return;
     final projetos = projetosDeBackupColado(_ctrl.text);
     if (projetos.isEmpty) {
-      mostrarAviso(context,
-          'Não reconheci nenhum projeto nesse texto. Cole o texto do botão '
-          '"Copiar backup" (ou um backup em JSON).');
+      mostrarAviso(
+        context,
+        'Não reconheci nenhum projeto nesse texto. Cole o texto do botão '
+        '"Copiar backup" (ou um backup em JSON).',
+      );
       return;
     }
     final acao = await showDialog<String>(
@@ -1962,7 +2147,10 @@ class _ConfigSheet extends StatelessWidget {
     final semBorda = const RoundedRectangleBorder();
     return ExpansionTile(
       leading: Icon(icone, size: 22),
-      title: Text(titulo, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      title: Text(
+        titulo,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+      ),
       subtitle: subtitulo == null
           ? null
           : Text(subtitulo, style: const TextStyle(fontSize: 12)),
@@ -1976,12 +2164,9 @@ class _ConfigSheet extends StatelessWidget {
   }
 
   Widget _dica(String texto, Color cor) => Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          texto,
-          style: TextStyle(color: cor, fontSize: 12),
-        ),
-      );
+    padding: const EdgeInsets.only(top: 4),
+    child: Text(texto, style: TextStyle(color: cor, fontSize: 12)),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -2002,15 +2187,19 @@ class _ConfigSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  const Text('Configurações',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Configurações',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(width: 8),
-                  Text(appVersao,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: dim)),
+                  Text(
+                    appVersao,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: dim,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2053,10 +2242,7 @@ class _ConfigSheet extends StatelessWidget {
                     return SegmentedButton<ModoFonte>(
                       segments: [
                         for (final f in ModoFonte.values)
-                          ButtonSegment(
-                            value: f,
-                            label: Text(f.rotulo),
-                          ),
+                          ButtonSegment(value: f, label: Text(f.rotulo)),
                       ],
                       selected: {temaController.fonte},
                       showSelectedIcon: false,
@@ -2081,10 +2267,7 @@ class _ConfigSheet extends StatelessWidget {
                     return SegmentedButton<Densidade>(
                       segments: [
                         for (final d in Densidade.values)
-                          ButtonSegment(
-                            value: d,
-                            label: Text(d.rotulo),
-                          ),
+                          ButtonSegment(value: d, label: Text(d.rotulo)),
                       ],
                       selected: {temaController.densidade},
                       showSelectedIcon: false,
@@ -2135,9 +2318,13 @@ class _ConfigSheet extends StatelessWidget {
                         SegmentedButton<String>(
                           segments: const [
                             ButtonSegment(
-                                value: 'dii', label: Text('Feminina')),
+                              value: 'dii',
+                              label: Text('Feminina'),
+                            ),
                             ButtonSegment(
-                                value: 'faber', label: Text('Masculina')),
+                              value: 'faber',
+                              label: Text('Masculina'),
+                            ),
                           ],
                           selected: {vozController.vozId},
                           showSelectedIcon: false,
@@ -2196,56 +2383,75 @@ class _ConfigSheet extends StatelessWidget {
                                     color: selecionado
                                         ? s.primary
                                         : (cor == null
-                                            ? Colors.grey.shade400
-                                            : Colors.transparent),
+                                              ? Colors.grey.shade400
+                                              : Colors.transparent),
                                     width: selecionado ? 2.2 : 1.2,
                                   ),
                                 ),
                                 child: cor == null
-                                    ? Icon(Icons.block,
-                                        size: 15, color: Colors.grey.shade500)
+                                    ? Icon(
+                                        Icons.block,
+                                        size: 15,
+                                        color: Colors.grey.shade500,
+                                      )
                                     : (selecionado
-                                        ? const Icon(Icons.check,
-                                            color: Colors.white, size: 15)
-                                        : null),
+                                          ? const Icon(
+                                              Icons.check,
+                                              color: Colors.white,
+                                              size: 15,
+                                            )
+                                          : null),
                               ),
                               const SizedBox(height: 3),
-                              Text(nome ?? 'nenhuma',
-                                  style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: selecionado
-                                          ? FontWeight.w700
-                                          : FontWeight.w500)),
+                              Text(
+                                nome ?? 'nenhuma',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: selecionado
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       );
                     }
 
-                    Widget linha(String titulo, String? sel, String? outra,
-                        ValueChanged<String?> onPick) {
+                    Widget linha(
+                      String titulo,
+                      String? sel,
+                      String? outra,
+                      ValueChanged<String?> onPick,
+                    ) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(titulo,
-                              style: const TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w700)),
+                          Text(
+                            titulo,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 10,
                             runSpacing: 10,
                             children: [
                               bolha(
-                                  nome: null,
-                                  sel: sel,
-                                  bloqueadaPor: outra,
-                                  onPick: onPick),
+                                nome: null,
+                                sel: sel,
+                                bloqueadaPor: outra,
+                                onPick: onPick,
+                              ),
                               for (final nome in mapaCoresPasta.keys)
                                 bolha(
-                                    nome: nome,
-                                    sel: sel,
-                                    bloqueadaPor: outra,
-                                    onPick: onPick),
+                                  nome: nome,
+                                  sel: sel,
+                                  bloqueadaPor: outra,
+                                  onPick: onPick,
+                                ),
                             ],
                           ),
                         ],
@@ -2255,11 +2461,19 @@ class _ConfigSheet extends StatelessWidget {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        linha('Foco (topo)', foco, prox,
-                            temaController.definirCorFoco),
+                        linha(
+                          'Foco (topo)',
+                          foco,
+                          prox,
+                          temaController.definirCorFoco,
+                        ),
                         const SizedBox(height: 14),
-                        linha('Próximos (abaixo de Em andamento)', prox, foco,
-                            temaController.definirCorProximos),
+                        linha(
+                          'Próximos (abaixo de Em andamento)',
+                          prox,
+                          foco,
+                          temaController.definirCorProximos,
+                        ),
                       ],
                     );
                   },
@@ -2333,7 +2547,8 @@ class _ConfigSheet extends StatelessWidget {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const RestaurarTextoScreen()),
+                      builder: (_) => const RestaurarTextoScreen(),
+                    ),
                   ),
                 ),
                 _dica(
@@ -2355,7 +2570,13 @@ class _ConfigSheet extends StatelessWidget {
                   builder: (context, _) {
                     final lem = LembretesService.instance;
                     const diasNomes = [
-                      'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'
+                      'Seg',
+                      'Ter',
+                      'Qua',
+                      'Qui',
+                      'Sex',
+                      'Sáb',
+                      'Dom',
                     ];
                     String hhmm(int h, int m) =>
                         '${h.toString().padLeft(2, '0')}:'
@@ -2366,12 +2587,14 @@ class _ConfigSheet extends StatelessWidget {
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           dense: true,
-                          title: const Text('Lembrete semanal de backup',
-                              style: TextStyle(fontSize: 14)),
+                          title: const Text(
+                            'Lembrete semanal de backup',
+                            style: TextStyle(fontSize: 14),
+                          ),
                           subtitle: Text(
                             lem.backupSemanalAtivo
                                 ? '${diasNomes[lem.backupSemanalWeekday - 1]} • '
-                                    '${hhmm(lem.backupSemanalHora, lem.backupSemanalMin)}'
+                                      '${hhmm(lem.backupSemanalHora, lem.backupSemanalMin)}'
                                 : 'Desligado',
                             style: const TextStyle(fontSize: 12),
                           ),
@@ -2380,51 +2603,64 @@ class _ConfigSheet extends StatelessWidget {
                             final ok = await LembretesService.instance
                                 .configurarBackupSemanal(ativo: v);
                             if (!ok && context.mounted) {
-                              mostrarAviso(context,
-                                  'Permissão de notificação negada.');
+                              mostrarAviso(
+                                context,
+                                'Permissão de notificação negada.',
+                              );
                             }
                           },
                         ),
                         if (lem.backupSemanalAtivo)
                           Row(
                             children: [
-                              const Text('Dia: ',
-                                  style: TextStyle(fontSize: 13)),
+                              const Text(
+                                'Dia: ',
+                                style: TextStyle(fontSize: 13),
+                              ),
                               DropdownButton<int>(
                                 value: lem.backupSemanalWeekday,
                                 isDense: true,
                                 items: [
                                   for (var d = 1; d <= 7; d++)
                                     DropdownMenuItem(
-                                        value: d,
-                                        child: Text(diasNomes[d - 1])),
+                                      value: d,
+                                      child: Text(diasNomes[d - 1]),
+                                    ),
                                 ],
                                 onChanged: (d) {
                                   if (d != null) {
                                     LembretesService.instance
                                         .configurarBackupSemanal(
-                                            ativo: true, weekday: d);
+                                          ativo: true,
+                                          weekday: d,
+                                        );
                                   }
                                 },
                               ),
                               const Spacer(),
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.schedule, size: 18),
-                                label: Text(hhmm(lem.backupSemanalHora,
-                                    lem.backupSemanalMin)),
+                                label: Text(
+                                  hhmm(
+                                    lem.backupSemanalHora,
+                                    lem.backupSemanalMin,
+                                  ),
+                                ),
                                 onPressed: () async {
                                   final t = await showTimePicker(
                                     context: context,
                                     initialTime: TimeOfDay(
-                                        hour: lem.backupSemanalHora,
-                                        minute: lem.backupSemanalMin),
+                                      hour: lem.backupSemanalHora,
+                                      minute: lem.backupSemanalMin,
+                                    ),
                                   );
                                   if (t != null) {
                                     await LembretesService.instance
                                         .configurarBackupSemanal(
-                                            ativo: true,
-                                            hora: t.hour,
-                                            minuto: t.minute);
+                                          ativo: true,
+                                          hora: t.hour,
+                                          minuto: t.minute,
+                                        );
                                   }
                                 },
                               ),
@@ -2458,10 +2694,14 @@ class _ConfigSheet extends StatelessWidget {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       dense: true,
-                      title: const Text('Avisar a previsão às 6:15',
-                          style: TextStyle(fontSize: 14)),
-                      subtitle: const Text('Lajeado · exceto domingo',
-                          style: TextStyle(fontSize: 12)),
+                      title: const Text(
+                        'Avisar a previsão às 6:15',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'Lajeado · exceto domingo',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       value: lem.previsaoTempoAtiva,
                       onChanged: (v) async {
                         final ok = await LembretesService.instance
@@ -2469,7 +2709,9 @@ class _ConfigSheet extends StatelessWidget {
                         if (!ok) {
                           if (context.mounted) {
                             mostrarAviso(
-                                context, 'Permissão de notificação negada.');
+                              context,
+                              'Permissão de notificação negada.',
+                            );
                           }
                           return;
                         }
@@ -2521,14 +2763,14 @@ class _ConfigSheet extends StatelessWidget {
                             sync.status == 'Sincronizado'
                                 ? Icons.cloud_done_outlined
                                 : (sync.status == 'Erro'
-                                    ? Icons.cloud_off_outlined
-                                    : Icons.cloud_outlined),
+                                      ? Icons.cloud_off_outlined
+                                      : Icons.cloud_outlined),
                             size: 18,
                             color: sync.status == 'Sincronizado'
                                 ? const Color(0xFF4ADE80)
                                 : (sync.status == 'Erro'
-                                    ? Colors.redAccent
-                                    : s.onSurfaceVariant),
+                                      ? Colors.redAccent
+                                      : s.onSurfaceVariant),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -2548,15 +2790,15 @@ class _ConfigSheet extends StatelessWidget {
                         sync.status == 'Sincronizado' &&
                                 sync.ultimoEnvio != null
                             ? 'Enviado às '
-                                '${sync.ultimoEnvio!.hour.toString().padLeft(2, '0')}:'
-                                '${sync.ultimoEnvio!.minute.toString().padLeft(2, '0')}'
+                                  '${sync.ultimoEnvio!.hour.toString().padLeft(2, '0')}:'
+                                  '${sync.ultimoEnvio!.minute.toString().padLeft(2, '0')}'
                             : sync.status,
                         style: TextStyle(
                           color: sync.status == 'Sincronizado'
                               ? const Color(0xFF4ADE80)
                               : (sync.status == 'Erro'
-                                  ? Colors.redAccent
-                                  : s.onSurfaceVariant),
+                                    ? Colors.redAccent
+                                    : s.onSurfaceVariant),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -2584,29 +2826,33 @@ class _ConfigSheet extends StatelessWidget {
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              icon: const Icon(Icons.cloud_download_outlined,
-                                  size: 18),
+                              icon: const Icon(
+                                Icons.cloud_download_outlined,
+                                size: 18,
+                              ),
                               label: const Text('Baixar da nuvem'),
                               onPressed:
                                   sync.status == 'Enviando…' ||
-                                          sync.status == 'Baixando…' ||
-                                          sync.status == 'Conectando…'
-                                      ? null
-                                      : () => _confirmarBaixar(context),
+                                      sync.status == 'Baixando…' ||
+                                      sync.status == 'Conectando…'
+                                  ? null
+                                  : () => _confirmarBaixar(context),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: OutlinedButton.icon(
-                              icon: const Icon(Icons.cloud_upload_outlined,
-                                  size: 18),
+                              icon: const Icon(
+                                Icons.cloud_upload_outlined,
+                                size: 18,
+                              ),
                               label: const Text('Enviar para a nuvem'),
                               onPressed:
                                   sync.status == 'Enviando…' ||
-                                          sync.status == 'Baixando…' ||
-                                          sync.status == 'Conectando…'
-                                      ? null
-                                      : sync.enviarAgora,
+                                      sync.status == 'Baixando…' ||
+                                      sync.status == 'Conectando…'
+                                  ? null
+                                  : sync.enviarAgora,
                             ),
                           ),
                         ],
@@ -2688,8 +2934,10 @@ class _LembreteSheetState extends State<_LembreteSheet> {
       final l = await LembretesService.instance.agendar(_ctrl.text.trim(), d);
       if (l == null) {
         if (mounted) {
-          mostrarAviso(context,
-              'Ative as notificações do Taskix nas configurações do Android.');
+          mostrarAviso(
+            context,
+            'Ative as notificações do Taskix nas configurações do Android.',
+          );
         }
         return false;
       }
@@ -2717,8 +2965,9 @@ class _LembreteSheetState extends State<_LembreteSheet> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Fechar')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar'),
+          ),
         ],
       ),
     );
@@ -2813,7 +3062,8 @@ class _LembreteSheetState extends State<_LembreteSheet> {
     final agora = DateTime.now();
     final hoje = DateTime(agora.year, agora.month, agora.day);
     final dia = DateTime(dt.year, dt.month, dt.day);
-    final hm = '${dt.hour.toString().padLeft(2, '0')}:'
+    final hm =
+        '${dt.hour.toString().padLeft(2, '0')}:'
         '${dt.minute.toString().padLeft(2, '0')}';
     final difDias = dia.difference(hoje).inDays;
     if (difDias == 0) return 'hoje $hm';
@@ -2828,7 +3078,9 @@ class _LembreteSheetState extends State<_LembreteSheet> {
     return Padding(
       // Padding SIMPLES (não AnimatedPadding): segue o teclado quadro-a-quadro,
       // sem uma 2ª animação por cima que causava a "travadinha".
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -2840,9 +3092,10 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                 children: [
                   const Icon(Icons.notifications_active_outlined, size: 20),
                   const SizedBox(width: 8),
-                  const Text('Lembrete rápido',
-                      style: TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Lembrete rápido',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -2859,11 +3112,14 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                 ),
               ),
               const SizedBox(height: 14),
-              Text('Notificar daqui a…',
-                  style: TextStyle(
-                      color: s.onSurfaceVariant,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600)),
+              Text(
+                'Notificar daqui a…',
+                style: TextStyle(
+                  color: s.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 8),
               // Linha 1 — toca e agenda JÁ. Wrap: cabem todos na linha (quebra
               // p/ a linha de baixo se faltar espaço), sem rolagem horizontal.
@@ -2876,8 +3132,7 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                       label: Text(p.$2),
                       visualDensity: VisualDensity.compact,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onPressed:
-                          _agendando ? null : () => _agendar(p.$1, p.$2),
+                      onPressed: _agendando ? null : () => _agendar(p.$1, p.$2),
                     ),
                   // "Outro" (tempo exato) — SEM ícone de reticências, p/ caber
                   // na mesma linha dos tempos.
@@ -2891,11 +3146,14 @@ class _LembreteSheetState extends State<_LembreteSheet> {
               ),
               const SizedBox(height: 16),
               // Linha 2 — SOMA um tempo (cor diferente); mostra data/hora + Salvar.
-              Text('Ou monte o tempo (vai somando)',
-                  style: TextStyle(
-                      color: s.onSurfaceVariant,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600)),
+              Text(
+                'Ou monte o tempo (vai somando)',
+                style: TextStyle(
+                  color: s.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: 40,
@@ -2911,10 +3169,13 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
                           backgroundColor: s.primary.withValues(alpha: 0.14),
-                          side:
-                              BorderSide(color: s.primary.withValues(alpha: 0.5)),
+                          side: BorderSide(
+                            color: s.primary.withValues(alpha: 0.5),
+                          ),
                           labelStyle: TextStyle(
-                              color: s.primary, fontWeight: FontWeight.w700),
+                            color: s.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
                           onPressed: () => setState(() => _somado += p.$1),
                         ),
                       ),
@@ -2928,8 +3189,9 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                   decoration: BoxDecoration(
                     color: s.primary.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: s.primary.withValues(alpha: 0.35)),
+                    border: Border.all(
+                      color: s.primary.withValues(alpha: 0.35),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -2939,16 +3201,22 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Daqui a ${_humanizar(_somado)}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700, fontSize: 14)),
+                            Text(
+                              'Daqui a ${_humanizar(_somado)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
                             // Data + horário + DIA DA SEMANA abreviado
                             // (ex.: "22/09 • 09:00 • Ter.").
                             Text(
-                                quandoComDiaSemana(
-                                    DateTime.now().add(_somado)),
-                                style: TextStyle(
-                                    fontSize: 12, color: s.onSurfaceVariant)),
+                              quandoComDiaSemana(DateTime.now().add(_somado)),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: s.onSurfaceVariant,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -2974,12 +3242,15 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 18),
-                      Text('AGENDADOS',
-                          style: TextStyle(
-                              color: s.onSurfaceVariant,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5)),
+                      Text(
+                        'AGENDADOS',
+                        style: TextStyle(
+                          color: s.onSurfaceVariant,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                       const SizedBox(height: 2),
                       for (final l in pend)
                         ListTile(
@@ -2991,9 +3262,11 @@ class _LembreteSheetState extends State<_LembreteSheet> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          subtitle: Text(l.repetindo
-                              ? '🔁 ${l.rotuloRecorrencia}'
-                              : _quando(l.quando)),
+                          subtitle: Text(
+                            l.repetindo
+                                ? '🔁 ${l.rotuloRecorrencia}'
+                                : _quando(l.quando),
+                          ),
                           trailing: IconButton(
                             icon: const Icon(Icons.close),
                             tooltip: 'Cancelar lembrete',
@@ -3026,11 +3299,13 @@ Future<void> _confirmarBaixar(BuildContext context) async {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar')),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
         TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Baixar')),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Baixar'),
+        ),
       ],
     ),
   );
@@ -3086,8 +3361,10 @@ class _Vazio extends StatelessWidget {
               fit: BoxFit.cover,
             ),
             const SizedBox(height: 16),
-            const Text('Nenhum projeto ainda',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text(
+              'Nenhum projeto ainda',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 6),
             Text(
               'Toque no + para criar um projeto e começar a anotar suas ideias.',

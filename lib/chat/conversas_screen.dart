@@ -35,7 +35,8 @@ class _ConversasScreenState extends State<ConversasScreen> {
   }
 
   Future<void> _carregar() async {
-    final convs = await ChatStore.listar(); // já vem da mais recente p/ a antiga
+    final convs =
+        await ChatStore.listar(); // já vem da mais recente p/ a antiga
     if (!mounted) return;
     setState(() {
       _convs = convs;
@@ -44,14 +45,16 @@ class _ConversasScreenState extends State<ConversasScreen> {
   }
 
   Future<void> _abrir(String id) async {
-    await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ChatScreen(conversaId: id)));
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => ChatScreen(conversaId: id)));
     await _carregar(); // títulos/ordem podem ter mudado
   }
 
   Future<void> _nova() async {
     await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ChatScreen(iniciarNova: true)));
+      MaterialPageRoute(builder: (_) => const ChatScreen(iniciarNova: true)),
+    );
     await _carregar();
   }
 
@@ -60,18 +63,21 @@ class _ConversasScreenState extends State<ConversasScreen> {
       context: context,
       showDragHandle: true,
       builder: (c) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.edit_outlined),
-            title: const Text('Renomear'),
-            onTap: () => Navigator.pop(c, 'renomear'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete_outline),
-            title: const Text('Apagar conversa'),
-            onTap: () => Navigator.pop(c, 'apagar'),
-          ),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Renomear'),
+              onTap: () => Navigator.pop(c, 'renomear'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Apagar conversa'),
+              onTap: () => Navigator.pop(c, 'apagar'),
+            ),
+          ],
+        ),
       ),
     );
     if (acao == 'renomear') await _renomear(conv);
@@ -93,10 +99,13 @@ class _ConversasScreenState extends State<ConversasScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(c, ctrl.text.trim()),
-              child: const Text('Salvar')),
+            onPressed: () => Navigator.pop(c, ctrl.text.trim()),
+            child: const Text('Salvar'),
+          ),
         ],
       ),
     );
@@ -115,12 +124,13 @@ class _ConversasScreenState extends State<ConversasScreen> {
         content: Text('"${conv.titulo}" será removida deste aparelho.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(c, true),
-              child:
-                  const Text('Apagar', style: TextStyle(color: Colors.red))),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Apagar', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
@@ -132,10 +142,10 @@ class _ConversasScreenState extends State<ConversasScreen> {
 
   /// Nome do asset do dot de cada MODO (Calis/Geral/Projetos).
   String _modoAsset(ChatPreset p) => switch (p) {
-        ChatPreset.coach => 'calis',
-        ChatPreset.projetos => 'projetos',
-        ChatPreset.geral => 'geral',
-      };
+    ChatPreset.coach => 'calis',
+    ChatPreset.projetos => 'projetos',
+    ChatPreset.geral => 'geral',
+  };
 
   String _data(DateTime d) {
     final agora = DateTime.now();
@@ -154,134 +164,165 @@ class _ConversasScreenState extends State<ConversasScreen> {
     final lista = q.isEmpty
         ? _convs
         : _convs
-            .where((c) => c.titulo.toLowerCase().contains(q))
-            .toList(growable: false);
+              .where((c) => c.titulo.toLowerCase().contains(q))
+              .toList(growable: false);
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: _carregando
             ? const Center(child: CircularProgressIndicator())
-            : Column(children: [
-                // Cabeçalho com o rosto da Muse.
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
-                  child: Column(children: [
-                    const MuseRespira(size: 72),
-                    const SizedBox(height: 10),
-                    Text('Muse Spark',
-                        style: TextStyle(
+            : Column(
+                children: [
+                  // Cabeçalho com o rosto da Muse.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
+                    child: Column(
+                      children: [
+                        const MuseRespira(size: 72),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Muse Spark',
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
-                            color: cs.onSurface)),
-                    const SizedBox(height: 2),
-                    Text('escolha uma conversa ou comece outra',
-                        style:
-                            TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant)),
-                  ]),
-                ),
-                // Barra: "Conversas" + buscar + nova.
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 10, 4),
-                  child: _buscando
-                      ? Row(children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _buscaCtrl,
-                              autofocus: true,
-                              onChanged: (v) => setState(() => _filtro = v),
-                              decoration: const InputDecoration(
-                                  isDense: true,
-                                  hintText: 'Buscar conversa…',
-                                  border: InputBorder.none),
-                            ),
+                            color: cs.onSurface,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            tooltip: 'Fechar busca',
-                            onPressed: () => setState(() {
-                              _buscando = false;
-                              _filtro = '';
-                              _buscaCtrl.clear();
-                            }),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'escolha uma conversa ou comece outra',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant,
                           ),
-                        ])
-                      : Row(children: [
-                          Expanded(
-                            child: Text('CONVERSAS',
-                                style: TextStyle(
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Barra: "Conversas" + buscar + nova.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 10, 4),
+                    child: _buscando
+                        ? Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _buscaCtrl,
+                                  autofocus: true,
+                                  onChanged: (v) => setState(() => _filtro = v),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    hintText: 'Buscar conversa…',
+                                    border: InputBorder.none,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                tooltip: 'Fechar busca',
+                                onPressed: () => setState(() {
+                                  _buscando = false;
+                                  _filtro = '';
+                                  _buscaCtrl.clear();
+                                }),
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'CONVERSAS',
+                                  style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 0.8,
-                                    color: cs.onSurfaceVariant)),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.search),
-                            tooltip: 'Buscar conversa',
-                            onPressed: _convs.isEmpty
-                                ? null
-                                : () => setState(() => _buscando = true),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.add_comment_outlined),
-                            tooltip: 'Nova conversa',
-                            onPressed: _nova,
-                          ),
-                        ]),
-                ),
-                Expanded(
-                  child: lista.isEmpty
-                      ? _vazio(context)
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-                          itemCount: lista.length,
-                          itemBuilder: (c, i) {
-                            final conv = lista[i];
-                            return Card(
-                              elevation: 0,
-                              margin: const EdgeInsets.symmetric(vertical: 5),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                              child: ListTile(
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16)),
-                                // Dot do MODO da conversa (Calis/Geral/Projetos),
-                                // cada um com seu personagem/cor. (V0.1.180)
-                                leading: Image.asset(
-                                  'assets/muse/modo_${_modoAsset(conv.preset)}.png',
-                                  width: 40,
-                                  height: 40,
+                                    color: cs.onSurfaceVariant,
+                                  ),
                                 ),
-                                title: Text(conv.titulo,
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.search),
+                                tooltip: 'Buscar conversa',
+                                onPressed: _convs.isEmpty
+                                    ? null
+                                    : () => setState(() => _buscando = true),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add_comment_outlined),
+                                tooltip: 'Nova conversa',
+                                onPressed: _nova,
+                              ),
+                            ],
+                          ),
+                  ),
+                  Expanded(
+                    child: lista.isEmpty
+                        ? _vazio(context)
+                        : ListView.builder(
+                            // Fundo folgado: a lista rola ATRÁS da barra flutuante do
+                            // HomeShell (extendBody, V0.1.202) — o último item precisa
+                            // de espaço p/ subir acima dela.
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 110),
+                            itemCount: lista.length,
+                            itemBuilder: (c, i) {
+                              final conv = lista[i];
+                              return Card(
+                                elevation: 0,
+                                margin: const EdgeInsets.symmetric(vertical: 5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: ListTile(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  // Dot do MODO da conversa (Calis/Geral/Projetos),
+                                  // cada um com seu personagem/cor. (V0.1.180)
+                                  leading: Image.asset(
+                                    'assets/muse/modo_${_modoAsset(conv.preset)}.png',
+                                    width: 40,
+                                    height: 40,
+                                  ),
+                                  title: Text(
+                                    conv.titulo,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.w700)),
-                                subtitle: Text(
-                                    '${conv.preset.rotulo} · ${conv.tamanho.rotulo} · ${_data(conv.atualizadaEm)}'),
-                                onTap: () => _abrir(conv.id),
-                                onLongPress: () => _acoes(conv),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ]),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${conv.preset.rotulo} · ${conv.tamanho.rotulo} · ${_data(conv.atualizadaEm)}',
+                                  ),
+                                  onTap: () => _abrir(conv.id),
+                                  onLongPress: () => _acoes(conv),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
       ),
     );
   }
 
   Widget _vazio(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(
-              _filtro.isEmpty
-                  ? 'Nenhuma conversa ainda.\nToque em "Nova conversa" para começar.'
-                  : 'Nenhuma conversa com esse nome.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Theme.of(context).hintColor),
-            ),
-          ]),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _filtro.isEmpty
+                ? 'Nenhuma conversa ainda.\nToque em "Nova conversa" para começar.'
+                : 'Nenhuma conversa com esse nome.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).hintColor),
+          ),
+        ],
+      ),
+    ),
+  );
 }

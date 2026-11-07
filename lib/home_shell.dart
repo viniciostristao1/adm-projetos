@@ -31,10 +31,10 @@ class _HomeShellState extends State<HomeShell> {
   int _i = 0;
 
   List<_Aba> get _abas => [
-        _Aba.projetos,
-        if (ChatConfig.habilitado) _Aba.muse,
-        _Aba.estudos,
-      ];
+    _Aba.projetos,
+    if (ChatConfig.habilitado) _Aba.muse,
+    _Aba.estudos,
+  ];
 
   @override
   void initState() {
@@ -78,6 +78,9 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final abas = _abas;
+    // Cor do fundo REAL da tela (nos temas planos vem do scaffoldBackgroundColor;
+    // casa com o fade da base p/ não criar uma faixa de cor diferente).
+    final fundoTela = Theme.of(context).scaffoldBackgroundColor;
     // Voltar do sistema: fora da aba Projetos, volta para ela; nela, sai do app.
     // (Nas abas com PopScope próprio — Estudos — o voltar é tratado lá dentro.)
     return PopScope(
@@ -86,9 +89,35 @@ class _HomeShellState extends State<HomeShell> {
         if (!didPop && mounted) _irPara(0);
       },
       child: Scaffold(
-        body: IndexedStack(
-          index: _i,
-          children: [for (final a in abas) _tela(a)],
+        // Conteúdo passa ATRÁS da barra flutuante (não corta seco): o corpo vai até
+        // o fim da tela e some por baixo da barra com um fade. `extendBody` também
+        // injeta o padding da barra no MediaQuery, então os FABs/SafeArea das abas
+        // sobem sozinhos p/ não ficar atrás dela. (V0.1.202)
+        extendBody: true,
+        body: Stack(
+          children: [
+            IndexedStack(index: _i, children: [for (final a in abas) _tela(a)]),
+            // Fade na base: o conteúdo esmaece ao passar atrás da barra flutuante,
+            // casando com a ponta escura do fundo (fundoFim). Não captura toque.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 96,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [fundoTela.withValues(alpha: 0), fundoTela],
+                      stops: const [0, 0.85],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         bottomNavigationBar: _BarraFlutuante(
           abas: abas,
@@ -102,8 +131,11 @@ class _HomeShellState extends State<HomeShell> {
 
 /// Barra inferior com contorno próprio (flutua, não cola no fundo).
 class _BarraFlutuante extends StatelessWidget {
-  const _BarraFlutuante(
-      {required this.abas, required this.indice, required this.onSelecionar});
+  const _BarraFlutuante({
+    required this.abas,
+    required this.indice,
+    required this.onSelecionar,
+  });
 
   final List<_Aba> abas;
   final int indice;
@@ -117,8 +149,7 @@ class _BarraFlutuante extends StatelessWidget {
     final plano = app == AppCores.claude || app == AppCores.onix;
     final fundoBarra = plano
         ? app.barraFerramentas
-        : Color.alphaBlend(
-            cs.onSurface.withValues(alpha: 0.04), cs.surface);
+        : Color.alphaBlend(cs.onSurface.withValues(alpha: 0.04), cs.surface);
     return SafeArea(
       top: false,
       child: Padding(
@@ -162,12 +193,13 @@ class _BarraFlutuante extends StatelessWidget {
 }
 
 class _ItemBarra extends StatelessWidget {
-  const _ItemBarra(
-      {required this.aba,
-      required this.selecionado,
-      required this.acento,
-      required this.inativo,
-      required this.onTap});
+  const _ItemBarra({
+    required this.aba,
+    required this.selecionado,
+    required this.acento,
+    required this.inativo,
+    required this.onTap,
+  });
 
   final _Aba aba;
   final bool selecionado;
@@ -176,10 +208,10 @@ class _ItemBarra extends StatelessWidget {
   final VoidCallback onTap;
 
   String get _rotulo => switch (aba) {
-        _Aba.projetos => 'Projetos',
-        _Aba.muse => 'Muse',
-        _Aba.estudos => 'Estudos',
-      };
+    _Aba.projetos => 'Projetos',
+    _Aba.muse => 'Muse',
+    _Aba.estudos => 'Estudos',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +300,9 @@ class _EstudosTabState extends State<_EstudosTab> {
     }
     if (achado == null) {
       achado = Projeto(
-          id: DateTime.now().millisecondsSinceEpoch.toString(), nome: _nome);
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        nome: _nome,
+      );
       projetos.add(achado);
       await Storage.instance.salvar();
     }
@@ -280,8 +314,7 @@ class _EstudosTabState extends State<_EstudosTab> {
   Widget build(BuildContext context) {
     final proj = _proj;
     if (proj == null) {
-      return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     // key por id: se o projeto for recriado, remonta a tela.
     return ProjetoScreen(
