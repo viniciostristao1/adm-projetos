@@ -186,3 +186,9 @@ class Conversa {
             .toList(),
       );
 }
+
+/// true quando a lista está longe do fim (mostra o botão ↓ de rolar até a
+/// última mensagem). Puro p/ teste: `maxExtent <= 0` (lista curta) = false.
+bool longeDoFimLista(double pixels, double maxExtent,
+        [double margem = 120]) =>
+    maxExtent > 0 && pixels < maxExtent - margem;

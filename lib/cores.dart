@@ -139,6 +139,24 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFFF0EEE9),
   );
 
+  /// Tema Dark (V0.1.199) — espelha o app do Claude em modo escuro: fundo preto
+  /// QUENTE (#1E1D1C), superfícies #262524 com borda sutil, texto branco quente,
+  /// acento terracota (#D97757) e títulos serifados. Plano, sem sombras.
+  static const AppCores dark = AppCores(
+    notaInicio: Color(0xFF262524),
+    notaFim: Color(0xFF262524),
+    notaBorda: Color(0xFF3A3836),
+    projetoCard: Color(0xFF232221),
+    projetoCardFim: Color(0xFF232221),
+    projetoTxt: Color(0xFFF5F1EA),
+    fab: Color(0xFFD97757),
+    fabIcone: Color(0xFF1E1D1C),
+    barraFerramentas: Color(0xFF201F1E),
+    barraFerramentasFim: Color(0xFF201F1E),
+    fundoInicio: Color(0xFF1E1D1C),
+    fundoFim: Color(0xFF141312),
+    textoUI: Color(0xFFF5F1EA),
+  );
   /// Tema Ônix (estilo ChatGPT): preto liso (#0D0D0D), texto branco (#ECECEC)
   /// e um verde discreto (#19C37D) só no accent/botão +. Home sem caixa: o
   /// cartão de projeto é a própria cor do fundo (as pastas viram linhas), e as

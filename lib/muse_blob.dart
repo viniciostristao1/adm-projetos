@@ -22,6 +22,7 @@ class MuseBlob extends StatelessWidget {
     if (app == AppCores.neumB) return 'darkgame';
     if (app == AppCores.claude) return 'terracota';
     if (app == AppCores.onix) return 'onix';
+    if (app == AppCores.dark) return 'terracota';
     if (app == AppCores.creme) return 'terracota';
     if (app == AppCores.papel) return 'claro';
     return 'azul';

@@ -8,6 +8,9 @@ enum Modo {
   neumB('Dark Game'),
   claude('Terracota'),
   onix('Ônix'),
+  // Tema DARK (V0.1.199): espelha o app do Claude em modo escuro — preto quente,
+  // serifada, terracota. Não confundir com `escuro` (preto neutro + laranja).
+  dark('Dark'),
   // Dois temas claros do Nestwallet (V0.1.195, das refs estilo Claude):
   // botões/intervenções em PRETO sobre fundo claro + detalhe próprio —
   // terracota no Creme (bege), verde no Papel (off-white). Títulos serifados.

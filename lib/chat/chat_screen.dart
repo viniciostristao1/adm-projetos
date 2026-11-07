@@ -66,6 +66,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _buscaCtrl = TextEditingController();
   bool _buscando = false; // modo busca na conversa
   String _busca = '';
+  // Botão ↓ de rolar até o fim (estilo Claude): aparece quando a lista está
+  // longe do fim; some ao chegar. Estado espelha `longeDoFimLista` (puro).
+  bool _longeDoFim = false;
   List<(int, int)> _hits =
       []; // ocorrências: (índice da mensagem, posição no texto)
   int _hitAtual = -1;
@@ -181,11 +184,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // A conclusão da voz neural é gerida pelo streaming em `_falar` (o listener
     // global zerava o _lendoIdx no fim de CADA frase, cortando a leitura).
     _foco.addListener(_aoMudarFocoCaixa);
+    _scroll.addListener(_aoRolarConversa);
     _carregar();
     // Pré-aquece em 2º plano (sem snack, sem bloquear): reconhecimento de voz +
     // voz offline. Assim o 1º segurar já grava e a 1ª resposta já sai rápida.
     // O microfone pode pedir permissão aqui; se negada, tentamos de novo no segurar.
     WidgetsBinding.instance.addPostFrameCallback((_) => _preAquecerVoz());
+  }
+
+  /// Listener da lista: acende/apaga o botão ↓ conforme a distância do fim.
+  void _aoRolarConversa() {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    final longe = longeDoFimLista(pos.pixels, pos.maxScrollExtent);
+    if (longe != _longeDoFim && mounted) {
+      setState(() => _longeDoFim = longe);
+    }
   }
 
   /// Foco na caixa de mensagem → rola a conversa p/ a última ficar acima do
@@ -799,6 +813,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ChatStore.marcarUltima(_conv.id);
     }
     _ctrl.dispose();
+    _scroll.removeListener(_aoRolarConversa);
     _scroll.dispose();
     _caixaScroll.dispose();
     _foco.dispose();
@@ -2097,38 +2112,57 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           child: _conv.vazia
               ? _vazio(context)
               // Scrollbar CONTIDO na lista de mensagens (antes a rolagem "vazava"
-              // pra viewport). Mesmo controller da lista.
-              : Scrollbar(
-                  controller: _scroll,
-                  child: ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-                    itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
-                    itemBuilder: (c, i) {
-                      // O "pensando" tem tag própria (índice n) p/ o _rolarFim mirar nele
-                      // durante o envio — sem isso o scroll parava na msg enviada e o
-                      // contador ficava escondido embaixo.
-                      if (i == _conv.mensagens.length) {
-                        // Durante o streaming, mostra a resposta chegando AO VIVO; antes
-                        // da 1ª frase, o "pensando…" com o contador.
-                        return AutoScrollTag(
-                          key: const ValueKey('pensando'),
-                          controller: _scroll,
-                          index: i,
-                          child: (_streamando && _streamTexto.isNotEmpty)
-                              ? _bolhaStream(context)
-                              : _pensando(context),
-                        );
-                      }
-                      // AutoScrollTag permite pular até a mensagem na busca.
-                      return AutoScrollTag(
-                        key: ValueKey('msg_$i'),
+              // pra viewport). Mesmo controller da lista. O botão ↓ flutua sobre
+              // o fim da lista quando longe dele (estilo Claude).
+              : Stack(
+                  children: [
+                    Scrollbar(
+                      controller: _scroll,
+                      child: ListView.builder(
                         controller: _scroll,
-                        index: i,
-                        child: _bolha(context, _conv.mensagens[i], i),
-                      );
-                    },
-                  ),
+                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                        itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
+                        itemBuilder: (c, i) {
+                          // O "pensando" tem tag própria (índice n) p/ o _rolarFim mirar nele
+                          // durante o envio — sem isso o scroll parava na msg enviada e o
+                          // contador ficava escondido embaixo.
+                          if (i == _conv.mensagens.length) {
+                            // Durante o streaming, mostra a resposta chegando AO VIVO; antes
+                            // da 1ª frase, o "pensando…" com o contador.
+                            return AutoScrollTag(
+                              key: const ValueKey('pensando'),
+                              controller: _scroll,
+                              index: i,
+                              child: (_streamando && _streamTexto.isNotEmpty)
+                                  ? _bolhaStream(context)
+                                  : _pensando(context),
+                            );
+                          }
+                          // AutoScrollTag permite pular até a mensagem na busca.
+                          return AutoScrollTag(
+                            key: ValueKey('msg_$i'),
+                            controller: _scroll,
+                            index: i,
+                            child: _bolha(context, _conv.mensagens[i], i),
+                          );
+                        },
+                      ),
+                    ),
+                    if (_longeDoFim)
+                      Positioned(
+                        bottom: 12,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: FloatingActionButton.small(
+                            heroTag: 'rolarFim',
+                            tooltip: 'Ir para a última mensagem',
+                            onPressed: () => _rolarFim(),
+                            child: const Icon(Icons.arrow_downward),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
         ),
         _barraEntrada(context),
@@ -2229,9 +2263,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget _bolha(BuildContext context, ChatMessage m, int idx) {
     final cs = Theme.of(context).colorScheme;
     final ehEu = m.ehUsuario;
+    // Tema Dark (espelha o app do Claude): texto serifado; a SUA bolha é
+    // preenchida em cinza escuro e a resposta da Muse vai direta no fundo
+    // (sem bolha). Nos demais temas, o comportamento segue igual.
+    final ehDark =
+        Theme.of(context).extension<AppCores>() == AppCores.dark;
     final estilo = TextStyle(
-      color: ehEu ? cs.onPrimary : cs.onSurface,
+      color: ehEu
+          ? (ehDark ? const Color(0xFFF5F1EA) : cs.onPrimary)
+          : cs.onSurface,
       height: 1.3,
+      fontFamily: ehDark ? 'SourceSerif' : null,
     );
     // Texto SEM o carimbo de data/hora (some da escrita; só o servidor usa p/
     // contexto). Na busca, grifa as ocorrências; senão texto simples.
@@ -2274,15 +2316,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.9,
                 ),
-                decoration: BoxDecoration(
-                  color: ehEu ? cs.primary : cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(16),
-                    topRight: const Radius.circular(16),
-                    bottomLeft: Radius.circular(ehEu ? 16 : 4),
-                    bottomRight: Radius.circular(ehEu ? 4 : 16),
-                  ),
-                ),
+                decoration: (ehDark && !ehEu)
+                    ? null
+                    : BoxDecoration(
+                        color: ehEu
+                            ? (ehDark
+                                ? const Color(0xFF2E2D2C)
+                                : cs.primary)
+                            : cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(16),
+                          topRight: const Radius.circular(16),
+                          bottomLeft: Radius.circular(ehEu ? 16 : 4),
+                          bottomRight: Radius.circular(ehEu ? 4 : 16),
+                        ),
+                      ),
                 // Resposta da Muse: botões no canto inferior direito.
                 child: ehEu
                     ? texto
@@ -2587,6 +2635,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// com um cursorzinho piscando no fim p/ indicar que ainda está escrevendo.
   Widget _bolhaStream(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final ehDark =
+        Theme.of(context).extension<AppCores>() == AppCores.dark;
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -2595,18 +2645,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.9,
         ),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(4),
-            bottomRight: Radius.circular(16),
-          ),
-        ),
+        decoration: ehDark
+            ? null
+            : BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(4),
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
         child: Text(
           '${_semCarimbo(_streamTexto)} ▌',
-          style: TextStyle(color: cs.onSurface, height: 1.3),
+          style: TextStyle(
+            color: cs.onSurface,
+            height: 1.3,
+            fontFamily: ehDark ? 'SourceSerif' : null,
+          ),
         ),
       ),
     );
@@ -2730,6 +2786,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget _barraEntrada(BuildContext context) {
     // Botão de ENVIAR = o dot do MODO (rosto da Muse), que PULA enquanto ela
     // pensa; gravando vira vermelho + mic. (V0.1.184)
+    // Tema Dark (espelha o app do Claude): caixa com contorno visível e
+    // cantos bem redondos; nos demais temas a borda padrão segue igual.
+    final ehDark =
+        Theme.of(context).extension<AppCores>() == AppCores.dark;
+    const bordaDark = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(26)),
+      borderSide: BorderSide(color: Color(0xFF3A3836)),
+    );
+    const bordaDarkFoco = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(26)),
+      borderSide: BorderSide(color: Color(0xFFA8A29A)),
+    );
     return SafeArea(
       top: false,
       child: Padding(
@@ -2820,6 +2888,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(22),
                           ),
+                          enabledBorder: ehDark ? bordaDark : null,
+                          focusedBorder: ehDark ? bordaDarkFoco : null,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 12,

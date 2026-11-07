@@ -624,6 +624,127 @@ class AdmProjetosApp extends StatelessWidget {
     );
   }
 
+  /// Tema Dark (V0.1.199) — espelha o app do Claude em modo escuro: fundo
+  /// preto QUENTE, superfícies #262524 com borda sutil, texto branco quente,
+  /// acento terracota e títulos serifados. Plano, sem sombras.
+  ThemeData _temaDark() {
+    const bg = Color(0xFF1E1D1C);
+    const surface = Color(0xFF262524);
+    const borda = Color(0xFF3A3836);
+    const text = Color(0xFFF5F1EA);
+    const text2 = Color(0xFFA8A29A);
+    const accent = Color(0xFFD97757);
+    const onAccent = Color(0xFF1E1D1C);
+    TextStyle serif(TextStyle? s) =>
+        (s ?? const TextStyle()).copyWith(fontFamily: 'SourceSerif');
+    final t = ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: accent,
+        brightness: Brightness.dark,
+        surface: surface,
+        onSurface: text,
+      ).copyWith(primary: accent, onPrimary: onAccent),
+      scaffoldBackgroundColor: bg,
+      extensions: const [AppCores.dark],
+      appBarTheme: const AppBarTheme(
+        backgroundColor: bg,
+        foregroundColor: text,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+          color: text,
+          fontFamily: 'SourceSerif',
+        ),
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: text,
+        unselectedLabelColor: text2,
+        dividerColor: Colors.transparent,
+        indicatorColor: accent,
+        indicatorSize: TabBarIndicatorSize.tab,
+      ),
+      cardTheme: CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: borda),
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: accent,
+        foregroundColor: onAccent,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: surface,
+        hintStyle: TextStyle(color: text.withValues(alpha: 0.45)),
+        border: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+          borderSide: BorderSide(color: borda),
+        ),
+        enabledBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+          borderSide: BorderSide(color: borda),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+          borderSide: BorderSide(color: text2),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: surface,
+        selectedColor: accent.withValues(alpha: 0.25),
+        labelStyle:
+            const TextStyle(color: text, fontWeight: FontWeight.w700),
+        side: const BorderSide(color: borda),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      dialogTheme: const DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+        ),
+        backgroundColor: surface,
+        titleTextStyle: TextStyle(
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+          color: text,
+          fontFamily: 'SourceSerif',
+        ),
+      ),
+    );
+    final tx = t.textTheme;
+    return t.copyWith(
+      textTheme: tx.copyWith(
+        displayLarge: serif(tx.displayLarge),
+        displayMedium: serif(tx.displayMedium),
+        displaySmall: serif(tx.displaySmall),
+        headlineLarge: serif(tx.headlineLarge),
+        headlineMedium: serif(tx.headlineMedium),
+        headlineSmall: serif(tx.headlineSmall),
+        titleLarge: serif(tx.titleLarge),
+      ),
+    );
+  }
+
   /// Tema Ônix (estilo ChatGPT): preto liso, texto branco e um verde discreto
   /// só no accent. Home sem caixas (ver projetos_screen). Fonte sem serifa
   /// padrão do sistema (a do ChatGPT é fechada).
@@ -731,6 +852,7 @@ class AdmProjetosApp extends StatelessWidget {
           Modo.onix => _temaOnix(),
           Modo.creme => _temaCreme(),
           Modo.papel => _temaPapel(),
+          Modo.dark => _temaDark(),
         };
         return MaterialApp(
           title: 'Taskix',
