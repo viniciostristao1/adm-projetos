@@ -69,6 +69,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Botão ↓ de rolar até o fim (estilo Claude): aparece quando a lista está
   // longe do fim; some ao chegar. Estado espelha `longeDoFimLista` (puro).
   bool _longeDoFim = false;
+  // Botão ↓ TRANSITÓRIO (V0.1.201): só aparece ENQUANTO rola e some ~1,5s depois
+  // sem interação (antes ficava fixo por cima do texto, atrapalhando a leitura).
+  bool _mostrarBotaoRolar = false;
+  Timer? _timerBotaoRolar;
   List<(int, int)> _hits =
       []; // ocorrências: (índice da mensagem, posição no texto)
   int _hitAtual = -1;
@@ -199,6 +203,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final longe = longeDoFimLista(pos.pixels, pos.maxScrollExtent);
     if (longe != _longeDoFim && mounted) {
       setState(() => _longeDoFim = longe);
+    }
+    // Botão ↓ TRANSITÓRIO: surge ao rolar e some ~1,5s depois sem rolar; some já
+    // ao chegar no fim. O render usa `_mostrarBotaoRolar && _longeDoFim`.
+    if (longe) {
+      if (!_mostrarBotaoRolar && mounted) {
+        setState(() => _mostrarBotaoRolar = true);
+      }
+      _timerBotaoRolar?.cancel();
+      _timerBotaoRolar = Timer(const Duration(milliseconds: 1500), () {
+        if (mounted) setState(() => _mostrarBotaoRolar = false);
+      });
+    } else {
+      _timerBotaoRolar?.cancel();
+      if (_mostrarBotaoRolar && mounted) {
+        setState(() => _mostrarBotaoRolar = false);
+      }
     }
   }
 
@@ -790,6 +810,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     SyncService.instance.removeListener(_aoMudarAuth);
     _foco.removeListener(_aoMudarFocoCaixa);
     _tick?.cancel();
+    _timerBotaoRolar?.cancel();
     _paradaManual = true; // impede restart do ditado ao sair
     _sessaoVoz++; // invalida resultados atrasados
     _vigiaVoz?.cancel();
@@ -2111,21 +2132,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget _conversa(BuildContext context) {
     // (A pílula de status subiu para o TÍTULO da AppBar na V0.1.177 — aqui a
     // conversa começa direto, sem banner, ganhando espaço no topo.)
+    // Respostas de 1 toque (overlay): calculadas aqui p/ (a) a lista ganhar espaço
+    // embaixo — o texto rola ATRÁS dos chips em vez de ser cortado — e (b) decidir
+    // o fade do fim. (V0.1.201)
+    final ops =
+        (_enviando ||
+            _streamando ||
+            _conv.mensagens.isEmpty ||
+            _conv.mensagens.last.ehUsuario)
+        ? const <String>[]
+        : QuickReplies.extrair(_conv.mensagens.last.texto);
+    final temSug = ops.isNotEmpty;
+    // Espaço reservado no fim da lista (~50px por chip + folga): deixa a última
+    // linha da resposta subir ACIMA dos chips ao chegar no fim da conversa.
+    final padBaixoLista = temSug ? 12.0 + ops.length * 50.0 + 8.0 : 12.0;
+    final fundo = Theme.of(context).scaffoldBackgroundColor;
     return Column(
       children: [
         Expanded(
           child: _conv.vazia
               ? _vazio(context)
-              // Scrollbar CONTIDO na lista de mensagens (antes a rolagem "vazava"
-              // pra viewport). Mesmo controller da lista. O botão ↓ flutua sobre
-              // o fim da lista quando longe dele (estilo Claude).
+              // Scrollbar CONTIDO na lista de mensagens. O texto rola ATRÁS das
+              // respostas prontas (overlay translúcido) com um fade no fim, e o
+              // botão ↓ é transitório (aparece ao rolar, some sozinho).
               : Stack(
                   children: [
                     Scrollbar(
                       controller: _scroll,
                       child: ListView.builder(
                         controller: _scroll,
-                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                        padding: EdgeInsets.fromLTRB(12, 6, 12, padBaixoLista),
                         itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
                         itemBuilder: (c, i) {
                           // O "pensando" tem tag própria (índice n) p/ o _rolarFim mirar nele
@@ -2153,20 +2189,58 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         },
                       ),
                     ),
-                    if (_longeDoFim)
+                    // Fade no FIM: o texto que passa por baixo dos chips esmaece
+                    // (continuidade, não corte). Só quando há respostas prontas.
+                    if (temSug)
                       Positioned(
-                        bottom: 12,
                         left: 0,
                         right: 0,
-                        child: Center(
-                          child: FloatingActionButton.small(
-                            heroTag: 'rolarFim',
-                            tooltip: 'Ir para a última mensagem',
-                            onPressed: () => _rolarFim(),
-                            child: const Icon(Icons.arrow_downward),
+                        bottom: 0,
+                        height: padBaixoLista + 8,
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [fundo.withValues(alpha: 0), fundo],
+                                stops: const [0, 0.75],
+                              ),
+                            ),
                           ),
                         ),
                       ),
+                    // Respostas de 1 toque: overlay à ESQUERDA, no fim da lista
+                    // (texto rola atrás; chips translúcidos). (V0.1.201)
+                    if (temSug)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: _sugestoes(context),
+                      ),
+                    // Botão ↓ TRANSITÓRIO: fade suave; some sozinho ~1,5s. Fica
+                    // ACIMA dos chips quando há respostas prontas.
+                    Positioned(
+                      bottom: temSug ? padBaixoLista + 12 : 12,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: AnimatedOpacity(
+                          opacity: (_mostrarBotaoRolar && _longeDoFim) ? 1 : 0,
+                          duration: const Duration(milliseconds: 250),
+                          child: IgnorePointer(
+                            ignoring: !(_mostrarBotaoRolar && _longeDoFim),
+                            child: FloatingActionButton.small(
+                              heroTag: 'rolarFim',
+                              tooltip: 'Ir para a última mensagem',
+                              onPressed: () => _rolarFim(),
+                              child: const Icon(Icons.arrow_downward),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
         ),
@@ -2201,7 +2275,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           for (var i = 0; i < ops.length; i++) ...[
             if (i > 0) const SizedBox(height: 8),
             Material(
-              color: cs.surface,
+              // Fundo levemente TRANSLÚCIDO (V0.1.201): como os chips flutuam
+              // sobre o fim da lista, o texto esmaecido aparece de leve atrás,
+              // dando continuidade (sem o corte duro antigo).
+              color: cs.surface.withValues(alpha: 0.82),
               shape: StadiumBorder(
                 side: BorderSide(color: app.fab.withValues(alpha: 0.5)),
               ),
@@ -2320,17 +2397,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.9,
                 ),
-                decoration: (ehDark && !ehEu)
+                // Muse: SEM caixa de fundo em TODOS os temas (V0.1.201) — o texto
+                // vai direto no fundo da tela, contínuo, sem retângulo nem corte
+                // duro. Só a SUA mensagem mantém a bolha preenchida.
+                decoration: !ehEu
                     ? null
                     : BoxDecoration(
-                        color: ehEu
-                            ? (ehDark ? const Color(0xFF2E2D2C) : cs.primary)
-                            : cs.surfaceContainerHighest,
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(16),
-                          topRight: const Radius.circular(16),
-                          bottomLeft: Radius.circular(ehEu ? 16 : 4),
-                          bottomRight: Radius.circular(ehEu ? 4 : 16),
+                        color: ehDark ? const Color(0xFF2E2D2C) : cs.primary,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                          bottomLeft: Radius.circular(16),
+                          bottomRight: Radius.circular(4),
                         ),
                       ),
                 // Resposta da Muse: botões no canto inferior direito.
@@ -2646,17 +2724,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.9,
         ),
-        decoration: ehDark
-            ? null
-            : BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                  bottomLeft: Radius.circular(4),
-                  bottomRight: Radius.circular(16),
-                ),
-              ),
+        // Muse: SEM caixa de fundo em TODOS os temas (V0.1.201) — igual à bolha
+        // final; a resposta ao vivo já nasce direto no fundo.
+        decoration: null,
         child: Text(
           '${_semCarimbo(_streamTexto)} ▌',
           style: TextStyle(
@@ -2845,10 +2915,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Respostas de 1 toque: linha HORIZONTAL à ESQUERDA, no espaço
-                      // vazio acima da caixa (na altura do mic/botões). A caixa NÃO
-                      // se move (segue bottom-aligned); as sugestões só ocupam o vão.
-                      _sugestoes(context),
+                      // (V0.1.201) As respostas de 1 toque saíram do composer: agora
+                      // flutuam SOBRE o fim da lista (overlay translúcido no Stack),
+                      // p/ o texto rolar ATRÁS delas com fade. Aqui fica só a caixa.
                       TextField(
                         controller: _ctrl,
                         focusNode: _foco,
