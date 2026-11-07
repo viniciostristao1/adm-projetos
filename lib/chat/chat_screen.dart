@@ -333,6 +333,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       (m) => '${m[1]} quilo${m[1] == "1" ? "" : "s"}',
     );
     t = t.replaceAll(RegExp(r'\bkg\b'), 'quilos');
+    // "mm" (unidade) → "milímetro(s)": "5 mm"→"5 milímetros", "1 mm"→"1 milímetro".
+    t = t.replaceAllMapped(
+      RegExp(r'\b(\d+)\s*mm\b'),
+      (m) => '${m[1]} milímetro${m[1] == "1" ? "" : "s"}',
+    );
+    t = t.replaceAll(RegExp(r'\bmm\b'), 'milímetros');
     // Vocativo: tira a vírgula antes do nome ("boa noite, Vinícios" → "…Vinícios").
     t = t.replaceAllMapped(
       RegExp(r',\s*(Vin[ií]ci[ou]s)\b', caseSensitive: false),
@@ -356,6 +362,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       'hm': 'hum',
       'clean': 'clin',
       'and': 'end',
+      'layout': 'leiáut',
+      'layouts': 'leiáuts',
       'schopenhauer': 'chopenrráuer',
       'nietzsche': 'níti',
       'nietzschiano': 'nitiano',

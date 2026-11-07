@@ -96,7 +96,9 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 | bike | `báik` | soar como o inglês /baɪk/ |
 | delay | `delei` | idem |
 | halter / halteres | `altér` / `altéres` | tônica no "é", sem o "h" |
+| layout / layouts | `leiáut` / `leiáuts` | soar como o inglês |
 | rep / reps | `repetição` / `repetições` | expandir abreviação |
+| mm | `milímetros` (`1 mm` → `milímetro`) | unidade, como kg→quilos |
  | arrego / arregos | `arrêgo` / `arrêgos` | tônica na 2ª sílaba (ê fechado) |
  | schopenhauer | `chopenrráuer` | nome próprio alemão aportuguesado |
  | nietzsche | `níti` | simplificado a pedido do usuário |
