@@ -30,6 +30,11 @@ enum _Aba { projetos, muse, estudos }
 class _HomeShellState extends State<HomeShell> {
   int _i = 0;
 
+  /// true quando a aba Estudos está na RAIZ (grade). O PopScope externo só
+  /// troca de aba nesse caso — senão os DOIS PopScopes (externo + interno)
+  /// disparariam juntos e o gesto cairia em Projetos em vez da grade.
+  final ValueNotifier<bool> _estudosNaRaiz = ValueNotifier<bool>(true);
+
   List<_Aba> get _abas => [
     _Aba.projetos,
     if (ChatConfig.habilitado) _Aba.muse,
@@ -47,6 +52,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     if (abrirAbaMuse == _abrirAbaMuse) abrirAbaMuse = null;
+    _estudosNaRaiz.dispose();
     super.dispose();
   }
 
@@ -71,7 +77,10 @@ class _HomeShellState extends State<HomeShell> {
             ? const ConversasScreen()
             : const SizedBox.shrink();
       case _Aba.estudos:
-        return _EstudosTab(onVoltarNaRaiz: () => _irPara(0));
+        return _EstudosTab(
+          onVoltarNaRaiz: () => _irPara(0),
+          naRaiz: _estudosNaRaiz,
+        );
     }
   }
 
@@ -82,11 +91,15 @@ class _HomeShellState extends State<HomeShell> {
     // casa com o fade da base p/ não criar uma faixa de cor diferente).
     final fundoTela = Theme.of(context).scaffoldBackgroundColor;
     // Voltar do sistema: fora da aba Projetos, volta para ela; nela, sai do app.
-    // (Nas abas com PopScope próprio — Estudos — o voltar é tratado lá dentro.)
+    // Na aba Estudos com algo aberto (pasta), o PopScope INTERNO trata (volta
+    // à grade) e este externo fica quieto — senão os dois disparavam juntos.
     return PopScope(
       canPop: _i == 0,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && mounted) _irPara(0);
+        if (didPop || !mounted) return;
+        final naRaizEstudos =
+            _abas[_i] != _Aba.estudos || _estudosNaRaiz.value;
+        if (naRaizEstudos) _irPara(0);
       },
       child: Scaffold(
         // Conteúdo passa ATRÁS da barra flutuante (não corta seco): o corpo vai até
@@ -279,8 +292,9 @@ class _ItemBarra extends StatelessWidget {
 /// Aba "Estudos": o projeto reservado "Estudos" embutido (modo pastas). Cria-o
 /// na 1ª vez. É onde o usuário cola resumos/mensagens da Muse.
 class _EstudosTab extends StatefulWidget {
-  const _EstudosTab({required this.onVoltarNaRaiz});
+  const _EstudosTab({required this.onVoltarNaRaiz, required this.naRaiz});
   final VoidCallback onVoltarNaRaiz;
+  final ValueNotifier<bool> naRaiz;
 
   @override
   State<_EstudosTab> createState() => _EstudosTabState();
@@ -330,6 +344,7 @@ class _EstudosTabState extends State<_EstudosTab> {
       modoPastasInicial: true,
       embutido: true,
       onVoltarNaRaiz: widget.onVoltarNaRaiz,
+      onNaGradeMudou: (v) => widget.naRaiz.value = v,
     );
   }
 }

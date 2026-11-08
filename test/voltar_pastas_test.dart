@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:adm_projetos/models.dart';
+import 'package:adm_projetos/home_shell.dart';
 import 'package:adm_projetos/projeto_screen.dart';
 import 'package:adm_projetos/storage.dart';
 import 'package:flutter/material.dart';
@@ -86,5 +87,59 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('ABRIR'), findsOneWidget);
+  });
+
+  /// Nível do shell (o bug real): o PopScope externo NÃO pode roubar o voltar
+  /// quando a aba Estudos tem volta interna (pasta → grade). 1º gesto volta à
+  /// grade (fica em Estudos); só na grade o gesto troca p/ Projetos. O botão
+  /// voltar da AppBar segue a mesma regra.
+  testWidgets('shell: voltar em Estudos volta à grade antes de trocar de aba',
+      (tester) async {
+    await Storage.instance.carregar();
+    await Storage.instance.substituir([
+      Projeto(id: 'p1', nome: 'Estudos', tarefas: [Nota(id: 'n1', texto: 'a')])
+    ]);
+    await tester.pumpWidget(const MaterialApp(home: HomeShell()));
+    await tester.pumpAndSettle();
+
+    // Aba Estudos (ícone de livro na barra inferior).
+    await tester.tap(find.byIcon(Icons.menu_book_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(GridView), findsOneWidget);
+
+    // Entra na pasta (vira abas).
+    await tester.tap(find.text('Tarefas'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TabBarView), findsOneWidget);
+
+    // 1º gesto: volta À GRADE e continua em Estudos (não cai em Projetos).
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(GridView), findsOneWidget);
+    expect(find.byType(TabBarView), findsNothing);
+    expect(find.byTooltip('Nova pasta'), findsOneWidget);
+    expect(find.byTooltip('Novo projeto'), findsNothing);
+
+    // Botão voltar da AppBar dentro da pasta: também volta à grade.
+    await tester.tap(find.text('Tarefas'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TabBarView), findsOneWidget);
+    await tester.tap(find.byTooltip('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GridView), findsOneWidget);
+    expect(find.byTooltip('Nova pasta'), findsOneWidget);
+
+    // Botão voltar NA GRADE: troca para a aba Projetos.
+    await tester.tap(find.byTooltip('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Novo projeto'), findsOneWidget);
+
+    // Gesto na grade de Estudos: também troca para Projetos (2º gesto).
+    await tester.tap(find.byIcon(Icons.menu_book_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(GridView), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Novo projeto'), findsOneWidget);
   });
 }

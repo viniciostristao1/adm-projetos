@@ -30,6 +30,7 @@ class ProjetoScreen extends StatefulWidget {
     this.modoPastasInicial = false,
     this.embutido = false,
     this.onVoltarNaRaiz,
+    this.onNaGradeMudou,
   });
 
   /// Abre já no modo PASTAS (ex.: projeto "Estudos").
@@ -45,6 +46,11 @@ class ProjetoScreen extends StatefulWidget {
   /// Chamado quando o voltar do sistema é acionado já na raiz (grade) de uma
   /// tela embutida — o shell usa para trocar de aba em vez de sair do app.
   final VoidCallback? onVoltarNaRaiz;
+
+  /// Avisado com `true` sempre que a tela volta À GRADE (raiz) e com `false`
+  /// ao entrar numa pasta — o shell usa para saber se o voltar do sistema
+  /// deve trocar de aba (só na raiz) ou deixar a tela tratar dentro.
+  final ValueChanged<bool>? onNaGradeMudou;
 
   final Projeto projeto;
 
@@ -236,6 +242,29 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _adicionar(0); // nova caixinha em Tarefas, já focada
       });
+    }
+    // Avisa o estado inicial da hierarquia (grade = raiz) p/ o shell decidir
+    // o voltar do sistema (troca de aba só na raiz).
+    widget.onNaGradeMudou?.call(_modoPastas);
+  }
+
+  /// Troca grade ↔ pasta avisando o shell (ver [ProjetoScreen.onNaGradeMudou]).
+  /// Centraliza as 3 transições (abrir pasta, voltar, alternar) p/ nenhuma
+  /// esquecer o aviso.
+  void _definirModoPastas(bool v) {
+    if (_modoPastas == v) return;
+    setState(() => _modoPastas = v);
+    widget.onNaGradeMudou?.call(v);
+  }
+
+  /// Voltar da tela EMBUTIDA (botão da AppBar ou sistema já tratado pelo shell):
+  /// dentro de pasta volta à grade; na grade, pede a troca de aba.
+  void _voltarEmbutido() {
+    if (!mounted) return;
+    if (_modoPastas) {
+      widget.onVoltarNaRaiz?.call();
+    } else {
+      _definirModoPastas(true);
     }
   }
 
@@ -664,10 +693,10 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(app.neumorfico ? 18 : 14),
-            onTap: () => setState(() {
-              _modoPastas = false;
+            onTap: () {
+              _definirModoPastas(false);
               _tabCtrl.animateTo(i);
-            }),
+            },
             onLongPress: () => _renomearAba(i),
             child: Padding(
               padding: EdgeInsets.fromLTRB(14, 14, 14, 12),
@@ -747,7 +776,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           if (widget.embutido && _modoPastas) {
             widget.onVoltarNaRaiz?.call();
           } else {
-            setState(() => _modoPastas = true);
+            _definirModoPastas(true);
           }
         },
         child: Scaffold(
@@ -755,6 +784,16 @@ class _ProjetoScreenState extends State<ProjetoScreen>
         titleSpacing: 8,
         title: Row(
           children: [
+            // Embutido (aba Estudos): seta VOLTAR à esquerda do título, no
+            // padrão ghost dos demais botões. Dentro de pasta volta à grade;
+            // na grade, volta para a aba Projetos (igual ao gesto do sistema).
+            if (widget.embutido)
+              _BotaoTopo(
+                glifo: _GlifoTopo.voltar,
+                cor: app.textoUI,
+                tooltip: 'Voltar',
+                onPressed: _voltarEmbutido,
+              ),
             Expanded(
               child: Text(
                 widget.projeto.nome,
@@ -791,7 +830,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               glifo: _GlifoTopo.pastas,
               cor: app.textoUI,
               tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',
-              onPressed: () => setState(() => _modoPastas = !_modoPastas),
+              onPressed: () => _definirModoPastas(!_modoPastas),
             ),
             _BotaoTopo(
               glifo: _GlifoTopo.pdf,
@@ -2376,7 +2415,7 @@ Widget _menuSelecao(
 }
 
 /// Qual desenho vai na plaquinha do topo do projeto (ideia 04 da galeria).
-enum _GlifoTopo { muse, pastas, pdf, copiar, excluir }
+enum _GlifoTopo { muse, pastas, pdf, copiar, excluir, voltar }
 
 /// Botão GHOST do topo do projeto: só o desenho, sem caixa — usado em
 /// Pastas/PDF/Copiar/Excluir com `cor` = texto da UI.
@@ -2577,6 +2616,18 @@ class _TopoPainter extends CustomPainter {
             ..moveTo(r(51), r(38))
             ..lineTo(r(51), r(60)),
           fino,
+        );
+
+      case _GlifoTopo.voltar:
+        // Seta para a esquerda (mesmo traço dos demais glifos).
+        canvas.drawPath(
+          Path()
+            ..moveTo(r(68), r(48))
+            ..lineTo(r(30), r(48))
+            ..moveTo(r(47), r(31))
+            ..lineTo(r(29), r(48))
+            ..lineTo(r(47), r(65)),
+          traco,
         );
     }
   }
