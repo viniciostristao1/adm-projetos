@@ -1340,12 +1340,16 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Text(
+              Text(
                 'Taskix',
+                // Cor CLARA explícita (V0.1.203): o `titleTextStyle` do tema Creme/
+                // Papel é escuro e vencia o `foregroundColor` da AppBar — o título
+                // ficava escuro sobre a barra escura. Força o tom claro, como os ícones.
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
+                  color: appBarTexto,
                 ),
               ),
               // (Versão removida daqui na V0.1.176: já aparece em Configurações.)
