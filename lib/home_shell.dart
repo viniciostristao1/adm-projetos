@@ -197,8 +197,9 @@ class _BarraFlutuante extends StatelessWidget {
     );
   }
 
-  /// Conteúdo da barra: com a aba Muse, ela vira botão CENTRAL ELEVADO (proposta
-  /// 03); sem Muse (build sem CHAT), fileira simples com as abas que houver.
+  /// Conteúdo da barra: com a aba Muse, o avatar vai NO MEIO da fileira,
+  /// centralizado verticalmente com os ícones (sem elevar nem sobressair).
+  /// Sem Muse (build sem CHAT), fileira simples com as abas que houver.
   Widget _conteudoBarra(
       BuildContext context, AppCores app, ColorScheme cs) {
     final iMuse = abas.indexOf(_Aba.muse);
@@ -227,34 +228,30 @@ class _BarraFlutuante extends StatelessWidget {
             onTap: () => onSelecionar(i),
           ),
         );
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(30),
-          child: Row(
-            children: [
-              for (var i = 0; i < abas.length; i++)
-                if (i != iMuse) lado(i) else const Spacer(),
-            ],
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: -20,
-          child: Center(
-            child: Tooltip(
-              message: 'Muse Spark (assistente)',
-              // Sem círculo extra: o PNG já traz o próprio anel — três anéis
-              // empilhados encolhiam o rosto. Rosto grande, um anel só.
-              child: GestureDetector(
-                onTap: () => onSelecionar(iMuse),
-                child: MuseBlob(size: 56),
+    // Rosto recortado do PNG (corta o anel laranja da borda): ocupa quase
+    // todo o círculo de 56px, sem anéis empilhados, em todos os temas.
+    Widget muse() => Tooltip(
+          message: 'Muse Spark (assistente)',
+          child: GestureDetector(
+            onTap: () => onSelecionar(iMuse),
+            child: SizedBox(
+              width: 56,
+              height: 56,
+              child: ClipOval(
+                child: OverflowBox(
+                  maxWidth: 72,
+                  maxHeight: 72,
+                  child: MuseBlob(size: 72),
+                ),
               ),
             ),
           ),
-        ),
+        );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (var i = 0; i < abas.length; i++)
+          if (i != iMuse) lado(i) else muse(),
       ],
     );
   }

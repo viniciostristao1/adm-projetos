@@ -1634,10 +1634,16 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                             final txtCor = app.projetoTxt;
                             final bolaCor = app.notaFim;
                             final iconeCor = app.projetoTxt;
-                            final corBolaAndamento = bolaCor;
-                            final corCheckAndamento = ehOnix
-                                ? app.fab
-                                : const Color(0xFF4ADE80);
+                            // Creme: bolinha PRETA com "v" branco (nos demais,
+                            // bola clara com "v" verde).
+                            final ehCreme = app == AppCores.creme;
+                            final corBolaAndamento =
+                                ehCreme ? AppCores.kPretoCremePapel : bolaCor;
+                            final corCheckAndamento = ehCreme
+                                ? Colors.white
+                                : (ehOnix
+                                    ? app.fab
+                                    : const Color(0xFF4ADE80));
 
                             // V0.1.202: o fundo do card FUNDE com o fundo da tela (sem o
                             // retângulo mais claro). A separação fica só na BARRINHA colorida
