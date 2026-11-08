@@ -846,8 +846,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // Rola o INTERIOR da caixa de mensagem até o fim (última linha visível).
-  // O TextField com maxLines:10 cria um scroll interno quando o texto passa de
-  // 10 linhas; a atualização programática (_ctrl.text = ...) NÃO acompanha o
+  // O TextField com maxLines:4 cria um scroll interno quando o texto passa de
+  // 4 linhas; a atualização programática (_ctrl.text = ...) NÃO acompanha o
   // cursor sozinha — sem isto o texto novo desce para baixo da caixa e o usuário
   // não vê o que foi capturado. ⚠️ Chamar SÓ quando o cursor está no fim
   // (ditado e digitação no fim): chamar no onTap ou em digitação no MEIO do
@@ -2901,178 +2901,191 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            // A CAIXA: borda arredondada; o campo em cima e a linha de controles
-            // embaixo. A borda vive no Container (o TextField fica sem borda).
+            // A CAIXA: borda arredondada com TUDO na mesma linha (estilo Claude) —
+            // "+" à esquerda, campo flexível no meio, mic + blob à direita.
+            // A borda vive no Container (o TextField fica sem borda).
             Container(
               decoration: BoxDecoration(
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(26),
                 border: Border.all(color: corBorda),
               ),
-              padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  TextField(
-                    controller: _ctrl,
-                    focusNode: _foco,
-                    scrollController: _caixaScroll,
-                    // Mesmo comportamento de antes: 3 linhas iniciais, cresce até 10.
-                    minLines: 3,
-                    maxLines: 10,
-                    textCapitalization: TextCapitalization.sentences,
-                    textInputAction: TextInputAction.newline,
-                    onTap: () {
-                      // Gravando: tocar na caixa PARA a gravação mantendo o texto.
-                      if (_gravando && !_enviando) _micCancel();
-                      _rolarFim();
-                    },
-                    onChanged: (_) {
-                      _rolarFim(instantaneo: true);
-                      if (_ctrl.selection.extentOffset >= _ctrl.text.length) {
-                        _rolarCaixaFim();
-                      }
-                    },
-                    decoration: InputDecoration(
-                      hintText: _gravando
-                          ? 'Ouvindo… toque aqui p/ parar ou no enviar p/ concluir'
-                          : 'Escreva sua mensagem…',
-                      isDense: true,
-                      // Sem fill no campo: o FUNDO é o do Container (cor única).
-                      // Sem isto, o `filled` do tema pintava um segundo bloco
-                      // (mais escuro) dentro da caixa, em todos os temas.
-                      filled: false,
-                      // Sem borda no campo: a BORDA agora é a da caixa (Container).
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
+                  // "+" circular (anexar) — mesma linha do texto.
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Material(
+                      color: Colors.transparent,
+                      shape: CircleBorder(side: BorderSide(color: corBorda)),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: podeMexer ? () => _anexar() : null,
+                        child: Padding(
+                          padding: const EdgeInsets.all(7),
+                          child: Icon(
+                            Icons.add,
+                            size: 20,
+                            color: temAnexo
+                                ? cs.primary
+                                : cs.onSurfaceVariant,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                  // Linha de controles DENTRO da caixa.
-                  Row(
-                    children: [
-                      // "+" circular (anexar) — inferior ESQUERDO (substitui o clipe).
-                      Material(
-                        color: Colors.transparent,
-                        shape: CircleBorder(side: BorderSide(color: corBorda)),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: podeMexer ? () => _anexar() : null,
-                          child: Padding(
-                            padding: const EdgeInsets.all(7),
-                            child: Icon(
-                              Icons.add,
-                              size: 20,
-                              color: temAnexo
-                                  ? cs.primary
-                                  : cs.onSurfaceVariant,
-                            ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: TextField(
+                      controller: _ctrl,
+                      focusNode: _foco,
+                      scrollController: _caixaScroll,
+                      // Estilo Claude: 1 linha inicial, cresce até 4 e dali em
+                      // diante rola por dentro (sempre as últimas 4 visíveis).
+                      // Apagar/enviar volta sozinho p/ 1 linha.
+                      minLines: 1,
+                      maxLines: 4,
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.newline,
+                      onTap: () {
+                        // Gravando: tocar na caixa PARA a gravação mantendo o texto.
+                        if (_gravando && !_enviando) _micCancel();
+                        _rolarFim();
+                      },
+                      onChanged: (_) {
+                        _rolarFim(instantaneo: true);
+                        if (_ctrl.selection.extentOffset >= _ctrl.text.length) {
+                          _rolarCaixaFim();
+                        }
+                      },
+                      decoration: InputDecoration(
+                        hintText: _gravando
+                            ? 'Ouvindo… toque aqui p/ parar ou no enviar p/ concluir'
+                            : 'Escreva sua mensagem…',
+                        isDense: true,
+                        // Sem fill no campo: o FUNDO é o do Container (cor única).
+                        // Sem isto, o `filled` do tema pintava um segundo bloco
+                        // (mais escuro) dentro da caixa, em todos os temas.
+                        filled: false,
+                        // Sem borda no campo: a BORDA agora é a da caixa (Container).
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Linha de controles na MESMA linha do texto (era embaixo).
+                  // Limpar (X) — só quando há texto/anexo.
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _ctrl,
+                    builder: (context, v, child) {
+                      final temAlgo = v.text.isNotEmpty || temAnexo;
+                      if (!temAlgo) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 1),
+                        child: IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          tooltip: 'Limpar',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
                           ),
+                          onPressed: _enviando ? null : _limparCaixa,
                         ),
+                      );
+                    },
+                  ),
+                  // Microfone AZUL: dita pelo Gboard e a Muse RESPONDE POR VOZ.
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 1),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.mic,
+                        size: 22,
+                        color: Color(0xFF3B82F6),
                       ),
-                      const Spacer(),
-                      // Limpar (X) — só quando há texto/anexo (era o suffix do campo).
-                      ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _ctrl,
-                        builder: (context, v, child) {
-                          final temAlgo = v.text.isNotEmpty || temAnexo;
-                          if (!temAlgo) return const SizedBox.shrink();
-                          return IconButton(
-                            icon: const Icon(Icons.close, size: 20),
-                            tooltip: 'Limpar',
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 36,
-                              minHeight: 36,
-                            ),
-                            onPressed: _enviando ? null : _limparCaixa,
-                          );
-                        },
+                      tooltip: 'Enviar e responder por voz',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 38,
+                        minHeight: 38,
                       ),
-                      // Microfone AZUL: dita pelo Gboard e a Muse RESPONDE POR VOZ.
-                      IconButton(
-                        icon: const Icon(
-                          Icons.mic,
-                          size: 22,
-                          color: Color(0xFF3B82F6),
-                        ),
-                        tooltip: 'Enviar e responder por voz',
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 38,
-                          minHeight: 38,
-                        ),
-                        onPressed: podeMexer
-                            ? () {
-                                _modoAudio = true; // resposta FALADA
-                                _enviar();
-                              }
-                            : null,
-                      ),
-                      const SizedBox(width: 2),
-                      // Blob/avatar da Muse = ENVIAR (toque) + GRAVAR (segurar). PULA
-                      // enquanto pensa; gravando vira mic vermelho. SEM tooltip (o
-                      // Tooltip comeria o long-press — bug da V0.1.137).
-                      GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onLongPressStart: (_) => _micStart(),
-                        onLongPressEnd: (_) {},
-                        onLongPressCancel: () {},
-                        child: Material(
-                          color: Colors.transparent,
-                          shape: const CircleBorder(),
-                          // Clip.none p/ o PULO da Muse não ser cortado.
-                          clipBehavior: Clip.none,
-                          elevation: 2,
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _gravando ? Colors.red : null,
-                            ),
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: _enviando
-                                  ? null
-                                  : () {
-                                      if (_gravando) {
-                                        _micStop();
-                                      } else {
-                                        _modoAudio = false;
-                                        _enviar();
-                                      }
-                                    },
-                              child: _gravando
-                                  ? const SizedBox(
+                      onPressed: podeMexer
+                          ? () {
+                              _modoAudio = true; // resposta FALADA
+                              _enviar();
+                            }
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  // Blob/avatar da Muse = ENVIAR (toque) + GRAVAR (segurar). PULA
+                  // enquanto pensa; gravando vira mic vermelho. SEM tooltip (o
+                  // Tooltip comeria o long-press — bug da V0.1.137).
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 1),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onLongPressStart: (_) => _micStart(),
+                      onLongPressEnd: (_) {},
+                      onLongPressCancel: () {},
+                      child: Material(
+                        color: Colors.transparent,
+                        shape: const CircleBorder(),
+                        // Clip.none p/ o PULO da Muse não ser cortado.
+                        clipBehavior: Clip.none,
+                        elevation: 2,
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _gravando ? Colors.red : null,
+                          ),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _enviando
+                                ? null
+                                : () {
+                                    if (_gravando) {
+                                      _micStop();
+                                    } else {
+                                      _modoAudio = false;
+                                      _enviar();
+                                    }
+                                  },
+                            child: _gravando
+                                ? const SizedBox(
+                                    width: 40,
+                                    height: 40,
+                                    child: Icon(
+                                      Icons.mic,
+                                      size: 22,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : MusePula(
+                                    ativo: _enviando,
+                                    size: 40,
+                                    child: Image.asset(
+                                      'assets/muse/modo_${_modoAsset(_conv.preset)}.png',
                                       width: 40,
                                       height: 40,
-                                      child: Icon(
-                                        Icons.mic,
-                                        size: 22,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : MusePula(
-                                      ativo: _enviando,
-                                      size: 40,
-                                      child: Image.asset(
-                                        'assets/muse/modo_${_modoAsset(_conv.preset)}.png',
-                                        width: 40,
-                                        height: 40,
-                                        filterQuality: FilterQuality.high,
-                                      ),
+                                      filterQuality: FilterQuality.high,
                                     ),
-                            ),
+                                  ),
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
