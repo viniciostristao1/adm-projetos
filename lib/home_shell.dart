@@ -246,29 +246,11 @@ class _BarraFlutuante extends StatelessWidget {
           child: Center(
             child: Tooltip(
               message: 'Muse Spark (assistente)',
+              // Sem círculo extra: o PNG já traz o próprio anel — três anéis
+              // empilhados encolhiam o rosto. Rosto grande, um anel só.
               child: GestureDetector(
                 onTap: () => onSelecionar(iMuse),
-                child: Container(
-                  width: 62,
-                  height: 62,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: app.fab,
-                    border: Border.all(
-                      color:
-                          Theme.of(context).scaffoldBackgroundColor,
-                      width: 3,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Center(child: MuseBlob(size: 44)),
-                ),
+                child: MuseBlob(size: 56),
               ),
             ),
           ),

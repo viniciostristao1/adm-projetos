@@ -1839,6 +1839,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final logado = SyncService.instance.conectado;
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final cs = Theme.of(context).colorScheme;
+    // Creme: topo SEM laranja — chip com fundo preto/texto branco e botões
+    // ghost (voltar, menu, letra do modo) em preto sólido; o laranja fica só
+    // como destaque do item ativo na barra inferior.
+    final ehCreme = app == AppCores.creme;
+    final corTopo = ehCreme ? AppCores.kPretoCremePapel : app.fab;
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 8,
@@ -1850,6 +1855,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? _fecharBusca
               : () => Navigator.of(context).maybePop(),
           filho: const Icon(Icons.arrow_back, size: 24),
+          cor: corTopo,
         ),
         // No topo (lugar do antigo nome da conversa): STATUS da Muse —
         // rosto + "Modo • Tamanho • Modelo". O NOME da conversa foi para o
@@ -1876,7 +1882,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: app.fab, width: 1.5),
+                    color: ehCreme ? AppCores.kPretoCremePapel : null,
+                    border: ehCreme
+                        ? null
+                        : Border.all(color: app.fab, width: 1.5),
                   ),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
@@ -1889,14 +1898,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: cs.onSurface,
+                            color: ehCreme ? Colors.white : cs.onSurface,
                           ),
                         ),
                         // "Fala devagar" vira só o ícone de velocidade (sem a
                         // palavra "Devagar" na barra). (V0.1.181)
                         if (_conv.falaDevagar) ...[
                           const SizedBox(width: 6),
-                          Icon(Icons.speed, size: 16, color: cs.onSurface),
+                          Icon(Icons.speed,
+                              size: 16,
+                              color:
+                                  ehCreme ? Colors.white : cs.onSurface),
                         ],
                       ],
                     ),
@@ -1911,6 +1923,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 // fica no botão M, à direita.)
                 _placaTopoMenu<String>(
                   tooltip: 'Menu',
+                  cor: corTopo,
                   onSelected: _acaoMenu,
                   itemBuilder: (_) => [
                     // Nome da conversa como CABEÇALHO do menu (V0.1.177).
@@ -1980,6 +1993,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 // no canto superior direito.)
                 _placaTopoMenu<ChatPreset>(
                   tooltip: 'Modo (${_conv.preset.rotulo})',
+                  cor: corTopo,
                   initialValue: _conv.preset,
                   onSelected: (p) async {
                     setState(() => _conv.preset = p);
@@ -2013,10 +2027,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       height: 1.0,
-                      color:
-                          (Theme.of(context).extension<AppCores>() ??
-                                  AppCores.azul)
-                              .fab,
+                      color: corTopo,
                     ),
                   ),
                 ),
@@ -2031,21 +2042,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Botão GHOST do topo do chat (sem caixa): só o desenho, na cor de ACENTO do
-  /// tema — diferente do home/projeto, que usam branco.
+  /// tema — diferente do home/projeto, que usam branco. No Creme vai preto
+  /// sólido (via [cor], sem laranja no topo).
   /// `filho` usa a cor do `IconTheme` (não fixe cor nos Icons).
   Widget _placaTopo({
     required String tooltip,
     required VoidCallback? onTap,
     required Widget filho,
     double largura = 40,
+    Color? cor,
   }) {
-    final cor = (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
+    final corBotao = cor ??
+        (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
     final tile = Container(
       width: largura,
       height: 40,
       alignment: Alignment.center,
       child: IconTheme(
-        data: const IconThemeData(size: 24).copyWith(color: cor),
+        data: const IconThemeData(size: 24).copyWith(color: corBotao),
         child: filho,
       ),
     );
@@ -2079,12 +2093,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     required Widget filho,
     T? initialValue,
     double largura = 48,
+    Color? cor,
   }) {
-    final cor = (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
+    final corBotao = cor ??
+        (Theme.of(context).extension<AppCores>() ?? AppCores.azul).fab;
     return Tooltip(
       message: tooltip,
       child: IconTheme(
-        data: const IconThemeData(size: 24).copyWith(color: cor),
+        data: const IconThemeData(size: 24).copyWith(color: corBotao),
         child: PopupMenuButton<T>(
           tooltip: tooltip,
           padding: EdgeInsets.zero,
