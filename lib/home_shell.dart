@@ -161,6 +161,9 @@ class _BarraFlutuante extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
         child: Container(
           height: 64,
+          // Clip nos cantos arredondados: nada do conteúdo (tinta, respingos)
+          // pinta fora da forma da barra.
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: fundoBarra,
             borderRadius: BorderRadius.circular(30),

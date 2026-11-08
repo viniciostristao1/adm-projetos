@@ -1381,11 +1381,17 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         ),
         // O chat da Muse agora é aberto pela caixinha "ASSISTENTE" nos acessos
         // rápidos da home (módulo `lib/chat/`, separável pela flag CHAT).
-        floatingActionButton: FloatingActionButton(
-          heroTag: 'fab_novo',
-          onPressed: _criarProjeto,
-          tooltip: 'Novo projeto',
-          child: const Icon(Icons.add),
+        // Padding p/ o FAB não ficar ATRÁS da barra flutuante externa: com o
+        // `extendBody` do shell, o Scaffold interno é full-height (antes o corpo
+        // terminava acima da barra). 78 = 64 da barra + 4 + 10 dos respiros.
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 78),
+          child: FloatingActionButton(
+            heroTag: 'fab_novo',
+            onPressed: _criarProjeto,
+            tooltip: 'Novo projeto',
+            child: const Icon(Icons.add),
+          ),
         ),
         body: _museAberto
             // Atalho "Muse Spark" (segurar o ícone): esconde a lista enquanto o

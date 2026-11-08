@@ -701,6 +701,34 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   }
 
   @override
+
+  /// FAB da tela (pasta nova / caixa nova). Na aba Estudos (embutida no shell),
+  /// sobe 78px p/ não ficar atrás da barra flutuante externa; em rota cheia
+  /// (projeto aberto) segue no lugar padrão.
+  Widget _botaoFlutuante() {
+    final Widget fab = _modoPastas
+        ? FloatingActionButton(
+            heroTag: null,
+            onPressed: _criarNovaAba,
+            tooltip: 'Nova pasta',
+            child: const Icon(Icons.create_new_folder_outlined),
+          )
+        : GestureDetector(
+            onLongPress: _adicionarDeImagem,
+            child: FloatingActionButton(
+              heroTag: null,
+              onPressed: () => _adicionar(_tabCtrl.index),
+              tooltip: 'Nova caixa de texto',
+              child: const Icon(Icons.add),
+            ),
+          );
+    if (!widget.embutido) return fab;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 78),
+      child: fab,
+    );
+  }
+
   Widget build(BuildContext context) {
     // Cor do desenho = acento do tema ativo (cada tema pinta com a sua cor).
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
@@ -825,22 +853,9 @@ class _ProjetoScreenState extends State<ProjetoScreen>
       // Estudos) ao mesmo tempo que um outro ProjetoScreen é empilhado; dois FABs
       // com a tag padrão colidiriam/animariam entre rotas. O FAB não precisa de
       // voo de Hero aqui.
-      floatingActionButton: _modoPastas
-          ? FloatingActionButton(
-              heroTag: null,
-              onPressed: _criarNovaAba,
-              tooltip: 'Nova pasta',
-              child: const Icon(Icons.create_new_folder_outlined),
-            )
-          : GestureDetector(
-              onLongPress: _adicionarDeImagem,
-              child: FloatingActionButton(
-                heroTag: null,
-                onPressed: () => _adicionar(_tabCtrl.index),
-                tooltip: 'Nova caixa de texto',
-                child: const Icon(Icons.add),
-              ),
-            ),
+      // Embutido: sobe o FAB p/ não ficar ATRÁS da barra flutuante externa
+      // (78 = 64 da barra + 4 + 10 dos respiros); em rota cheia, sem padding.
+      floatingActionButton: _botaoFlutuante(),
       body: _modoPastas
           ? _gradePastas()
           : TabBarView(

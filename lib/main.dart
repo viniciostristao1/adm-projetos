@@ -361,7 +361,11 @@ class AdmProjetosApp extends StatelessWidget {
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: preto,
         foregroundColor: onPreto,
-        elevation: 2,
+        // Sem sombra: o FAB preto flutua sobre a ponta direita da barra
+        // (região do Estudos, com extendBody) e a sombra caía ali como um
+        // borrão escuro no fundo claro. Botão chapado combina com o plano.
+        elevation: 0,
+        highlightElevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
