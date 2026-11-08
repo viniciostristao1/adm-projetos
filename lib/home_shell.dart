@@ -173,9 +173,8 @@ class _BarraFlutuante extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
         child: Container(
           height: 64,
-          // Clip nos cantos arredondados: nada do conteúdo (tinta, respingos)
-          // pinta fora da forma da barra.
-          clipBehavior: Clip.antiAlias,
+          // SEM clip aqui: o botão central elevado ultrapassa o topo (o clip
+          // vive no ClipRRect interno da fileira, que contém os respingos).
           decoration: BoxDecoration(
             color: fundoBarra,
             borderRadius: BorderRadius.circular(30),
@@ -192,22 +191,89 @@ class _BarraFlutuante extends StatelessWidget {
                     ),
                   ],
           ),
+          child: _conteudoBarra(context, app, cs),
+        ),
+      ),
+    );
+  }
+
+  /// Conteúdo da barra: com a aba Muse, ela vira botão CENTRAL ELEVADO (proposta
+  /// 03); sem Muse (build sem CHAT), fileira simples com as abas que houver.
+  Widget _conteudoBarra(
+      BuildContext context, AppCores app, ColorScheme cs) {
+    final iMuse = abas.indexOf(_Aba.muse);
+    if (iMuse < 0) {
+      return Row(
+        children: [
+          for (var i = 0; i < abas.length; i++)
+            Expanded(
+              child: _ItemBarra(
+                aba: abas[i],
+                selecionado: i == indice,
+                acento: app.fab,
+                inativo: cs.onSurfaceVariant,
+                onTap: () => onSelecionar(i),
+              ),
+            ),
+        ],
+      );
+    }
+    Widget lado(int i) => Expanded(
+          child: _ItemBarra(
+            aba: abas[i],
+            selecionado: i == indice,
+            acento: app.fab,
+            inativo: cs.onSurfaceVariant,
+            onTap: () => onSelecionar(i),
+          ),
+        );
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(30),
           child: Row(
             children: [
               for (var i = 0; i < abas.length; i++)
-                Expanded(
-                  child: _ItemBarra(
-                    aba: abas[i],
-                    selecionado: i == indice,
-                    acento: app.fab,
-                    inativo: cs.onSurfaceVariant,
-                    onTap: () => onSelecionar(i),
-                  ),
-                ),
+                if (i != iMuse) lado(i) else const Spacer(),
             ],
           ),
         ),
-      ),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: -20,
+          child: Center(
+            child: Tooltip(
+              message: 'Muse Spark (assistente)',
+              child: GestureDetector(
+                onTap: () => onSelecionar(iMuse),
+                child: Container(
+                  width: 62,
+                  height: 62,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: app.fab,
+                    border: Border.all(
+                      color:
+                          Theme.of(context).scaffoldBackgroundColor,
+                      width: 3,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(child: MuseBlob(size: 44)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -246,7 +312,7 @@ class _ItemBarra extends StatelessWidget {
       );
     } else {
       icone = Icon(
-        aba == _Aba.projetos ? Icons.folder_rounded : Icons.menu_book_rounded,
+        aba == _Aba.projetos ? Icons.folder_outlined : Icons.menu_book_outlined,
         size: 24,
         color: cor,
       );

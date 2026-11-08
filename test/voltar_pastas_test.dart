@@ -103,7 +103,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Aba Estudos (ícone de livro na barra inferior).
-    await tester.tap(find.byIcon(Icons.menu_book_rounded));
+    await tester.tap(find.byIcon(Icons.menu_book_outlined));
     await tester.pumpAndSettle();
     expect(find.byType(GridView), findsOneWidget);
 
@@ -135,7 +135,7 @@ void main() {
     expect(find.byTooltip('Novo projeto'), findsOneWidget);
 
     // Gesto na grade de Estudos: também troca para Projetos (2º gesto).
-    await tester.tap(find.byIcon(Icons.menu_book_rounded));
+    await tester.tap(find.byIcon(Icons.menu_book_outlined));
     await tester.pumpAndSettle();
     expect(find.byType(GridView), findsOneWidget);
     await tester.binding.handlePopRoute();

@@ -27,7 +27,8 @@ Arquivos do app em `lib/chat/`:
 
 > **UI V0.1.173 (fora de `lib/chat/`):** o app abre no `HomeShell`
 > (`lib/home_shell.dart`) com barra inferior flutuante **Projetos · Muse ·
-> Estudos**; a aba Muse abre a LISTA (`ConversasScreen`) e o chat tem **voltar ←
+> Estudos** (Muse em botão central elevado; Projetos/Estudos com ícones
+> outline); a aba Muse abre a LISTA (`ConversasScreen`) e o chat tem **voltar ←
 > → lista**. Topo do chat: **←**, **☰** (buscar/nova/resumo/renomear/modelo/
 > tamanho/fala) e **M** (modo). O rosto da Muse é o `MuseBlob`
 > (`lib/muse_blob.dart`, tingido no acento do tema). **Respostas de 1 toque:** o
