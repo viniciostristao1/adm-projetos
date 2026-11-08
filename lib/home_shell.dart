@@ -146,7 +146,12 @@ class _BarraFlutuante extends StatelessWidget {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     final cs = Theme.of(context).colorScheme;
     // Temas "planos" (Terracota/Ônix) usam borda de 1px em vez de sombra forte.
-    final plano = app == AppCores.claude || app == AppCores.onix;
+    // Os claros com cartões brancos (Creme/Papel) também: sombra preta sobre
+    // fundo claro vaza para fora da barra e parece defeito.
+    final plano = app == AppCores.claude ||
+        app == AppCores.onix ||
+        app == AppCores.creme ||
+        app == AppCores.papel;
     final fundoBarra = plano
         ? app.barraFerramentas
         : Color.alphaBlend(cs.onSurface.withValues(alpha: 0.04), cs.surface);

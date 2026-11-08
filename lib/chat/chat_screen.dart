@@ -2939,6 +2939,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           ? 'Ouvindo… toque aqui p/ parar ou no enviar p/ concluir'
                           : 'Escreva sua mensagem…',
                       isDense: true,
+                      // Sem fill no campo: o FUNDO é o do Container (cor única).
+                      // Sem isto, o `filled` do tema pintava um segundo bloco
+                      // (mais escuro) dentro da caixa, em todos os temas.
+                      filled: false,
                       // Sem borda no campo: a BORDA agora é a da caixa (Container).
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,

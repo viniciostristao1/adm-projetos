@@ -1867,6 +1867,9 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     isDense: true,
+                    // Sem fill: o fundo é o da Caixa3D (cor única, sem bloco
+                    // interno mais escuro do tema).
+                    filled: false,
                     contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 14),
                   ),
                 ),
@@ -1931,6 +1934,8 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         isDense: true,
+                        // Sem fill: o fundo é o da subcaixinha (cor única).
+                        filled: false,
                         contentPadding: EdgeInsets.zero,
                         hintText: 'Comentário…',
                       ),
