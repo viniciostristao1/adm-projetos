@@ -20,4 +20,11 @@ void main() {
     expect(longeDoFimLista(500, 1000, 600), isFalse); // a 500 do fim
     expect(longeDoFimLista(300, 1000, 600), isTrue); // a 700 do fim
   });
+
+  test('deveRolarParaFim: só perto do fim ou com pedido explícito', () {
+    expect(deveRolarParaFim(longeDoFim: false), isTrue);
+    expect(deveRolarParaFim(longeDoFim: true), isFalse);
+    expect(deveRolarParaFim(longeDoFim: true, forcar: true), isTrue);
+    expect(deveRolarParaFim(longeDoFim: false, forcar: true), isTrue);
+  });
 }

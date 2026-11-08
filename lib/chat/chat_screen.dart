@@ -222,9 +222,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Foco na caixa de mensagem → rola a conversa p/ a última ficar acima do
-  /// teclado (o teclado encolhe a lista mas mantém o offset antigo, escondendo
-  /// o fim). O 2º scroll cobre a animação de abertura do teclado (~300ms).
+  /// Foco na caixa de mensagem → acompanha o fim SOMENTE se já estava perto
+  /// dele (lendo mensagens antigas, a posição é preservada e o teclado ajusta
+  /// só o necessário). O 2º scroll cobre a animação de abertura (~300ms).
   void _aoMudarFocoCaixa() {
     if (_foco.hasFocus) {
       _rolarFim();
@@ -236,8 +236,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeMetrics() {
-    // Teclado abriu/fechou ou a caixa cresceu (1→5 linhas): mantém o fim visível
-    // acima do teclado/caixa. Sem isso a última mensagem fica escondida atrás.
+    // Teclado abriu/fechou ou a caixa cresceu (1→4 linhas): acompanha o fim
+    // SOMENTE se já estava perto dele; lendo mensagens antigas, nada mexe e
+    // a posição de leitura é preservada.
     if (mounted && !_carregando) _rolarFim();
   }
 
@@ -868,7 +869,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // `instantaneo` (1ms — o pacote proíbe duração zero) = abrir direto, sem ver a
   // conversa "correndo". `inicioResposta` = mostra a PRIMEIRA linha da última resposta
   // da IA (p/ começar lendo de cima); com msg sua por último, mostra o fim como antes.
-  void _rolarFim({bool instantaneo = false, bool inicioResposta = false}) {
+  // `forcar` (só o botão ↓): ignora a posição de leitura. Sem ele, lendo mensagens
+  // antigas a posição é PRESERVADA (foco/toque/digitar/teclado/envio/streaming só
+  // descem sozinhos perto do fim). Abrir a conversa (`_abrirNoFim`) é à parte e
+  // segue incondicional.
+  void _rolarFim(
+      {bool instantaneo = false,
+      bool inicioResposta = false,
+      bool forcar = false}) {
+    if (!deveRolarParaFim(longeDoFim: _longeDoFim, forcar: forcar)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final n = _conv.mensagens.length;
       if (n > 0 && _scroll.hasClients) {
@@ -2232,10 +2241,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           duration: const Duration(milliseconds: 250),
                           child: IgnorePointer(
                             ignoring: !(_mostrarBotaoRolar && _longeDoFim),
-                            child: FloatingActionButton.small(
-                              heroTag: 'rolarFim',
-                              tooltip: 'Ir para a última mensagem',
-                              onPressed: () => _rolarFim(),
+                          child: FloatingActionButton.small(
+                            heroTag: 'rolarFim',
+                            tooltip: 'Ir para a última mensagem',
+                            onPressed: () => _rolarFim(forcar: true),
                               child: const Icon(Icons.arrow_downward),
                             ),
                           ),

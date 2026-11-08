@@ -192,3 +192,9 @@ class Conversa {
 bool longeDoFimLista(double pixels, double maxExtent,
         [double margem = 120]) =>
     maxExtent > 0 && pixels < maxExtent - margem;
+
+/// Decide se uma rolagem AUTOMÁTICA até o fim pode acontecer: só perto do fim
+/// ou com pedido explícito (`forcar`, o botão ↓). Lendo mensagens antigas, a
+/// posição é preservada (foco/toque/digitar/teclado/envio/streaming). Puro.
+bool deveRolarParaFim({required bool longeDoFim, bool forcar = false}) =>
+    forcar || !longeDoFim;
