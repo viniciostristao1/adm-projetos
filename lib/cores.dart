@@ -82,18 +82,6 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFFEAF0FB),
   );
 
-  /// Tema escuro: fundo preto, caixinha cinza escuro, barra de ferramentas mais escura.
-  static const AppCores escuro = AppCores(
-    notaInicio: Color(0xFF252525),
-    notaFim: Color(0xFF252525),
-    notaBorda: Color(0x33FFFFFF),
-    projetoCard: Colors.black,
-    projetoTxt: Colors.white,
-    fab: Color(0xFFD48000),
-    fabIcone: Color(0xFF1A0E00),
-    barraFerramentas: Color(0xFF1A1A1A),
-  );
-
   /// Tema B (Dark Game): grafite e pretos neutros, acento aço desaturado.
   static const AppCores neumB = AppCores(
     notaInicio: Color(0xFF1B1D20),
@@ -114,29 +102,6 @@ class AppCores extends ThemeExtension<AppCores> {
     brilho: Color(0x08FFFFFF),
     bordaLuz: Color(0x10FFFFFF),
     textoUI: Color(0xFFEDEFF1),
-  );
-
-  /// Tema Claude Code: preto-quente sólido (#0C0C0D), superfícies #161617
-  /// com borda de 1px (#2A2A2B), acento terracota (#D97757) e fonte
-  /// monoespaçada (JetBrains Mono). Plano, sem sombras, estilo terminal.
-  static const AppCores claude = AppCores(
-    // Um pouquinho mais claras que antes (interior da caixinha #161617→#1E1E20;
-    // barra de ferramentas #111213→#18181A) — cada tom clareado em separado,
-    // mantendo a barra mais escura que o interior e o fundo (#0C0C0D) o
-    // mais escuro de todos.
-    notaInicio: Color(0xFF1E1E20),
-    notaFim: Color(0xFF1E1E20),
-    notaBorda: Color(0xFF2A2A2B),
-    projetoCard: Color(0xFF161617),
-    projetoCardFim: Color(0xFF161617),
-    projetoTxt: Color(0xFFF0EEE9),
-    fab: Color(0xFFD97757),
-    fabIcone: Color(0xFF120806),
-    barraFerramentas: Color(0xFF18181A),
-    barraFerramentasFim: Color(0xFF18181A),
-    fundoInicio: Color(0xFF0C0C0D),
-    fundoFim: Color(0xFF0C0C0D),
-    textoUI: Color(0xFFF0EEE9),
   );
 
   /// Tema Dark (V0.1.199) — espelha o app do Claude em modo escuro: fundo preto

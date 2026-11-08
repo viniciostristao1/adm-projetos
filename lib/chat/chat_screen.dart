@@ -2022,7 +2022,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Botão GHOST do topo do chat (sem caixa): só o desenho, na cor de ACENTO do
-  /// tema (terracota no Terracota) — diferente do home/projeto, que usam branco.
+  /// tema — diferente do home/projeto, que usam branco.
   /// `filho` usa a cor do `IconTheme` (não fixe cor nos Icons).
   Widget _placaTopo({
     required String tooltip,

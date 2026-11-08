@@ -87,21 +87,6 @@ class _SalvadorDeVida with WidgetsBindingObserver {
 class AdmProjetosApp extends StatelessWidget {
   static const _bordaCard = Color(0x1AFFFFFF);
 
-  static const _appbarEscuro = AppBarTheme(
-    backgroundColor: Colors.black,
-    foregroundColor: Colors.white,
-    surfaceTintColor: Colors.transparent,
-    scrolledUnderElevation: 0,
-    elevation: 0,
-    centerTitle: false,
-    titleTextStyle: TextStyle(
-      fontSize: 20,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.2,
-      color: Colors.white,
-    ),
-  );
-
   const AdmProjetosApp({super.key});
 
   ThemeData _temaBase(ThemeData t) => t.copyWith(
@@ -422,29 +407,6 @@ class AdmProjetosApp extends StatelessWidget {
         appBarColor: const Color(0xFFFAF8F5),
       );
 
-  ThemeData _temaEscuro() => _temaBase(ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1E3A8A),
-          brightness: Brightness.dark,
-        ),
-        scaffoldBackgroundColor: Colors.black,
-        extensions: const [AppCores.escuro],
-        appBarTheme: _appbarEscuro,
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: AppCores.escuro.fab,
-          foregroundColor: AppCores.escuro.fabIcone,
-        ),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-          ),
-        ),
-      ));
-
   /// Tema neumórfico (Dark Game e Bege Game; o bege clássico também usa, com
   /// cartões/barra marrons). Luz ↗ superior esquerda, sombras duplas difusas,
   /// inner shadow nos pressionados, sem contornos.
@@ -532,102 +494,6 @@ class AdmProjetosApp extends StatelessWidget {
   }
 
   ThemeData _temaNeumB() => _temaNeum(AppCores.neumB);
-
-  /// Tema Claude Code: terminal escuro. Preto-quente sólido, superfícies com
-  /// borda de 1px (sem sombras), acento terracota e fonte monoespaçada.
-  ThemeData _temaClaude() {
-    const bg = Color(0xFF0C0C0D);
-    const surface = Color(0xFF161617);
-    const borda = Color(0xFF2A2A2B);
-    const text = Color(0xFFF0EEE9);
-    const text2 = Color(0xFF8A8A8A);
-    const accent = Color(0xFFD97757);
-    const onAccent = Color(0xFF120806);
-    return ThemeData(
-      fontFamily: 'JetBrainsMono',
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: accent,
-        brightness: Brightness.dark,
-        surface: surface,
-        onSurface: text,
-      ).copyWith(primary: accent, onPrimary: onAccent),
-      scaffoldBackgroundColor: bg,
-      extensions: const [AppCores.claude],
-      appBarTheme: const AppBarTheme(
-        backgroundColor: bg,
-        foregroundColor: text,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        elevation: 0,
-        centerTitle: false,
-        titleTextStyle: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.2,
-          color: text,
-        ),
-      ),
-      tabBarTheme: const TabBarThemeData(
-        labelColor: accent,
-        unselectedLabelColor: text2,
-        dividerColor: Colors.transparent,
-        indicatorSize: TabBarIndicatorSize.tab,
-      ),
-      cardTheme: const CardThemeData(
-        color: surface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(10)),
-          side: BorderSide(color: borda),
-        ),
-      ),
-      listTileTheme: const ListTileThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(10)),
-        ),
-      ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: accent,
-        foregroundColor: onAccent,
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(14)),
-        ),
-      ),
-      inputDecorationTheme: const InputDecorationTheme(
-        filled: true,
-        fillColor: surface,
-        hintStyle: TextStyle(color: Color(0xFF6E6E6E)),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(10)),
-          borderSide: BorderSide(color: borda),
-        ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      ),
-      chipTheme: const ChipThemeData(
-        backgroundColor: surface,
-        selectedColor: Color(0x2AD97757),
-        labelStyle: TextStyle(color: text, fontWeight: FontWeight.w500),
-        side: BorderSide(color: borda),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(10)),
-        ),
-      ),
-      dialogTheme: const DialogThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12)),
-          side: BorderSide(color: borda),
-        ),
-        backgroundColor: surface,
-        titleTextStyle: TextStyle(
-          fontSize: 19,
-          fontWeight: FontWeight.w700,
-          color: text,
-        ),
-      ),
-    );
-  }
-
   /// Tema Dark (V0.1.199) — espelha o app do Claude em modo escuro: fundo
   /// preto QUENTE, superfícies #262524 com borda sutil, texto branco quente,
   /// acento terracota e títulos serifados. Plano, sem sombras.
@@ -850,9 +716,7 @@ class AdmProjetosApp extends StatelessWidget {
         final claro = modo == Modo.creme || modo == Modo.papel;
         final theme = switch (modo) {
           Modo.azul => _temaAzul(),
-          Modo.escuro => _temaEscuro(),
           Modo.neumB => _temaNeumB(),
-          Modo.claude => _temaClaude(),
           Modo.onix => _temaOnix(),
           Modo.creme => _temaCreme(),
           Modo.papel => _temaPapel(),

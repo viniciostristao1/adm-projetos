@@ -1130,8 +1130,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     required VoidCallback onTap,
     required Widget child,
   }) {
-    final ehClaude = app == AppCores.claude;
-    final raio = ehClaude ? 10.0 : 14.0;
+    const raio = 14.0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -1144,9 +1143,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
               color: app.projetoCard,
               borderRadius: BorderRadius.circular(raio),
               border: Border.all(
-                color: ehClaude
-                    ? const Color(0xFF2A2A2B)
-                    : app.projetoTxt.withValues(alpha: 0.08),
+                color: app.projetoTxt.withValues(alpha: 0.08),
               ),
             ),
             child: child,
@@ -1625,12 +1622,6 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
 
                             // Temas planos (Azul, Escuro e Claude): cartão na cor
                             // do tema com o nome + bolinhas. No Claude, vira "linha":
-                            // borda de 1px, sem sombras, e o projeto em andamento ganha
-                            // uma BARRA TERRACOTA à esquerda com o "v" terracota
-                            // (em vez de verde).
-                            // No Claude/Terracota: bolinhas invisíveis (ícones apagados),
-                            // borda 1px #2A2A2B e acento terracota no "em andamento".
-                            final ehClaude = app == AppCores.claude;
                             final ehOnix = app == AppCores.onix;
                             // Creme/Papel: cartão BRANCO flutuante
                             // com sombra suave (o visual dos mockups), em vez de borda.
@@ -1639,37 +1630,23 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                             // Ônix: pastas SEM caixa nem borda (linhas lisas sobre o
                             // fundo). Os demais temas mantêm o cartão.
                             final semCaixa = ehOnix;
-                            final arrastarCor = ehClaude
-                                ? app.projetoTxt.withValues(alpha: 0.45)
-                                : app.projetoTxt;
+                            final arrastarCor = app.projetoTxt;
                             final txtCor = app.projetoTxt;
                             final bolaCor = app.notaFim;
-                            final iconeCor = ehClaude
-                                ? app.projetoTxt.withValues(alpha: 0.45)
-                                : app.projetoTxt;
-                            final corBolaAndamento = ehClaude
-                                ? Colors.transparent
-                                : bolaCor;
-                            final corCheckAndamento = (ehClaude || ehOnix)
+                            final iconeCor = app.projetoTxt;
+                            final corBolaAndamento = bolaCor;
+                            final corCheckAndamento = ehOnix
                                 ? app.fab
                                 : const Color(0xFF4ADE80);
 
                             // V0.1.202: o fundo do card FUNDE com o fundo da tela (sem o
                             // retângulo mais claro). A separação fica só na BARRINHA colorida
-                            // à esquerda + o espaçamento. O Claude mantém a "linha" de 1px
-                            // (identidade terminal); o neumórfico (acima) mantém o relevo;
-                            // Ônix já era sem caixa. `ehLuz` segue valendo p/ o raio do InkWell.
+                            // à esquerda + o espaçamento; o neumórfico (acima) mantém o
+                            // relevo; Ônix já era sem caixa. `ehLuz` segue valendo p/ o
+                            // raio do InkWell.
                             BoxDecoration? baseDecor;
                             if (semCaixa) {
                               baseDecor = null;
-                            } else if (ehClaude) {
-                              baseDecor = BoxDecoration(
-                                color: app.fundoInicio,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(0xFF2A2A2B),
-                                ),
-                              );
                             } else {
                               // Creme/Papel/Azul/Escuro/Dark…: sem fundo próprio, sem sombra e
                               // sem borda — o card some no fundo; sobra a barrinha + o texto.
@@ -1680,9 +1657,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                               type: MaterialType.transparency,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(
-                                  semCaixa
-                                      ? 8
-                                      : (ehClaude ? 10 : (ehLuz ? 16 : 14)),
+                                  semCaixa ? 8 : (ehLuz ? 16 : 14),
                                 ),
                                 onTap: onTapProjeto,
                                 onLongPress: () => _mostrarSeletorCor(p),
@@ -1777,7 +1752,7 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
                               ),
                             );
                             if (corEfetiva != null) {
-                              final raio = ehClaude ? 10.0 : 14.0;
+                              const raio = 14.0;
                               cardPlano = ClipRRect(
                                 borderRadius: BorderRadius.circular(raio),
                                 child: Stack(

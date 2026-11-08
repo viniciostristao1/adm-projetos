@@ -4,9 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Tema do aplicativo.
 enum Modo {
   azul('Azul'),
-  escuro('Escuro'),
   neumB('Dark Game'),
-  claude('Terracota'),
   onix('Ônix'),
   // Tema DARK (V0.1.199): espelha o app do Claude em modo escuro — preto quente,
   // serifada, terracota. Não confundir com `escuro` (preto neutro + laranja).
@@ -84,15 +82,22 @@ class TemaController extends ChangeNotifier {
           : ThemeMode.dark;
 
   /// Carrega as preferências salvas (chamar no início do app). Temas antigos
-  /// removidos migram para o Azul: claro → azul, espresso/bege/begeNeum → azul
-  /// (o Bege virou tema em V0.1.197), luz → azul.
+  /// removidos migram para o Azul: claro/espresso/bege/begeNeum/luz →
+  /// azul (o Bege saiu em V0.1.197), escuro/claude (Terracota) → azul.
   Future<void> carregar() async {
     final prefs = await SharedPreferences.getInstance();
     final antigo = prefs.getBool(_chaveAntiga);
     final salvo = prefs.getString(_chave) ??
         (antigo == true ? 'escuro' : 'azul');
     final migrado = switch (salvo) {
-      'claro' || 'espresso' || 'bege' || 'begeNeum' || 'luz' => 'azul',
+      'claro' ||
+      'espresso' ||
+      'bege' ||
+      'begeNeum' ||
+      'luz' ||
+      'escuro' ||
+      'claude' =>
+        'azul',
       _ => salvo,
     };
     _modo = Modo.values

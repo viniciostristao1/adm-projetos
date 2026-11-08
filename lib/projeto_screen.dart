@@ -2379,7 +2379,7 @@ Widget _menuSelecao(
 enum _GlifoTopo { muse, pastas, pdf, copiar, excluir }
 
 /// Botão GHOST do topo do projeto: só o desenho, sem caixa — usado em
-/// Pastas/PDF/Copiar/Excluir com `cor` = texto da UI (branco no Terracota).
+/// Pastas/PDF/Copiar/Excluir com `cor` = texto da UI.
 /// (A Muse deixou de usá-lo na V0.1.175: virou o rosto/blob.) Vale em todos os
 /// temas (as cores vêm do tema).
 class _BotaoTopo extends StatelessWidget {

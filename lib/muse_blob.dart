@@ -18,9 +18,7 @@ class MuseBlob extends StatelessWidget {
 
   /// Mapeia o tema (AppCores) → nome do asset do anel.
   static String _nomeTema(AppCores app) {
-    if (app == AppCores.escuro) return 'escuro';
     if (app == AppCores.neumB) return 'darkgame';
-    if (app == AppCores.claude) return 'terracota';
     if (app == AppCores.onix) return 'onix';
     if (app == AppCores.dark) return 'terracota';
     if (app == AppCores.creme) return 'terracota';

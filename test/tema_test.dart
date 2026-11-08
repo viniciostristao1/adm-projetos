@@ -7,9 +7,7 @@ import 'package:adm_projetos/tema.dart';
 
 AppCores _coresDe(Modo m) => switch (m) {
       Modo.azul => AppCores.azul,
-      Modo.escuro => AppCores.escuro,
       Modo.neumB => AppCores.neumB,
-      Modo.claude => AppCores.claude,
       Modo.onix => AppCores.onix,
       Modo.dark => AppCores.dark,
       Modo.creme => AppCores.creme,
@@ -17,22 +15,24 @@ AppCores _coresDe(Modo m) => switch (m) {
     };
 
 void main() {
-  test('Modo tem exatamente 8 temas (Azul, Escuro, Dark Game, Terracota, Ônix, Dark, Creme, Papel)',
+  test('Modo tem exatamente 6 temas (Azul, Dark Game, Ônix, Dark, Creme, Papel)',
       () {
-    expect(Modo.values.length, 8);
+    expect(Modo.values.length, 6);
     expect(
       Modo.values.map((m) => m.rotulo).toList(),
-      ['Azul', 'Escuro', 'Dark Game', 'Terracota', 'Ônix', 'Dark', 'Creme', 'Papel'],
+      ['Azul', 'Dark Game', 'Ônix', 'Dark', 'Creme', 'Papel'],
     );
   });
 
-  test('Temas antigos migram: claro/espresso/bege/begeNeum/luz→Azul', () async {
+  test('Temas antigos migram: claro/espresso/bege/begeNeum/luz/escuro/claude→Azul', () async {
     final nomes = Modo.values.map((m) => m.name).toSet();
     expect(nomes.contains('claro'), isFalse);
     expect(nomes.contains('espresso'), isFalse);
     expect(nomes.contains('begeNeum'), isFalse);
     expect(nomes.contains('bege'), isFalse);
     expect(nomes.contains('luz'), isFalse);
+    expect(nomes.contains('escuro'), isFalse);
+    expect(nomes.contains('claude'), isFalse);
   });
 
   test('Densidade tem Confortável e Compacto', () {
