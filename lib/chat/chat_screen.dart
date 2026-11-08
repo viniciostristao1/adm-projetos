@@ -2854,10 +2854,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _barraEntrada(BuildContext context) {
-    // Composer estilo Claude (V0.1.203): UMA caixa arredondada com TUDO dentro —
-    // o texto em cima e, embaixo, "+" (anexar) à ESQUERDA e mic + blob (enviar) à
-    // DIREITA. Sem a coluna de botões flutuando fora → a caixa fica mais larga.
-    // O blob PULA enquanto a Muse pensa e vira mic vermelho ao gravar (V0.1.184).
+    // Composer estilo Claude (V0.1.208): texto em LARGURA TOTAL (1–4 linhas)
+    // com a fileira "+" / X / mic / blob SOBREPOSTA à última linha (as de cima
+    // usam a caixa inteira; só a última desvia com padding inferior). O blob
+    // PULA enquanto a Muse pensa e vira mic vermelho ao gravar (V0.1.184).
     final cs = Theme.of(context).colorScheme;
     final ehDark = Theme.of(context).extension<AppCores>() == AppCores.dark;
     final corBorda = ehDark
@@ -2901,9 +2901,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            // A CAIXA: borda arredondada com TUDO na mesma linha (estilo Claude) —
-            // "+" à esquerda, campo flexível no meio, mic + blob à direita.
-            // A borda vive no Container (o TextField fica sem borda).
+            // A CAIXA: borda arredondada, texto em LARGURA TOTAL com os botões
+            // flutuando SOBRE a última linha (estilo Claude/ChatGPT) — "+" à
+            // esquerda, X/mic/blob à direita. A borda vive no Container.
             Container(
               decoration: BoxDecoration(
                 color: cs.surface,
@@ -2911,180 +2911,173 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 border: Border.all(color: corBorda),
               ),
               padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Stack(
                 children: [
-                  // "+" circular (anexar) — mesma linha do texto.
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Material(
-                      color: Colors.transparent,
-                      shape: CircleBorder(side: BorderSide(color: corBorda)),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: podeMexer ? () => _anexar() : null,
-                        child: Padding(
-                          padding: const EdgeInsets.all(7),
-                          child: Icon(
-                            Icons.add,
-                            size: 20,
-                            color: temAnexo
-                                ? cs.primary
-                                : cs.onSurfaceVariant,
+                  TextField(
+                    controller: _ctrl,
+                    focusNode: _foco,
+                    scrollController: _caixaScroll,
+                    // Estilo Claude: 1 linha inicial, cresce até 4 e dali em
+                    // diante rola por dentro (sempre as últimas 4 visíveis).
+                    // Apagar/enviar volta sozinho p/ 1 linha.
+                    minLines: 1,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.newline,
+                    onTap: () {
+                      // Gravando: tocar na caixa PARA a gravação mantendo o texto.
+                      if (_gravando && !_enviando) _micCancel();
+                      _rolarFim();
+                    },
+                    onChanged: (_) {
+                      _rolarFim(instantaneo: true);
+                      if (_ctrl.selection.extentOffset >= _ctrl.text.length) {
+                        _rolarCaixaFim();
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText: _gravando
+                          ? 'Ouvindo… toque aqui p/ parar ou no enviar p/ concluir'
+                          : 'Escreva sua mensagem…',
+                      isDense: true,
+                      // Sem fill no campo: o FUNDO é o do Container (cor única).
+                      // Sem isto, o `filled` do tema pintava um segundo bloco
+                      // (mais escuro) dentro da caixa, em todos os temas.
+                      filled: false,
+                      // Sem borda no campo: a BORDA agora é a da caixa (Container).
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      // Inferior alto (46): a última linha desvia da fileira de
+                      // botões sobreposta; as de cima usam a largura inteira.
+                      contentPadding: const EdgeInsets.fromLTRB(8, 8, 8, 46),
+                    ),
+                  ),
+                  // Fileira de controles SOBREPOSTA à última linha do texto.
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Row(
+                      children: [
+                        // "+" circular (anexar).
+                        Material(
+                          color: Colors.transparent,
+                          shape:
+                              CircleBorder(side: BorderSide(color: corBorda)),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: podeMexer ? () => _anexar() : null,
+                            child: Padding(
+                              padding: const EdgeInsets.all(7),
+                              child: Icon(
+                                Icons.add,
+                                size: 20,
+                                color: temAnexo
+                                    ? cs.primary
+                                    : cs.onSurfaceVariant,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: TextField(
-                      controller: _ctrl,
-                      focusNode: _foco,
-                      scrollController: _caixaScroll,
-                      // Estilo Claude: 1 linha inicial, cresce até 4 e dali em
-                      // diante rola por dentro (sempre as últimas 4 visíveis).
-                      // Apagar/enviar volta sozinho p/ 1 linha.
-                      minLines: 1,
-                      maxLines: 4,
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.newline,
-                      onTap: () {
-                        // Gravando: tocar na caixa PARA a gravação mantendo o texto.
-                        if (_gravando && !_enviando) _micCancel();
-                        _rolarFim();
-                      },
-                      onChanged: (_) {
-                        _rolarFim(instantaneo: true);
-                        if (_ctrl.selection.extentOffset >= _ctrl.text.length) {
-                          _rolarCaixaFim();
-                        }
-                      },
-                      decoration: InputDecoration(
-                        hintText: _gravando
-                            ? 'Ouvindo… toque aqui p/ parar ou no enviar p/ concluir'
-                            : 'Escreva sua mensagem…',
-                        isDense: true,
-                        // Sem fill no campo: o FUNDO é o do Container (cor única).
-                        // Sem isto, o `filled` do tema pintava um segundo bloco
-                        // (mais escuro) dentro da caixa, em todos os temas.
-                        filled: false,
-                        // Sem borda no campo: a BORDA agora é a da caixa (Container).
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
+                        const Spacer(),
+                        // Limpar (X) — só quando há texto/anexo.
+                        ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _ctrl,
+                          builder: (context, v, child) {
+                            final temAlgo = v.text.isNotEmpty || temAnexo;
+                            if (!temAlgo) return const SizedBox.shrink();
+                            return IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              tooltip: 'Limpar',
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 36,
+                                minHeight: 36,
+                              ),
+                              onPressed: _enviando ? null : _limparCaixa,
+                            );
+                          },
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  // Linha de controles na MESMA linha do texto (era embaixo).
-                  // Limpar (X) — só quando há texto/anexo.
-                  ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _ctrl,
-                    builder: (context, v, child) {
-                      final temAlgo = v.text.isNotEmpty || temAnexo;
-                      if (!temAlgo) return const SizedBox.shrink();
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 1),
-                        child: IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          tooltip: 'Limpar',
+                        // Microfone AZUL: dita pelo Gboard e a Muse RESPONDE POR VOZ.
+                        IconButton(
+                          icon: const Icon(
+                            Icons.mic,
+                            size: 22,
+                            color: Color(0xFF3B82F6),
+                          ),
+                          tooltip: 'Enviar e responder por voz',
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
+                            minWidth: 38,
+                            minHeight: 38,
                           ),
-                          onPressed: _enviando ? null : _limparCaixa,
+                          onPressed: podeMexer
+                              ? () {
+                                  _modoAudio = true; // resposta FALADA
+                                  _enviar();
+                                }
+                              : null,
                         ),
-                      );
-                    },
-                  ),
-                  // Microfone AZUL: dita pelo Gboard e a Muse RESPONDE POR VOZ.
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 1),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.mic,
-                        size: 22,
-                        color: Color(0xFF3B82F6),
-                      ),
-                      tooltip: 'Enviar e responder por voz',
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 38,
-                        minHeight: 38,
-                      ),
-                      onPressed: podeMexer
-                          ? () {
-                              _modoAudio = true; // resposta FALADA
-                              _enviar();
-                            }
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  // Blob/avatar da Muse = ENVIAR (toque) + GRAVAR (segurar). PULA
-                  // enquanto pensa; gravando vira mic vermelho. SEM tooltip (o
-                  // Tooltip comeria o long-press — bug da V0.1.137).
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 1),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onLongPressStart: (_) => _micStart(),
-                      onLongPressEnd: (_) {},
-                      onLongPressCancel: () {},
-                      child: Material(
-                        color: Colors.transparent,
-                        shape: const CircleBorder(),
-                        // Clip.none p/ o PULO da Muse não ser cortado.
-                        clipBehavior: Clip.none,
-                        elevation: 2,
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _gravando ? Colors.red : null,
-                          ),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: _enviando
-                                ? null
-                                : () {
-                                    if (_gravando) {
-                                      _micStop();
-                                    } else {
-                                      _modoAudio = false;
-                                      _enviar();
-                                    }
-                                  },
-                            child: _gravando
-                                ? const SizedBox(
-                                    width: 40,
-                                    height: 40,
-                                    child: Icon(
-                                      Icons.mic,
-                                      size: 22,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : MusePula(
-                                    ativo: _enviando,
-                                    size: 40,
-                                    child: Image.asset(
-                                      'assets/muse/modo_${_modoAsset(_conv.preset)}.png',
-                                      width: 40,
-                                      height: 40,
-                                      filterQuality: FilterQuality.high,
-                                    ),
-                                  ),
+                        const SizedBox(width: 2),
+                        // Blob/avatar da Muse = ENVIAR (toque) + GRAVAR (segurar).
+                        // PULA enquanto pensa; gravando vira mic vermelho. SEM
+                        // tooltip (o Tooltip comeria o long-press — bug V0.1.137).
+                        GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onLongPressStart: (_) => _micStart(),
+                          onLongPressEnd: (_) {},
+                          onLongPressCancel: () {},
+                          child: Material(
+                            color: Colors.transparent,
+                            shape: const CircleBorder(),
+                            // Clip.none p/ o PULO da Muse não ser cortado.
+                            clipBehavior: Clip.none,
+                            elevation: 2,
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _gravando ? Colors.red : null,
+                              ),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: _enviando
+                                    ? null
+                                    : () {
+                                        if (_gravando) {
+                                          _micStop();
+                                        } else {
+                                          _modoAudio = false;
+                                          _enviar();
+                                        }
+                                      },
+                                child: _gravando
+                                    ? const SizedBox(
+                                        width: 40,
+                                        height: 40,
+                                        child: Icon(
+                                          Icons.mic,
+                                          size: 22,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : MusePula(
+                                        ativo: _enviando,
+                                        size: 40,
+                                        child: Image.asset(
+                                          'assets/muse/modo_${_modoAsset(_conv.preset)}.png',
+                                          width: 40,
+                                          height: 40,
+                                          filterQuality: FilterQuality.high,
+                                        ),
+                                      ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
