@@ -355,6 +355,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       RegExp(r'(\d+)\s*[xX]\s*(\d+)'),
       (m) => '${m[1]} de ${m[2]}',
     );
+    // Horário "H:MM" → "H e MM": lê "5 e 15" (não "cinco quinze" grudado).
+    t = t.replaceAllMapped(
+      RegExp(r'\b(\d{1,2}):(\d{2})\b'),
+      (m) => '${m[1]} e ${m[2]}',
+    );
     // Contagens hifenizadas de UM dígito ("4-7-8", "4-4") → "4, 7, 8" (pausa curta
     // entre números, sem ler "menos"). Restrito a 1 dígito p/ não quebrar datas,
     // telefones e intervalos.
@@ -399,6 +404,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       'and': 'end',
       'layout': 'leiáut',
       'layouts': 'leiáuts',
+      'mindfulness': 'maindifulnes',
       'schopenhauer': 'chopenrráuer',
       'nietzsche': 'níti',
       'nietzschiano': 'nitiano',

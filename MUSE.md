@@ -98,6 +98,7 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 | delay | `delei` | idem |
 | halter / halteres | `altér` / `altéres` | tônica no "é", sem o "h" |
 | layout / layouts | `leiáut` / `leiáuts` | soar como o inglês |
+| mindfulness | `maindifulnes` | soar como o inglês |
 | rep / reps | `repetição` / `repetições` | expandir abreviação |
 | mm | `milímetros` (`1 mm` → `milímetro`) | unidade, como kg→quilos |
  | arrego / arregos | `arrêgo` / `arrêgos` | tônica na 2ª sílaba (ê fechado) |
@@ -112,6 +113,7 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 
 ### Regras especiais de fala (já implementadas, nos dois lados)
 - **"NxM" → "N de M"**: "3x7" é lido "três de sete" (notação séries×repetições). Regex `(\d+)\s*[xX]\s*(\d+)` → `\1 de \2`.
+- **"H:MM" → "H e MM"**: "5:15" é lido "cinco e quinze". Regex `\b(\d{1,2}):(\d{2})\b` → `\1 e \2`.
 - **"kg" → "quilo(s)"**: "2 kg"→"2 quilos", "1 kg"→"1 quilo". Regex `\b(\d+)\s*kg\b` (pluraliza) + `\bkg\b`→"quilos".
 - **Nome sem pausa de vírgula:** "boa noite, Vinícios" → fala "boa noite Vinícios" (tira a vírgula antes do nome). Regex `,\s*(Vin[ií]ci[ou]s)` → ` \1`.
 - **Despedidas naturais** (persona, `app.py`): votos como "bom café/bom treino/bom descanso" em vez de construções tortas ("vai bem no café").
