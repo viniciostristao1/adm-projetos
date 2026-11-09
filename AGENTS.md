@@ -1419,6 +1419,7 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `Material`+`Ink`+`InkWell` (gravando = vermelho sólido). Tirou o especial-case do tema Bege (o
   degradê sai do `fab` de cada tema). Mantido: caixa de texto sempre visível, anexo (+, imagens via
   ImagePicker) e o segurar-pra-ditar. `flutter analyze` do arquivo: No issues.
+- **V0.1.217 — contorno fino na Muse da barra:** uma linha (outline do tema, 1.5px) ao redor do rosto recortado. flutter analyze sem erros.
 - **V0.1.216 — barra só-ícones (proposta 04 eleita no laboratório):** Projetos/Estudos sem rótulo (só outline 26px, Tooltip p/ acessibilidade); Muse centralizada maior mantida. flutter analyze sem erros.
 - **V0.1.215 — pronúncias mindfulness + horário H:MM:** mindfulness→maindifulnes (dict, sem plural) e regra H:MM→H e MM (5:15→cinco e quinze) nos DOIS lados (proxy + _normalizarFala; só minúsculas, MM/RM intactos); MUSE.md §4. flutter analyze sem erros.
 - **V0.1.214 — avatar inline sem anel + check preto no Creme:** (1) Muse no meio da fileira (sem elevar/sobressair), rosto recortado do PNG via ClipOval+OverflowBox (corta o anel laranja da borda, ocupa quase todo o círculo de 56px) em todos os temas. (2) Creme: bolinha de em andamento preta com V branco (mesmo tamanho/formato; demais temas intactos). flutter analyze sem erros.

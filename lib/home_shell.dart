@@ -229,14 +229,21 @@ class _BarraFlutuante extends StatelessWidget {
           ),
         );
     // Rosto recortado do PNG (corta o anel laranja da borda): ocupa quase
-    // todo o círculo de 56px, sem anéis empilhados, em todos os temas.
+    // todo o círculo de 56px, com UMA linha fina de contorno.
     Widget muse() => Tooltip(
           message: 'Muse Spark (assistente)',
           child: GestureDetector(
             onTap: () => onSelecionar(iMuse),
-            child: SizedBox(
+            child: Container(
               width: 56,
               height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline,
+                  width: 1.5,
+                ),
+              ),
               child: ClipOval(
                 child: OverflowBox(
                   maxWidth: 72,
