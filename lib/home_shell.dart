@@ -292,42 +292,38 @@ class _ItemBarra extends StatelessWidget {
     } else {
       icone = Icon(
         aba == _Aba.projetos ? Icons.folder_outlined : Icons.menu_book_outlined,
-        size: 24,
+        size: 26,
         color: cor,
       );
     }
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Pílula de destaque atrás do ícone da aba ativa.
-            Container(
-              height: 36,
-              width: 56,
-              alignment: Alignment.center,
-              decoration: selecionado
-                  ? BoxDecoration(
-                      color: acento.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(16),
-                    )
-                  : null,
-              child: icone,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              _rotulo,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: selecionado ? FontWeight.w700 : FontWeight.w500,
-                color: cor,
+    // Proposta 04 eleita (laboratório): só ícones, sem rótulo — o Tooltip
+    // mantém o nome acessível.
+    return Tooltip(
+      message: _rotulo,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Pílula de destaque atrás do ícone da aba ativa.
+              Container(
+                height: 36,
+                width: 56,
+                alignment: Alignment.center,
+                decoration: selecionado
+                    ? BoxDecoration(
+                        color: acento.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(16),
+                      )
+                    : null,
+                child: icone,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
