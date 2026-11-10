@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'barra_config.dart';
 import 'caixa3d.dart';
 import 'chat/chat_config.dart';
+import 'chat/chat_models.dart';
 import 'chat/chat_screen.dart';
 import 'chat/chat_service.dart';
 import 'chat/chat_store.dart';
@@ -104,6 +105,10 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     LembretesService.lerEConsumirPedidoMuse().then((p) {
       if (p != null && mounted) _abrirMuseComPergunta(p.preset, p.pergunta);
     });
+    // Push do tempo tocado com o app FECHADO: abre a Muse já com a previsão.
+    LembretesService.lerEConsumirPrevisao().then((texto) {
+      if (texto != null && mounted) _abrirMusePrevisao(texto);
+    });
     _configurarAtalhos();
     // Pré-aquece o histórico do Muse em 2º plano (inicializa o SharedPreferences
     // + decodifica o histórico fora do caminho quente) p/ a 1ª abertura do chat
@@ -188,6 +193,41 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
     });
   }
 
+  /// Abre a Muse JÁ com a previsão pronta (toque no push do tempo): cria uma
+  /// conversa nova cuja 1ª mensagem é da MUSE com a previsão COMPLETA (sem
+  /// chamar a IA, sem pergunta falsa — a resposta não fica pior que a
+  /// notificação) e abre nela; o usuário segue o papo. Se a Muse já estiver
+  /// aberta, descarta (não empilha 2 chats).
+  void _abrirMusePrevisao(String mensagemMuse) {
+    if (!ChatConfig.habilitado || _museAberto) return;
+    _museAberto = true;
+    if (mounted) setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        _museAberto = false;
+        return;
+      }
+      String? convId;
+      try {
+        final conv = Conversa.nova(ChatPreset.geral)
+          ..titulo = 'Previsão do tempo'
+          ..mensagens.add(ChatMessage.ia(mensagemMuse))
+          ..atualizadaEm = DateTime.now();
+        await ChatStore.salvar(conv);
+        convId = conv.id;
+      } catch (_) {}
+      if (!mounted) {
+        _museAberto = false;
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => ChatScreen(conversaId: convId)),
+      );
+      if (!mounted) return;
+      setState(() => _museAberto = false);
+    });
+  }
+
   /// Abre o projeto "Notas rápidas" (cria se não existir) já com uma caixinha
   /// nova focada. Chamado pelo App Shortcut "Nova nota".
   Future<void> _novaNotaRapida() async {
@@ -240,8 +280,16 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
   /// Alarme inteligente tocado com o app vivo: abre a Muse naquele modo e
   /// pergunta sozinho. Consumo único (quem consome zera o pedido).
   void _aoMudarLembrete() {
+    if (!mounted) return;
+    // Push do tempo tocado: abre a Muse já COM a previsão (prioridade).
+    final previsao = LembretesService.instance.previsaoPendente;
+    if (previsao != null) {
+      LembretesService.instance.descartarPrevisao();
+      _abrirMusePrevisao(previsao);
+      return;
+    }
     final pedido = LembretesService.instance.pedidoMusePendente;
-    if (pedido == null || !mounted) return;
+    if (pedido == null) return;
     LembretesService.instance.descartarPedidoMuse();
     _abrirMuseComPergunta(pedido.preset, pedido.pergunta);
   }

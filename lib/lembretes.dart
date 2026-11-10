@@ -66,6 +66,13 @@ void respostaNotificacaoBackground(NotificationResponse resposta) async {
     await LembretesService.concluirPorAcao(resposta);
     return;
   }
+  // Push da previsão: guarda a mensagem pronta da Muse p/ o cold start abrir a
+  // conversa já com a previsão (sem pergunta falsa, sem chamar a IA).
+  final previsao = LembretesService.textoPrevisaoDePayload(resposta.payload);
+  if (previsao != null && resposta.actionId == null) {
+    await LembretesService.salvarPrevisao(previsao);
+    return;
+  }
   final pedido = LembretesService.pedidoMuseDePayload(resposta.payload);
   // Toque no CORPO de alarme inteligente: guarda p/ o cold start abrir a Muse
   // perguntando (botões de snooze caem no reagendar normal, sem abrir nada).
@@ -82,6 +89,11 @@ void _respostaNotificacaoForeground(NotificationResponse resposta) async {
   if (resposta.actionId == LembretesService.acaoFeitoId) {
     await LembretesService.concluirPorAcao(resposta);
     await LembretesService.instance.recarregar();
+    return;
+  }
+  final previsao = LembretesService.textoPrevisaoDePayload(resposta.payload);
+  if (previsao != null && resposta.actionId == null) {
+    LembretesService.instance.avisarPrevisao(previsao);
     return;
   }
   final pedido = LembretesService.pedidoMuseDePayload(resposta.payload);
@@ -690,6 +702,60 @@ class LembretesService extends ChangeNotifier {
       if (raw == null) return null;
       await prefs.remove(chavePedidoMuse);
       return pedidoMuseDePayload(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ===== Abrir a Muse JÁ com a previsão pronta (push do tempo, V0.1.220) =====
+  // Diferente do "pedido Muse" (que faz uma PERGUNTA falsa e a IA RESPONDE pior
+  // que a notificação): aqui a Muse já ABRE com a previsão COMPLETA como mensagem
+  // DELA (sem chamar a IA), e o usuário segue o papo. O texto trafega em base64
+  // no payload da notificação (tem quebras de linha e ':'); no disco vai cru.
+  static const String prefixoPrevisao = 'previsao:';
+  static const String chavePrevisao = 'muse_previsao_v1';
+  String? _previsaoTexto;
+  String? get previsaoPendente => _previsaoTexto;
+
+  static String payloadPrevisao(String mensagemMuse) =>
+      '$prefixoPrevisao${base64.encode(utf8.encode(mensagemMuse))}';
+
+  static String? textoPrevisaoDePayload(String? payload) {
+    if (payload == null || !payload.startsWith(prefixoPrevisao)) return null;
+    try {
+      final t =
+          utf8.decode(base64.decode(payload.substring(prefixoPrevisao.length)))
+              .trim();
+      return t.isEmpty ? null : t;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Avisa a UI (app vivo) p/ abrir a Muse já com a previsão. Consumo único.
+  void avisarPrevisao(String mensagemMuse) {
+    _previsaoTexto = mensagemMuse;
+    notifyListeners();
+  }
+
+  void descartarPrevisao() => _previsaoTexto = null;
+
+  static Future<void> salvarPrevisao(String mensagemMuse) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(chavePrevisao, mensagemMuse);
+    } catch (_) {}
+  }
+
+  /// Lê e apaga a previsão pendente (consumo único — abrir 2x não semeia 2x).
+  static Future<String?> lerEConsumirPrevisao() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final raw = prefs.getString(chavePrevisao);
+      if (raw == null) return null;
+      await prefs.remove(chavePrevisao);
+      return raw.trim().isEmpty ? null : raw;
     } catch (_) {
       return null;
     }
