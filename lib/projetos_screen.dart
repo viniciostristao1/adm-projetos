@@ -11,7 +11,6 @@ import 'package:share_plus/share_plus.dart';
 import 'barra_config.dart';
 import 'caixa3d.dart';
 import 'chat/chat_config.dart';
-import 'chat/chat_models.dart';
 import 'chat/chat_screen.dart';
 import 'chat/chat_service.dart';
 import 'chat/chat_store.dart';
@@ -207,14 +206,11 @@ class _ProjetosScreenState extends State<ProjetosScreen> {
         _museAberto = false;
         return;
       }
+      // Conversa DEDICADA (sempre a MESMA — não cria uma nova por dia): anexa a
+      // fala da Muse com a previsão e devolve o id p/ abrir.
       String? convId;
       try {
-        final conv = Conversa.nova(ChatPreset.geral)
-          ..titulo = 'Previsão do tempo'
-          ..mensagens.add(ChatMessage.ia(mensagemMuse))
-          ..atualizadaEm = DateTime.now();
-        await ChatStore.salvar(conv);
-        convId = conv.id;
+        convId = await ChatStore.anexarPrevisao(mensagemMuse);
       } catch (_) {}
       if (!mounted) {
         _museAberto = false;

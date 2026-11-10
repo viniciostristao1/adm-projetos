@@ -144,6 +144,28 @@ class ChatStore {
     return _fila;
   }
 
+  /// Id da conversa DEDICADA da previsão do tempo (V0.1.221): sempre a MESMA, não
+  /// cria uma nova a cada dia (pedido do dono).
+  static const _chaveConvTempo = 'taskix_muse_conv_tempo_v1';
+
+  /// Anexa a fala da Muse [mensagemMuse] (previsão do dia) à conversa DEDICADA
+  /// "Previsão do tempo" — SEMPRE a mesma. Cria se não existir (ou se o usuário
+  /// apagou), persiste e devolve o id p/ abrir. Não chama a IA.
+  static Future<String> anexarPrevisao(String mensagemMuse) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    final idSalvo = prefs.getString(_chaveConvTempo);
+    Conversa? conv = idSalvo != null ? await porId(idSalvo) : null;
+    conv ??= Conversa.nova(ChatPreset.geral)..titulo = 'Previsão do tempo';
+    conv.mensagens.add(ChatMessage.ia(mensagemMuse));
+    conv.atualizadaEm = DateTime.now();
+    await salvar(conv);
+    try {
+      await prefs.setString(_chaveConvTempo, conv.id);
+    } catch (_) {}
+    return conv.id;
+  }
+
   /// Lê as conversas SEM tolerar corrupção (usado pelos GRAVADORES): se o JSON
   /// salvo estiver corrompido/ilegível, LANÇA — e quem grava aborta, nunca
   /// sobrescrevendo o disco com MENOS dados. A `listar()` pública é tolerante
