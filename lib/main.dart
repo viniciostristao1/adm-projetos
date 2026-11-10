@@ -66,8 +66,11 @@ Future<void> main() async {
       debugPrint('Lembretes indisponíveis: $e');
     }
     // Push da previsão do tempo (6:15) vindo do servidor (FCM) — à prova de
-    // Doze/OEM; cria o canal, registra o token e escuta em 1º plano. Fire-and-
-    // forget: faz rede, não deve travar o boot. Best-effort (nunca lança).
+    // Doze/OEM. Primeiro consome (AWAIT) um toque que abriu o app a partir de
+    // MORTO, p/ a ProjetosScreen achar o pedido da Muse no disco já no initState.
+    await PushTempo.consumirToqueInicial();
+    // Resto (canal, token, listeners) fire-and-forget: faz rede, não trava o
+    // boot. Best-effort (nunca lança).
     PushTempo.init();
     runApp(const AdmProjetosApp());
   }, (error, stack) {
