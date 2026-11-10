@@ -27,6 +27,18 @@
         <meta-data
             android:name="taskix.notification_icon"
             android:resource="@drawable/ic_notif" />
+        <!-- FCM (push da previsão do tempo, 6:15): canal e ícone padrão da
+             notificação que o SISTEMA exibe com o app em 2º plano/fechado. O
+             servidor já manda channel_id=tempo_push_v1 na mensagem; estes são
+             fallback + garantem o ícone monocromático certo (sem isto o FCM usa
+             o ícone do launcher = quadrado branco). Referenciar ic_tempo aqui
+             também o mantém no APK (igual ao ic_notif acima). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="tempo_push_v1" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_tempo" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

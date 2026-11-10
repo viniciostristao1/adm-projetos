@@ -89,6 +89,15 @@ lib/
 │                        # `voz_velocidade_v1`/`voz_id_v1`) — seção "Voz da Muse"
 │                        # nas Configurações; "Fala devagar" por conversa (menu ⋮
 │                        # da Muse, `Conversa.falaDevagar` soma +0.16)
+└── push_tempo.dart      # PUSH da previsão do tempo (6:15) via FCM (V0.1.218) — o
+                         # alarme LOCAL das 6:15 não dispara em alguns Androids
+                         # (bug do caminho local; lembretes comuns funcionam). FCM
+                         # do servidor ignora Doze/OEM: cria o canal `tempo_push_v1`,
+                         # pega o token (firebase_messaging) e POSTa em
+                         # `/registrar_push`; em 1º plano mostra notificação local.
+                         # Servidor envia às 6:15 (cron `enviar_tempo_push.py` no
+                         # proxy). Alarme local (lembretes.dart/refresh_madrugada)
+                         # fica como RESERVA. Chamado no main() (fire-and-forget).
 ```
 
 ---
@@ -1419,6 +1428,7 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `Material`+`Ink`+`InkWell` (gravando = vermelho sólido). Tirou o especial-case do tema Bege (o
   degradê sai do `fab` de cada tema). Mantido: caixa de texto sempre visível, anexo (+, imagens via
   ImagePicker) e o segurar-pra-ditar. `flutter analyze` do arquivo: No issues.
+- **V0.1.218 — previsão das 6:15 por PUSH do servidor (FCM):** o alarme LOCAL das 6:15 não dispara em alguns Androids (bug do caminho local da previsão; os lembretes comuns, mesmo motor, funcionam). Novo `lib/push_tempo.dart`: `firebase_messaging` cria o canal `tempo_push_v1`, pega o token e registra em `/registrar_push` (proxy); em 1º plano mostra notificação local; chamado no `main()` (fire-and-forget). Manifesto: meta-data `default_notification_channel_id`/`default_notification_icon` (ic_tempo). Servidor (`/opt/taskix-chat`): `push.py` (FCM HTTP v1, SA PRÓPRIA do projeto adm-projetos-f78e9) + `POST /registrar_push` + cron `enviar_tempo_push.py` (6:15 BRT = 09:15 UTC, seg–sáb). Alarme local vira RESERVA. ⚠️ depende de o dono subir a SA `adm-projetos-sa.json` na VPS. flutter analyze sem erros (fora o `_temaBase` órfão pré-existente da V0.1.209).
 - **V0.1.217 — contorno fino na Muse da barra:** uma linha (outline do tema, 1.5px) ao redor do rosto recortado. flutter analyze sem erros.
 - **V0.1.216 — barra só-ícones (proposta 04 eleita no laboratório):** Projetos/Estudos sem rótulo (só outline 26px, Tooltip p/ acessibilidade); Muse centralizada maior mantida. flutter analyze sem erros.
 - **V0.1.215 — pronúncias mindfulness + horário H:MM:** mindfulness→maindifulnes (dict, sem plural) e regra H:MM→H e MM (5:15→cinco e quinze) nos DOIS lados (proxy + _normalizarFala; só minúsculas, MM/RM intactos); MUSE.md §4. flutter analyze sem erros.

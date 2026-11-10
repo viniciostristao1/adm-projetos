@@ -12,6 +12,7 @@ import 'cores.dart';
 import 'diagnostico.dart';
 import 'home_shell.dart';
 import 'lembretes.dart';
+import 'push_tempo.dart';
 import 'storage.dart';
 import 'sync_service.dart';
 import 'tema.dart';
@@ -64,6 +65,10 @@ Future<void> main() async {
     } catch (e) {
       debugPrint('Lembretes indisponíveis: $e');
     }
+    // Push da previsão do tempo (6:15) vindo do servidor (FCM) — à prova de
+    // Doze/OEM; cria o canal, registra o token e escuta em 1º plano. Fire-and-
+    // forget: faz rede, não deve travar o boot. Best-effort (nunca lança).
+    PushTempo.init();
     runApp(const AdmProjetosApp());
   }, (error, stack) {
     Diagnostico.registrar('zona', error, stack);
