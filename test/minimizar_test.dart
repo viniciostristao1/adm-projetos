@@ -103,9 +103,15 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: projeto)));
     await tester.pumpAndSettle();
 
+    // O topo do projeto também tem um "copiar" (copy_all) na AppBar desde a
+    // V0.1.222 — aqui buscamos SÓ o da caixinha (no corpo/TabBarView).
+    final copiarCaixa = find.descendant(
+        of: find.byType(TabBarView),
+        matching: find.byIcon(Icons.copy_all_outlined));
+
     // Expandida: barra de ferramentas visível (pino de arrastar + copiar).
     expect(find.byIcon(Icons.drag_indicator), findsOneWidget);
-    expect(find.byIcon(Icons.copy_all_outlined), findsOneWidget);
+    expect(copiarCaixa, findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.more_horiz));
     await tester.pumpAndSettle();
@@ -113,11 +119,11 @@ void main() {
     // Minimizada: barra OCULTA e botões copiar + "•••" no fim do texto.
     expect(find.byIcon(Icons.drag_indicator), findsNothing,
         reason: 'a barra de ferramentas some na minimizada');
-    expect(find.byIcon(Icons.copy_all_outlined), findsOneWidget);
+    expect(copiarCaixa, findsOneWidget);
     expect(find.byIcon(Icons.more_horiz), findsOneWidget);
 
     // Copiar continua copiando o texto INTEIRO (não só as 3 linhas).
-    await tester.tap(find.byIcon(Icons.copy_all_outlined));
+    await tester.tap(copiarCaixa);
     // Aviso "Copiado!" agenda um Timer de 4s — deixa ele disparar.
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();

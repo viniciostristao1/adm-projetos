@@ -729,11 +729,10 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     );
   }
 
-  @override
-
-  /// FAB da tela (pasta nova / caixa nova). Na aba Estudos (embutida no shell),
-  /// sobe 78px p/ não ficar atrás da barra flutuante externa; em rota cheia
-  /// (projeto aberto) segue no lugar padrão.
+  /// FAB da tela (pasta nova / caixa nova). V0.1.222: um respiro à direita (8px)
+  /// e mais folga do rodapé — o dono achava o '+' colado embaixo e à direita
+  /// demais. Na aba Estudos (embutida no shell) sobe mais (94) p/ clarear a barra
+  /// flutuante externa; em rota cheia, uma folga menor (12).
   Widget _botaoFlutuante() {
     final Widget fab = _modoPastas
         ? FloatingActionButton(
@@ -751,13 +750,13 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               child: const Icon(Icons.add),
             ),
           );
-    if (!widget.embutido) return fab;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 78),
+      padding: EdgeInsets.only(bottom: widget.embutido ? 94 : 12, right: 8),
       child: fab,
     );
   }
 
+  @override
   Widget build(BuildContext context) {
     // Cor do desenho = acento do tema ativo (cada tema pinta com a sua cor).
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
@@ -789,7 +788,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
             // na grade, volta para a aba Projetos (igual ao gesto do sistema).
             if (widget.embutido)
               _BotaoTopo(
-                glifo: _GlifoTopo.voltar,
+                icone: Icons.arrow_back_rounded,
                 cor: app.textoUI,
                 tooltip: 'Voltar',
                 onPressed: _voltarEmbutido,
@@ -827,19 +826,19 @@ class _ProjetoScreenState extends State<ProjetoScreen>
               ),
             // Demais: GHOST (desenho em branco/texto da UI, sem caixa).
             _BotaoTopo(
-              glifo: _GlifoTopo.pastas,
+              icone: _modoPastas ? Icons.view_agenda_outlined : Icons.folder_outlined,
               cor: app.textoUI,
               tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',
               onPressed: () => _definirModoPastas(!_modoPastas),
             ),
             _BotaoTopo(
-              glifo: _GlifoTopo.pdf,
+              icone: Icons.picture_as_pdf_outlined,
               cor: app.textoUI,
               tooltip: 'Exportar PDF do projeto',
               onPressed: () => exportarPdfProjeto(context, widget.projeto),
             ),
             _BotaoTopo(
-              glifo: _GlifoTopo.copiar,
+              icone: Icons.copy_all_outlined,
               cor: app.textoUI,
               tooltip: 'Copiar tudo do projeto',
               onPressed: _copiarProjeto,
@@ -847,7 +846,7 @@ class _ProjetoScreenState extends State<ProjetoScreen>
             // Projeto reservado numa aba (Estudos) não se exclui daqui.
             if (!widget.embutido)
               _BotaoTopo(
-                glifo: _GlifoTopo.excluir,
+                icone: Icons.delete_outline,
                 cor: app.textoUI,
                 tooltip: 'Excluir projeto',
                 onPressed: _excluirProjeto,
@@ -2415,20 +2414,18 @@ Widget _menuSelecao(
 }
 
 /// Qual desenho vai na plaquinha do topo do projeto (ideia 04 da galeria).
-enum _GlifoTopo { muse, pastas, pdf, copiar, excluir, voltar }
-
-/// Botão GHOST do topo do projeto: só o desenho, sem caixa — usado em
-/// Pastas/PDF/Copiar/Excluir com `cor` = texto da UI.
-/// (A Muse deixou de usá-lo na V0.1.175: virou o rosto/blob.) Vale em todos os
-/// temas (as cores vêm do tema).
+/// Botão GHOST do topo do projeto: ÍCONE Material padrão, sem caixa — usado em
+/// Pastas/PDF/Copiar/Excluir/Voltar com `cor` = texto da UI. (V0.1.222: os
+/// glifos desenhados à mão — `_TopoPainter` — pareciam fora do padrão; trocados
+/// por ícones Material.) Vale em todos os temas (a cor vem do tema).
 class _BotaoTopo extends StatelessWidget {
   const _BotaoTopo({
-    required this.glifo,
+    required this.icone,
     required this.cor,
     required this.tooltip,
     required this.onPressed,
   });
-  final _GlifoTopo glifo;
+  final IconData icone;
   final Color cor;
   final String tooltip;
   final VoidCallback onPressed;
@@ -2443,196 +2440,12 @@ class _BotaoTopo extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           onTap: onPressed,
           child: SizedBox(
-            width: 44,
+            width: 42,
             height: 40,
-            child: Center(
-              child: CustomPaint(
-                painter: _TopoPainter(glifo, cor),
-                size: const Size.square(26),
-              ),
-            ),
+            child: Center(child: Icon(icone, size: 22, color: cor)),
           ),
         ),
       ),
     );
   }
-}
-
-class _TopoPainter extends CustomPainter {
-  _TopoPainter(this.glifo, this.cor);
-  final _GlifoTopo glifo;
-  final Color cor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Caixa lógica 96x96 (mesma geometria dos SVGs em `ideias_botoes/topo/`).
-    final s = size.width / 96.0;
-    double r(double v) => v * s;
-    final traco = Paint()
-      ..color = cor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = r(6)
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final cheio = Paint()
-      ..color = cor
-      ..style = PaintingStyle.fill;
-
-    switch (glifo) {
-      case _GlifoTopo.muse:
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(25), r(38))
-            ..cubicTo(r(25), r(17), r(71), r(17), r(71), r(38)),
-          traco,
-        );
-        canvas.drawRRect(
-          RRect.fromLTRBR(r(67), r(32), r(75), r(46), Radius.circular(r(4))),
-          cheio,
-        );
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(71), r(44))
-            ..cubicTo(r(71), r(56), r(64), r(60), r(58), r(60)),
-          traco,
-        );
-        canvas.drawCircle(Offset(r(56), r(60)), r(4), cheio);
-        canvas.drawRRect(
-          RRect.fromLTRBR(r(25), r(32), r(71), r(66), Radius.circular(r(12))),
-          traco,
-        );
-        canvas.drawCircle(Offset(r(40), r(48)), r(4.4), cheio);
-        canvas.drawCircle(Offset(r(56), r(48)), r(4.4), cheio);
-        final sorriso = traco..strokeWidth = r(4);
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(38), r(58))
-            ..quadraticBezierTo(r(44), r(62), r(50), r(60)),
-          sorriso,
-        );
-
-      case _GlifoTopo.pastas:
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(20), r(68))
-            ..lineTo(r(20), r(40))
-            ..quadraticBezierTo(r(20), r(36), r(24), r(36))
-            ..lineTo(r(38), r(36))
-            ..lineTo(r(44), r(43))
-            ..lineTo(r(70), r(43))
-            ..quadraticBezierTo(r(74), r(43), r(74), r(47))
-            ..lineTo(r(74), r(64))
-            ..quadraticBezierTo(r(74), r(68), r(70), r(68))
-            ..lineTo(r(24), r(68))
-            ..quadraticBezierTo(r(20), r(68), r(20), r(64))
-            ..close(),
-          traco,
-        );
-
-      case _GlifoTopo.pdf:
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(32), r(20))
-            ..lineTo(r(54), r(20))
-            ..lineTo(r(66), r(32))
-            ..lineTo(r(66), r(72))
-            ..lineTo(r(32), r(72))
-            ..close(),
-          traco,
-        );
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(54), r(20))
-            ..lineTo(r(54), r(32))
-            ..lineTo(r(66), r(32)),
-          traco,
-        );
-        final tp = TextPainter(
-          text: TextSpan(
-            text: 'PDF',
-            style: TextStyle(
-                color: cor, fontSize: r(17), fontWeight: FontWeight.bold),
-          ),
-          textDirection: TextDirection.ltr,
-        );
-        tp.layout();
-        tp.paint(
-            canvas, Offset(r(49) - tp.width / 2, r(56) - tp.height / 2));
-
-      case _GlifoTopo.copiar:
-        canvas.drawRRect(
-          RRect.fromLTRBR(
-              r(30), r(36), r(62), r(74), Radius.circular(r(6))),
-          traco,
-        );
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(30), r(36))
-            ..lineTo(r(30), r(28))
-            ..quadraticBezierTo(r(30), r(22), r(36), r(22))
-            ..lineTo(r(64), r(22))
-            ..quadraticBezierTo(r(70), r(22), r(70), r(28))
-            ..lineTo(r(70), r(38)),
-          traco,
-        );
-        final fino = traco..strokeWidth = r(3);
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(36), r(52))
-            ..lineTo(r(52), r(52))
-            ..moveTo(r(36), r(60))
-            ..lineTo(r(46), r(60)),
-          fino,
-        );
-
-      case _GlifoTopo.excluir:
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(32), r(30))
-            ..lineTo(r(64), r(30)),
-          traco,
-        );
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(40), r(30))
-            ..lineTo(r(40), r(25))
-            ..lineTo(r(56), r(25))
-            ..lineTo(r(56), r(30)),
-          traco,
-        );
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(37), r(30))
-            ..lineTo(r(40), r(68))
-            ..lineTo(r(56), r(68))
-            ..lineTo(r(59), r(30)),
-          traco,
-        );
-        final fino = traco..strokeWidth = r(3);
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(45), r(38))
-            ..lineTo(r(45), r(60))
-            ..moveTo(r(51), r(38))
-            ..lineTo(r(51), r(60)),
-          fino,
-        );
-
-      case _GlifoTopo.voltar:
-        // Seta para a esquerda (mesmo traço dos demais glifos).
-        canvas.drawPath(
-          Path()
-            ..moveTo(r(68), r(48))
-            ..lineTo(r(30), r(48))
-            ..moveTo(r(47), r(31))
-            ..lineTo(r(29), r(48))
-            ..lineTo(r(47), r(65)),
-          traco,
-        );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TopoPainter old) =>
-      old.glifo != glifo || old.cor != cor;
 }
