@@ -14,6 +14,7 @@ import 'chat/chat_config.dart';
 import 'chat/chat_screen.dart';
 import 'chat/chat_service.dart';
 import 'chat/chat_store.dart';
+import 'push_tempo.dart';
 import 'cores.dart';
 import 'editor.dart';
 import 'lembretes.dart';
@@ -35,8 +36,17 @@ Future<void> sincronizarPrevisaoTempo() async {
     if (!LembretesService.instance.previsaoTempoAtiva) return;
     if (!ChatConfig.habilitado) return;
     final dias = await ChatService.buscarTempoNotif();
-    if (dias.isNotEmpty) {
-      await LembretesService.instance.agendarPrevisaoTempo(dias);
+    if (dias.isEmpty) return;
+    await LembretesService.instance.agendarPrevisaoTempo(dias);
+    // Mantém a conversa "Previsão do tempo" SEMPRE com a previsão de HOJE,
+    // anexando 1x/dia ao abrir o app (guarda de data no ChatStore). Assim ela
+    // nunca fica velha mesmo que o toque na notificação do push não funcione
+    // (o roteamento de toque do FCM em cold-start é instável). V0.1.223.
+    final hoje = dias.first; // [0] = hoje
+    final corpo = hoje['corpo'] ?? '';
+    if (corpo.isNotEmpty) {
+      await ChatStore.anexarPrevisao(PushTempo.montarMensagem(
+          hoje['titulo'] ?? 'Previsão do tempo', corpo));
     }
   } catch (_) {}
 }

@@ -147,19 +147,41 @@ class ChatStore {
   /// Id da conversa DEDICADA da previsão do tempo (V0.1.221): sempre a MESMA, não
   /// cria uma nova a cada dia (pedido do dono).
   static const _chaveConvTempo = 'taskix_muse_conv_tempo_v1';
+  /// Data (AAAA-MM-DD) da última previsão anexada — p/ anexar só 1x/dia (V0.1.223).
+  static const _chaveConvTempoData = 'taskix_muse_conv_tempo_data_v1';
 
-  /// Anexa a fala da Muse [mensagemMuse] (previsão do dia) à conversa DEDICADA
-  /// "Previsão do tempo" — SEMPRE a mesma. Cria se não existir (ou se o usuário
-  /// apagou), persiste e devolve o id p/ abrir. Não chama a IA.
+  static String _hojeIso() {
+    final d = DateTime.now();
+    return '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Garante que a previsão [mensagemMuse] do DIA esteja na conversa DEDICADA
+  /// "Previsão do tempo" (SEMPRE a mesma). Anexa só UMA vez por dia (guarda de
+  /// data) — pode ser chamado pelo SYNC do app (ao abrir, mantém a conversa atual
+  /// mesmo que o toque na notificação falhe) E pelo TOQUE do push, SEM duplicar.
+  /// Cria a conversa se não existir (ou se o usuário apagou). Devolve o id p/ abrir.
+  /// Não chama a IA.
   static Future<String> anexarPrevisao(String mensagemMuse) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.reload();
     final idSalvo = prefs.getString(_chaveConvTempo);
+    final hoje = _hojeIso();
+    final jaHoje = prefs.getString(_chaveConvTempoData) == hoje;
     Conversa? conv = idSalvo != null ? await porId(idSalvo) : null;
+    final existia = conv != null;
     conv ??= Conversa.nova(ChatPreset.geral)..titulo = 'Previsão do tempo';
-    conv.mensagens.add(ChatMessage.ia(mensagemMuse));
-    conv.atualizadaEm = DateTime.now();
-    await salvar(conv);
+    // Anexa a de hoje 1x/dia (sync + toque não duplicam). Se a conversa foi
+    // recriada (não existia), anexa mesmo que a data já fosse "hoje".
+    if (!jaHoje || !existia) {
+      conv.mensagens.add(ChatMessage.ia(mensagemMuse));
+      conv.atualizadaEm = DateTime.now();
+      await salvar(conv);
+      try {
+        await prefs.setString(_chaveConvTempoData, hoje);
+      } catch (_) {}
+    }
     try {
       await prefs.setString(_chaveConvTempo, conv.id);
     } catch (_) {}
