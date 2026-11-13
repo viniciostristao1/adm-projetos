@@ -24,6 +24,13 @@ const int idRefreshMadrugada = 910100;
 const int horaRefresh = 5;
 const int minRefresh = 30;
 
+/// ⛔ Reserva LOCAL da previsão (alarme 05:30 que reagenda os 6:15 locais)
+/// DESLIGADA na V0.1.224: o PUSH do servidor (FCM) é a fonte ÚNICA e confiável;
+/// com o alarme local TAMBÉM disparando, o dono recebia DUAS notificações iguais.
+/// Com `false`, o `armarRefreshMadrugada` e o callback CANCELAM a si mesmos e os
+/// slots locais (via `agendarPrevisaoTempo`). Reativar só se o FCM sair de cena.
+const bool reservaTempoLocalAtiva = false;
+
 /// Um slot 6:15 calculado (puro, testável): ordem, textos e instante local.
 typedef SlotTempo = ({
   int slot,
@@ -78,6 +85,13 @@ tz.TZDateTime _tzDe(DateTime local) =>
 /// Arma (ou rearma — idempotente, mesmo id sobrescreve) o próximo 05:30.
 /// Chamado ao abrir o app com o toggle ligado e ao ligar o toggle.
 Future<bool> armarRefreshMadrugada() async {
+  // Reserva local desligada (V0.1.224): não arma; cancela o que houver.
+  if (!reservaTempoLocalAtiva) {
+    try {
+      await AndroidAlarmManager.cancel(idRefreshMadrugada);
+    } catch (_) {}
+    return false;
+  }
   try {
     final prox = _tzDe(proximaMadrugada(DateTime.now()));
     return await AndroidAlarmManager.oneShotAt(
@@ -100,6 +114,13 @@ Future<bool> armarRefreshMadrugada() async {
 Future<void> refreshMadrugadaCallback() async {
   DartPluginRegistrant.ensureInitialized();
   tzdata.initializeTimeZones();
+  // Reserva local desligada (V0.1.224): não reagenda nada e encerra a cadeia.
+  if (!reservaTempoLocalAtiva) {
+    try {
+      await AndroidAlarmManager.cancel(idRefreshMadrugada);
+    } catch (_) {}
+    return;
+  }
   try {
     final prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool(LembretesService.chaveTempoAtivo) ?? false)) {

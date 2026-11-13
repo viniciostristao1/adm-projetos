@@ -8,7 +8,7 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'refresh_madrugada.dart'
-    show armarRefreshMadrugada, calcularSlotsTempo;
+    show armarRefreshMadrugada, calcularSlotsTempo, reservaTempoLocalAtiva;
 
 /// Dias da semana (1=segunda..7=domingo) p/ o rótulo de recorrência semanal.
 const List<String> _diasSem = [
@@ -462,6 +462,16 @@ class LembretesService extends ChangeNotifier {
   /// `calcularSlotsTempo` (regra única com o refresh de madrugada).
   Future<void> agendarPrevisaoTempo(List<Map<String, String>> dias) async {
     if (!_pronto) await init();
+    // Reserva LOCAL desligada (V0.1.224): o push FCM é a fonte única — cancela
+    // qualquer notificação local de previsão (slots + alarme de madrugada) p/
+    // acabar com a DUPLICATA (push + local). Ver `reservaTempoLocalAtiva`.
+    if (!reservaTempoLocalAtiva) {
+      await _cancelarTempo();
+      try {
+        await armarRefreshMadrugada(); // com a flag off, apenas CANCELA o alarme
+      } catch (_) {}
+      return;
+    }
     if (!_tempoAtivo || dias.isEmpty) return;
     final agora = DateTime.now();
     var ok = 0;

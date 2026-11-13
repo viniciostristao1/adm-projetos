@@ -149,6 +149,10 @@ class ChatStore {
   static const _chaveConvTempo = 'taskix_muse_conv_tempo_v1';
   /// Data (AAAA-MM-DD) da última previsão anexada — p/ anexar só 1x/dia (V0.1.223).
   static const _chaveConvTempoData = 'taskix_muse_conv_tempo_data_v1';
+  /// Texto da última previsão anexada — p/ atualizar quando ela fica MAIS RICA
+  /// no mesmo dia (ex.: abriu antes das 6:15 e pegou só o tempo; depois a
+  /// curiosidade entrou). V0.1.224.
+  static const _chaveConvTempoMsg = 'taskix_muse_conv_tempo_msg_v1';
 
   static String _hojeIso() {
     final d = DateTime.now();
@@ -169,17 +173,23 @@ class ChatStore {
     final idSalvo = prefs.getString(_chaveConvTempo);
     final hoje = _hojeIso();
     final jaHoje = prefs.getString(_chaveConvTempoData) == hoje;
+    final anterior = prefs.getString(_chaveConvTempoMsg) ?? '';
     Conversa? conv = idSalvo != null ? await porId(idSalvo) : null;
     final existia = conv != null;
     conv ??= Conversa.nova(ChatPreset.geral)..titulo = 'Previsão do tempo';
-    // Anexa a de hoje 1x/dia (sync + toque não duplicam). Se a conversa foi
-    // recriada (não existia), anexa mesmo que a data já fosse "hoje".
-    if (!jaHoje || !existia) {
+    // Anexa quando: (a) é um novo dia; (b) a conversa foi recriada; OU (c) a
+    // previsão de hoje ficou MAIS RICA (cresceu ≥20 chars — ganhou a curiosidade
+    // depois das 6:15, se o app tinha aberto só com o tempo). O crescimento evita
+    // reanexar por flutuação mínima de temperatura. Sync e toque com o MESMO
+    // texto não duplicam (nenhuma das 3 condições dispara).
+    final maisRica = mensagemMuse.length > anterior.length + 20;
+    if (!jaHoje || !existia || maisRica) {
       conv.mensagens.add(ChatMessage.ia(mensagemMuse));
       conv.atualizadaEm = DateTime.now();
       await salvar(conv);
       try {
         await prefs.setString(_chaveConvTempoData, hoje);
+        await prefs.setString(_chaveConvTempoMsg, mensagemMuse);
       } catch (_) {}
     }
     try {
