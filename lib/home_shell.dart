@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'chat/chat_config.dart';
@@ -167,44 +169,54 @@ class _BarraFlutuante extends StatelessWidget {
     final fundoBarra = plano
         ? app.barraFerramentas
         : Color.alphaBlend(cs.onSurface.withValues(alpha: 0.04), cs.surface);
+    // Translúcida (~88%): o conteúdo aparece de leve ao rolar por baixo; o
+    // blur mantém os ícones legíveis em todos os temas.
+    final fundoTranslucido = fundoBarra.withValues(alpha: 0.88);
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-        child: Container(
-          height: 64,
-          // SEM clip aqui: o botão central elevado ultrapassa o topo (o clip
-          // vive no ClipRRect interno da fileira, que contém os respingos).
-          decoration: BoxDecoration(
-            color: fundoBarra,
-            borderRadius: BorderRadius.circular(30),
-            border: plano
-                ? Border.all(color: cs.outlineVariant.withValues(alpha: 0.7))
-                : null,
-            boxShadow: plano
-                ? null
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+        padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: fundoTranslucido,
+                borderRadius: BorderRadius.circular(28),
+                border: plano
+                    ? Border.all(
+                        color: cs.outlineVariant.withValues(alpha: 0.7))
+                    : null,
+                boxShadow: plano
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+              ),
+              child: _conteudoBarra(context, app, cs),
+            ),
           ),
-          child: _conteudoBarra(context, app, cs),
         ),
       ),
     );
   }
 
-  /// Conteúdo da barra: com a aba Muse, o avatar vai NO MEIO da fileira,
-  /// centralizado verticalmente com os ícones (sem elevar nem sobressair).
-  /// Sem Muse (build sem CHAT), fileira simples com as abas que houver.
+  /// Conteúdo da barra: com a aba Muse, o avatar vai NO MEIO da fileira, do
+  /// MESMO tamanho visual dos ícones e centralizado com eles (sem anel nem
+  /// destaque). Sem Muse (build sem CHAT), fileira simples com as abas que
+  /// houver. As fileiras esticam na altura (48dp+ de toque por item).
   Widget _conteudoBarra(
       BuildContext context, AppCores app, ColorScheme cs) {
     final iMuse = abas.indexOf(_Aba.muse);
     if (iMuse < 0) {
       return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (var i = 0; i < abas.length; i++)
             Expanded(
@@ -228,34 +240,39 @@ class _BarraFlutuante extends StatelessWidget {
             onTap: () => onSelecionar(i),
           ),
         );
-    // Rosto recortado do PNG (corta o anel laranja da borda): ocupa quase
-    // todo o círculo de 56px, com UMA linha fina de contorno.
+    // Rosto do MESMO tamanho visual dos ícones (30px, sem anel): o recorte
+    // do PNG segue proporcional (corta a borda do anel). O toque tem 48x48
+    // (padding invisível ao redor do rosto).
     Widget muse() => Tooltip(
           message: 'Muse Spark (assistente)',
-          child: GestureDetector(
-            onTap: () => onSelecionar(iMuse),
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outline,
-                  width: 1.5,
-                ),
-              ),
-              child: ClipOval(
-                child: OverflowBox(
-                  maxWidth: 72,
-                  maxHeight: 72,
-                  child: MuseBlob(size: 72),
+          child: SizedBox(
+            width: 64,
+            height: double.infinity,
+            child: Center(
+              child: GestureDetector(
+                onTap: () => onSelecionar(iMuse),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: const BoxDecoration(shape: BoxShape.circle),
+                  child: const SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: ClipOval(
+                      child: OverflowBox(
+                        maxWidth: 38,
+                        maxHeight: 38,
+                        child: MuseBlob(size: 38),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
         );
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < abas.length; i++)
           if (i != iMuse) lado(i) else muse(),
@@ -304,32 +321,26 @@ class _ItemBarra extends StatelessWidget {
       );
     }
     // Proposta 04 eleita (laboratório): só ícones, sem rótulo — o Tooltip
-    // mantém o nome acessível.
+    // mantém o nome acessível. O InkWell preenche a célula inteira (56px de
+    // altura), então cada aba tem 48dp+ de área tocável.
     return Tooltip(
       message: _rotulo,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Pílula de destaque atrás do ícone da aba ativa.
-              Container(
-                height: 36,
-                width: 56,
-                alignment: Alignment.center,
-                decoration: selecionado
-                    ? BoxDecoration(
-                        color: acento.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(16),
-                      )
-                    : null,
-                child: icone,
-              ),
-            ],
+        child: Center(
+          // Pílula de destaque atrás do ícone da aba ativa.
+          child: Container(
+            height: 36,
+            width: 56,
+            alignment: Alignment.center,
+            decoration: selecionado
+                ? BoxDecoration(
+                    color: acento.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(16),
+                  )
+                : null,
+            child: icone,
           ),
         ),
       ),

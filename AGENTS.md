@@ -1428,6 +1428,7 @@ um `FloatingActionButton.small` à esquerda do "+"; migrado para a caixinha em V
   `Material`+`Ink`+`InkWell` (gravando = vermelho sólido). Tirou o especial-case do tema Bege (o
   degradê sai do `fab` de cada tema). Mantido: caixa de texto sempre visível, anexo (+, imagens via
   ImagePicker) e o segurar-pra-ditar. `flutter analyze` do arquivo: No issues.
+- **V0.1.227 — barra inferior mais baixa + Muse do tamanho dos ícones + fundo translúcido:** (1) altura 64→56 + respiros externos 4/10→2/8 (visivelmente mais baixa); fileira estica na altura e o `InkWell` preenche a célula (56px ≥ 48dp de toque por aba). (2) Muse 56→30px (mesmo tamanho visual dos ícones de 26px), centralizada, SEM o anel de contorno; toque com padding invisível (48x48). (3) fundo a 88% + `BackdropFilter` blur 12 (conteúdo aparece de leve ao rolar por baixo; legível em todos os temas, testado com e sem CHAT). `test/barra_test.dart` (sem overflow, altura ≤56, alvos ≥48). `flutter analyze` limpo; suite verde.
 - **V0.1.226 — previsão em BULLETS + anti-duplicata do push:** (1) `PushTempo.montarMensagem(corpo)` (dropou o título) → a conversa mostra "Aqui está a previsão de hoje em Lajeado:" + `• mín/máx · céu` + `• chuva` + "Próximos 3 dias:" com nomes COMPLETOS (Domingo/Segunda…) em bullets + `🧠 Curiosidade do dia`. Título da notificação não é mais repetido na conversa. (2) [SERVIDOR] `tempo._msg_dia` reformatado em bullets (`_DIAS_LONGOS`); `push.py` ganhou `tag`+`collapse_key` fixos → o FCM SUBSTITUI a notificação anterior (nunca acumula; fim da duplicata do push; o alarme local reserva já estava off na V0.1.224). flutter analyze limpo.
 - **V0.1.225 — bolhas do chat da Muse mais largas e equilibradas:** mensagens ocupam ~90% da largura (era 0.9 mas o texto não preenchia), espelhadas (Muse esquerda sem caixa, usuário direita em bolha). Padding lateral SIMÉTRICO 14dp (`_bolha` + `_bolhaStream`); removido o `Padding(right:8)` EXTRA no texto da Muse que apertava e deixava gaps no fim das linhas (fonte serifada do tema Dark). Prévia (PNG headless) aprovada pelo dono. flutter analyze limpo. (Servidor, à parte: `opencode_reaper.sh` cron 30min reinicia OpenCode >850MB só quando ocioso — fim da limpeza manual.)
 - **V0.1.224 — fim da notificação DUPLICADA + conversa pega a curiosidade mesmo abrindo cedo + condição do céu:** (1) o dono recebia DUAS notificações iguais às 6:15 (PUSH FCM + ALARME LOCAL reserva que voltou a disparar). Desliguei a reserva local (`reservaTempoLocalAtiva=false` em `refresh_madrugada.dart`): `agendarPrevisaoTempo` CANCELA os slots + o alarme de madrugada em vez de agendar; `armarRefreshMadrugada`/callback se auto-cancelam. Push FCM = fonte única. (2) `ChatStore.anexarPrevisao` atualiza a previsão do dia se ficar MAIS RICA (cresceu ≥20 chars = ganhou a curiosidade depois das 6:15) — a guarda só-por-data bloqueava quem abria antes das 6:15 (`_chaveConvTempoMsg`). (3) [SERVIDOR, sem APK] `tempo.py` + `weathercode`: CONDIÇÃO DO CÉU (ensolarado/parc. nublado/nublado/nevoeiro/…) no título de hoje e nos próximos dias, com emoji coerente (☀️/⛅/☁️). flutter analyze limpo.
@@ -1611,7 +1612,7 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 
 ---
 
-## 10. Testes (161 testes)
+## 10. Testes (185 testes)
 
 ### `test/widget_test.dart` (8 testes)
 - Serialização de `Nota`
@@ -1738,6 +1739,12 @@ gh release download v0.1.0 --repo viniciostristao1/adm-projetos --clobber
 - Projeto com `modoPastasInicial`: entrar na pasta, 1º voltar do sistema volta
   À GRADE (rota preservada), 2º voltar sai para a lista
 - Sem `modoPastasInicial`: voltar sai direto (comportamento antigo intacto)
+
+### `test/barra_test.dart` (1 teste — V0.1.227)
+- `HomeShell` em 390px: sem overflow (exceção = falha), barra ≤ 56px de altura,
+  todo `InkWell` da barra com ≥ 48px de altura e a Muse com área ≥ 48x48.
+  (Com CHAT ligado o `pumpAndSettle` nunca acaba por causa da Muse que respira
+  em loop — usa frames fixos; cobre os dois modos.)
 
 ---
 
