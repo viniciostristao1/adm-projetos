@@ -169,10 +169,10 @@ class _BarraFlutuante extends StatelessWidget {
     final fundoBarra = plano
         ? app.barraFerramentas
         : Color.alphaBlend(cs.onSurface.withValues(alpha: 0.04), cs.surface);
-    // Translúcida (~65%): o conteúdo rolando por baixo aparece bem; o blur
+    // Translúcida (~55%): o conteúdo rolando por baixo aparece bem; o blur
     // reforçado mantém os ícones legíveis em todos os temas (a cor base já
     // vem do tema — vale p/ Claro, Escuro, Creme e os demais sem ajuste).
-    final fundoTranslucido = fundoBarra.withValues(alpha: 0.65);
+    final fundoTranslucido = fundoBarra.withValues(alpha: 0.55);
     return SafeArea(
       top: false,
       child: Padding(
@@ -182,7 +182,7 @@ class _BarraFlutuante extends StatelessWidget {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
-              height: 52,
+              height: 58,
               decoration: BoxDecoration(
                 color: fundoTranslucido,
                 borderRadius: BorderRadius.circular(26),
