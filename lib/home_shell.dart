@@ -169,24 +169,23 @@ class _BarraFlutuante extends StatelessWidget {
     final fundoBarra = plano
         ? app.barraFerramentas
         : Color.alphaBlend(cs.onSurface.withValues(alpha: 0.04), cs.surface);
-    // Translúcida (~72%): o conteúdo rolando por baixo aparece de forma
-    // perceptível; o blur reforçado mantém os ícones legíveis em todos os
-    // temas (a cor base já vem do tema — vale p/ Claro, Escuro, Creme e os
-    // demais sem ajuste por tema).
-    final fundoTranslucido = fundoBarra.withValues(alpha: 0.72);
+    // Translúcida (~65%): o conteúdo rolando por baixo aparece bem; o blur
+    // reforçado mantém os ícones legíveis em todos os temas (a cor base já
+    // vem do tema — vale p/ Claro, Escuro, Creme e os demais sem ajuste).
+    final fundoTranslucido = fundoBarra.withValues(alpha: 0.65);
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(26),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
-              height: 48,
+              height: 52,
               decoration: BoxDecoration(
                 color: fundoTranslucido,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(26),
                 border: plano
                     ? Border.all(
                         color: cs.outlineVariant.withValues(alpha: 0.7))
@@ -323,9 +322,9 @@ class _ItemBarra extends StatelessWidget {
       );
     }
     // Proposta 04 eleita (laboratório): só ícones, sem rótulo — o Tooltip
-    // mantém o nome acessível. O InkWell preenche a célula inteira (48px de
-    // altura) e a pílula tem 36px: sobram 6px em cima/embaixo, e cada aba
-    // mantém os 48dp de toque. A pílula do indicador respeita a altura nova.
+    // mantém o nome acessível. O InkWell preenche a célula inteira (52px de
+    // altura) e a pílula tem 36px: sobram 8px em cima/embaixo, e cada aba
+    // mantém 48dp+ de toque. A pílula do indicador respeita a altura nova.
     return Tooltip(
       message: _rotulo,
       child: InkWell(

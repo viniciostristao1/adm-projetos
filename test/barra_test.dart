@@ -51,7 +51,7 @@ void main() {
     final barra = find.byType(BackdropFilter);
     expect(barra, findsOneWidget);
     final size = tester.getSize(barra);
-    expect(size.height, lessThanOrEqualTo(48));
+    expect(size.height, lessThanOrEqualTo(52));
 
     // Alvos de toque: cada InkWell DENTRO da barra tem >= 48 de altura.
     final barraBox = find.byType(BackdropFilter);
