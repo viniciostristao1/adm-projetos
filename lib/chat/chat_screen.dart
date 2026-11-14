@@ -2418,14 +2418,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             builder: (context) {
               final bolha = Container(
                 margin: const EdgeInsets.only(top: 4, bottom: 2),
-                padding: EdgeInsets.fromLTRB(
-                  14,
-                  10,
-                  ehEu ? 14 : 6,
-                  ehEu ? 10 : 2,
-                ),
+                // Padding lateral discreto e SIMÉTRICO (14dp) — o texto usa quase
+                // toda a largura da bolha (V0.1.225, pedido do dono).
+                padding: EdgeInsets.fromLTRB(14, 10, 14, ehEu ? 10 : 2),
+                // ~90% da largura em AMBOS, espelhado: a Muse à esquerda e a sua
+                // à direita, com uma margem pequena no lado oposto pra diferenciar.
                 constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxWidth: MediaQuery.of(context).size.width * 0.90,
                 ),
                 // Muse: SEM caixa de fundo em TODOS os temas (V0.1.201) — o texto
                 // vai direto no fundo da tela, contínuo, sem retângulo nem corte
@@ -2448,10 +2447,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: texto,
-                          ),
+                          texto,
                           Align(
                             alignment: Alignment.centerRight,
                             child: Wrap(
@@ -2750,9 +2746,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(top: 4, bottom: 2),
-        padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),  // simétrico (V0.1.225)
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.9,
+          maxWidth: MediaQuery.of(context).size.width * 0.90,
         ),
         // Muse: SEM caixa de fundo em TODOS os temas (V0.1.201) — igual à bolha
         // final; a resposta ao vivo já nasce direto no fundo.
