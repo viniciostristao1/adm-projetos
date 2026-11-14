@@ -45,8 +45,7 @@ Future<void> sincronizarPrevisaoTempo() async {
     final hoje = dias.first; // [0] = hoje
     final corpo = hoje['corpo'] ?? '';
     if (corpo.isNotEmpty) {
-      await ChatStore.anexarPrevisao(PushTempo.montarMensagem(
-          hoje['titulo'] ?? 'Previsão do tempo', corpo));
+      await ChatStore.anexarPrevisao(PushTempo.montarMensagem(corpo));
     }
   } catch (_) {}
 }

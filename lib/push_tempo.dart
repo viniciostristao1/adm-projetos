@@ -105,19 +105,18 @@ class PushTempo {
   static bool _ehTempo(RemoteMessage? m) =>
       m != null && (m.data['tipo'] ?? '') == 'tempo';
 
-  /// Mensagem de ABERTURA da Muse a partir do título+corpo da previsão — é o
-  /// texto que a Muse já "disse" ao abrir o chat. Público (V0.1.223) p/ o SYNC
-  /// do app anexar o MESMO texto na conversa ao abrir (sem depender do toque).
-  static String montarMensagem(String titulo, String corpo) {
-    final previsao =
-        [titulo.trim(), corpo.trim()].where((s) => s.isNotEmpty).join('\n');
-    return 'Aqui está a previsão de hoje em Lajeado ☀️\n\n$previsao'
+  /// Mensagem de ABERTURA da Muse a partir do CORPO da previsão (já em bullets:
+  /// mín/máx, chuva, próximos + a curiosidade). É o texto que a Muse já "disse"
+  /// ao abrir o chat. Público (V0.1.223) p/ o SYNC do app usar o MESMO texto. O
+  /// TÍTULO da notificação não entra aqui (seria repetir "Lajeado"). V0.1.226.
+  static String montarMensagem(String corpo) {
+    return 'Aqui está a previsão de hoje em Lajeado:\n\n${corpo.trim()}'
         '\n\nPosso te ajudar a decidir algo — roupa, treino, guarda-chuva? '
         'É só perguntar. 😊';
   }
 
-  static String _mensagemMuse(RemoteMessage m) => montarMensagem(
-      m.notification?.title ?? 'Previsão do tempo', m.notification?.body ?? '');
+  static String _mensagemMuse(RemoteMessage m) =>
+      montarMensagem(m.notification?.body ?? '');
 
   static Future<void> _mostrarEmPrimeiroPlano(RemoteMessage m) async {
     if (!_ehTempo(m)) return;
