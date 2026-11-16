@@ -164,6 +164,35 @@ Tudo vive em **`/opt/taskix-chat/conhecimento/`** (a Muse lê a cada mensagem; n
 
 A Muse também tem **memória episódica** automática (aprende 1 fato por troca; ver `INSTRUCOES.md` → "memória episódica"). O proxy injeta a **data/hora de hoje** (Brasília) e o **carimbo por mensagem** p/ ela entender "ontem/hoje/amanhã".
 
+### Espelho no Claude (chat) — Projeto "Muse" (2026-11-16)
+Os mesmos contextos vivem também no **chat do Claude**, num **Projeto privado "Muse"**
+(modelo Haiku). Onde está cada cópia:
+- **Fonte gerada: `/root/muse-claude/` (VPS)** — `muse-1-identidade.md` (persona e
+  modos, de `app.py`: `_PERSONA`, `_IDENT`, saudação, modos, CVV),
+  `muse-2-pessoal.md` (`pessoal.md` + `perfil.md` + `projetos.md` + 40 notas da
+  `memoria.json`; Diário: últimos 3 meses), `muse-3-treino.md` (`_COACH` adaptado +
+  `calis_ciencia.md` + 4 `calis_det_*`), `muse-4-livros.md` (índice + 9 detalhes,
+  sem `_modelo.md`), `muse-5-cread.md` (guia do Cread) + `LEIA-ME-revisao.md`
+  (checklist de revisão — NÃO sobe).
+- **Transporte: Google Drive do usuário (pasta "Muse")** — ele sobe os arquivos
+  aprovados (a IA não tem acesso ao Drive dele).
+- **Cópia ativa: base de conhecimento do Projeto** (upload ou Drive) + instruções
+  de 1 parágrafo + memória ligada (com tópicos sensíveis, pela saúde) + opt-out
+  de treino + seletor em Haiku.
+- Ficou de fora de propósito: segredos, voz/streaming/`[[ACAO]]`/`[[SUGESTOES]]`,
+  `contexto_ia.md` (defasado), dados ao vivo, `treino-principios.md` (não existe).
+
+**Fluxo para atualizar um documento do Claude** (mudou uma instrução):
+1. Mude a FONTE no Taskix (`conhecimento/*.md` com `[AAAA-MM-DD]`; se for
+   persona/modo, em `app.py`).
+2. Regenere o arquivo-espelho (peça à IA; base em `/root/muse-claude/`).
+3. Revise (sensíveis: saúde/família) e suba ao Drive com o MESMO nome.
+4. No Projeto, re-sincronize o arquivo (se o Drive não atualizar sozinho,
+   re-upload) e teste com 1 pergunta coberta pela mudança.
+Regra: Taskix (`conhecimento/` + `app.py`) é a FONTE; `/root/muse-claude/` é o
+espelho gerado; Drive é transporte; o Projeto é a cópia ativa. **Nunca edite só
+no Claude** (vira divergência silenciosa).
+
 ### Horário de sono (lembrete de dormir)
 Em `app.py` → `_nivel_sono`: seg–qui sinaliza ≥20:45 e enfatiza ≥21:15; **sexta e sábado** mais tarde (sinal ≥21:30, enfático ≥22:00); domingo sem cutucada.
 
