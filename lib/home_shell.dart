@@ -49,17 +49,25 @@ class _HomeShellState extends State<HomeShell> {
     // Permite abrir a aba Muse (com a barra) de qualquer tela (ex.: atalho da
     // Muse dentro de um projeto, que antes abria a lista SEM a barra). V0.1.181.
     abrirAbaMuse = _abrirAbaMuse;
+    // Botão pasta no topo do chat: sai do chat e abre a aba Projetos.
+    abrirAbaProjetos = _abrirAbaProjetos;
   }
 
   @override
   void dispose() {
     if (abrirAbaMuse == _abrirAbaMuse) abrirAbaMuse = null;
+    if (abrirAbaProjetos == _abrirAbaProjetos) abrirAbaProjetos = null;
     _estudosNaRaiz.dispose();
     super.dispose();
   }
 
   void _abrirAbaMuse() {
     final i = _abas.indexOf(_Aba.muse);
+    if (i >= 0) _irPara(i);
+  }
+
+  void _abrirAbaProjetos() {
+    final i = _abas.indexOf(_Aba.projetos);
     if (i >= 0) _irPara(i);
   }
 

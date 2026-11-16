@@ -14,6 +14,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import '../diagnostico.dart';
 import '../cores.dart';
 import '../muse_blob.dart';
+import '../nav_bus.dart';
 import '../storage.dart';
 import '../sync_service.dart';
 import '../voz_config.dart';
@@ -1840,6 +1841,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return '$ddmm $hhmm';
   }
 
+  /// Sai do chat e abre a aba Projetos (mesmo destino do botão da barra
+  /// inferior). Usa o MESMO caminho de saída do voltar (sem diálogo extra:
+  /// o `dispose` salva via fila do ChatStore e o stream segue no service).
+  void _irParaProjetos() {
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    abrirAbaProjetos?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final logado = SyncService.instance.conectado;
@@ -1852,17 +1861,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final corTopo = ehCreme ? AppCores.kPretoCremePapel : app.fab;
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 8,
+        // Esquerda e direita com a MESMA largura (96) p/ a pílula do título
+        // (Center) continuar centrada na TELA e não ser empurrada pela pasta.
+        leadingWidth: _buscando ? null : 96,
+        titleSpacing: _buscando ? 8 : 4,
         // Voltar SEMPRE na cor de acento do tema (terracota), como os demais —
-        // no modo busca o mesmo botão fecha a busca.
-        leading: _placaTopo(
-          tooltip: _buscando ? 'Fechar busca' : 'Voltar',
-          onTap: _buscando
-              ? _fecharBusca
-              : () => Navigator.of(context).maybePop(),
-          filho: const Icon(Icons.arrow_back, size: 24),
-          cor: corTopo,
-        ),
+        // no modo busca o mesmo botão fecha a busca (pasta escondida buscando).
+        leading: _buscando
+            ? _placaTopo(
+                tooltip: 'Fechar busca',
+                onTap: _fecharBusca,
+                filho: const Icon(Icons.arrow_back, size: 24),
+                cor: corTopo,
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _placaTopo(
+                    tooltip: 'Voltar',
+                    onTap: () => Navigator.of(context).maybePop(),
+                    filho: const Icon(Icons.arrow_back, size: 24),
+                    cor: corTopo,
+                  ),
+                  // Pasta: sai do chat e abre a aba Projetos (igual ao botão
+                  // da barra inferior; mesmo ghost 40x40 e ícone 24 do topo).
+                  _placaTopo(
+                    tooltip: 'Projetos',
+                    onTap: _irParaProjetos,
+                    filho: const Icon(Icons.folder_outlined, size: 24),
+                    cor: corTopo,
+                  ),
+                ],
+              ),
         // No topo (lugar do antigo nome da conversa): STATUS da Muse —
         // rosto + "Modo • Tamanho • Modelo". O NOME da conversa foi para o
         // menu ☰ (1º item). No modo busca, o campo de busca. (V0.1.177)
