@@ -3007,12 +3007,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ),
             // A CAIXA translúcida: flutua sobre a conversa (o texto aparece por
-            // trás), fundo semitransparente (~70%) e borda suave. Sem desfoque
+            // trás), fundo semitransparente (85%) e borda suave. Sem desfoque
             // (opção do usuário: só transparência, mais leve na rolagem). O
             // crescimento p/ cima ao digitar segue igual (V0.1.232).
+            // O fundo é SEMPRE este — não há ramo de foco/teclado: o visual é
+            // idêntico em repouso, tocando, digitando e com teclado aberto.
             Container(
               decoration: BoxDecoration(
-                color: cs.surface.withValues(alpha: 0.7),
+                color: cs.surface.withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(26),
                 border:
                     Border.all(color: corBorda.withValues(alpha: 0.35)),
@@ -3095,8 +3097,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         isDense: true,
         // Sem fill no campo: o FUNDO é o do Container (cor única).
         // Sem isto, o `filled` do tema pintava um segundo bloco
-        // (mais escuro) dentro da caixa, em todos os temas.
+        // (mais escuro) dentro da caixa, em todos os temas. O fillColor
+        // transparente explícito blinda contra o inputDecorationTheme global
+        // (filled:true): nem focado o campo pinta nada.
         filled: false,
+        fillColor: Colors.transparent,
         // Sem borda no campo: a BORDA agora é a da caixa (Container).
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
