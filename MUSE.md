@@ -128,8 +128,8 @@ O truco é **reescrever a palavra como ela deve SOAR**, usando acentos pt-BR par
 
 ---
 
-## 6. Entrada por voz / texto — campo + coluna (anexo em cima, enviar embaixo)
-A barra de entrada é **[campo de texto, 3–10 linhas com scrollbar] [coluna: anexar pequeno em cima, botão único grande embaixo]**. O botão de enviar faz as duas coisas pelo gesto (`chat_screen.dart`, no `_barraEntrada` — `GestureDetector` + `FloatingActionButton` normal 56px, ícone 28):
+## 6. Entrada por voz / texto — caixa em 2 linhas estilo Claude (V0.1.232)
+A barra de entrada é **1 linha sem texto (+ | campo | mic | blob) e 2 linhas com texto (campo em cima em largura total, botões +, X, mic e enviar embaixo)**; a caixa cresce p/ cima até **6 linhas** e rola por dentro. Sem texto, o botão da direita é o rosto da Muse; com texto vira a **seta de enviar** (mesmos gestos do blob). O campo é UMA instância preservada por `GlobalKey` ao mudar de linha (sem isso o teclado fecharia na 1ª letra). O botão de enviar faz as duas coisas pelo gesto (`chat_screen.dart`, no `_barraEntrada` — `GestureDetector` + rosto da Muse/seta 40px):
 - **TOQUE curto** (`FAB.onPressed`) → envia o **texto digitado**. Põe `_modoAudio=false` → resposta vem em **texto** (sem voz; toque o alto-falante p/ ouvir).
 - **SEGURAR** (`onLongPressStart`→`_micStart`; `onLongPressEnd`→`_micStop`) → **grava por voz** (botão fica vermelho, ícone 🎤), transcreve ao vivo; ao **SOLTAR**, para e **envia na hora**, e a resposta vem **FALANDO** (`_micStart` põe `_modoAudio=true` → voz→voz).
 - **MIC AZUL** (3º botão da coluna direita da barra, ACIMA do Anexar; `Icons.mic`, `Color(0xFF3B82F6)`) → **envia o texto que já está na caixa e força a resposta FALADA** (`_modoAudio=true; _enviar()`; espelha o TOQUE, que é `_modoAudio=false`). É o par do toque para quem **ditou pelo mic do Gboard**: o SEGURAR (STT nativo) morre nas pausas do usuário; o Gboard lida bem. Fluxo: ditar por voz no Gboard → tocar o mic azul → voz→voz. (V0.1.189)
