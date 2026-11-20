@@ -70,10 +70,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // campo e o teclado fecharia a cada 1ª letra digitada.
   final _campoKey = GlobalKey();
   // Chave da caixa de entrada inteira: mede a altura real (repouso ↔ até 6
-  // linhas) p/ a lista reservar o espaço embaixo (a caixa FLUTUA por cima).
+  // linhas). A lista ocupa a tela TODA atrás da caixa; SÓ o padding inferior
+  // compensa a altura (sem espaçador — ele taparia o texto de trás). Medida no
+  // 1º frame + a cada mudança real de tamanho.
   final _caixaKey = GlobalKey();
-  // Altura atual da caixa (medida; nasce 0 e corrige no 1º layout).
+  // Altura atual da caixa. O SizeChangedLayoutNotifier NÃO dispara no 1º
+  // layout (provado em teste), então sem a medição inicial ela nasceria 0.
   double _alturaCaixa = 0;
+
+  /// Lê a altura real da caixa e guarda (só o padding da lista usa).
+  void _medirCaixa() {
+    final h = _caixaKey.currentContext?.size?.height;
+    if (h != null && h != _alturaCaixa && mounted) {
+      setState(() => _alturaCaixa = h);
+    }
+  }
   final _buscaCtrl = TextEditingController();
   bool _buscando = false; // modo busca na conversa
   String _busca = '';
@@ -205,6 +216,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // voz offline. Assim o 1º segurar já grava e a 1ª resposta já sai rápida.
     // O microfone pode pedir permissão aqui; se negada, tentamos de novo no segurar.
     WidgetsBinding.instance.addPostFrameCallback((_) => _preAquecerVoz());
+    // Mede a caixa no 1º frame (o SizeChangedLayoutNotifier não dispara no 1º
+    // layout; sem isto a altura nasceria 0).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _medirCaixa());
   }
 
   /// Listener da lista: acende/apaga o botão ↓ conforme a distância do fim.
@@ -2222,16 +2236,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Caixa FLUTUANTE (estilo Claude, V0.1.233): a lista ocupa a tela inteira
     // até o rodapé e a caixa fica POR CIMA dela (Stack), na mesma altura de
     // antes. O SizedBox reserva embaixo o espaço da caixa (altura real medida
-    // via _caixaKey — acompanha o crescimento ao digitar) e o padding interno
-    // garante que a última mensagem role p/ cima da caixa. Com o teclado aberto
+    // via _caixaKey — acompanha o crescimento ao digitar). A lista ocupa a
+    // tela TODA atrás da caixa (sem espaçador); o padding inferior garante
+    // que a última mensagem role p/ cima da caixa. Com o teclado aberto
     // o Scaffold encolhe o Stack e a caixa sobe junto, sem ajuste manual.
     return Stack(
       children: [
         Positioned.fill(
-          child: Column(
-            children: [
-              Expanded(
-                child: _conv.vazia
+          child: _conv.vazia
               ? _vazio(context)
               // Scrollbar CONTIDO na lista de mensagens. O texto rola ATRÁS das
               // respostas prontas (overlay translúcido) com um fade no fim, e o
@@ -2326,11 +2338,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ),
                   ],
                 ),
-              ),
-              // Espaço da caixa flutuante (altura real medida).
-              SizedBox(height: _alturaCaixa),
-            ],
-          ),
+          // Sem espaçador: a lista ocupa a tela toda, atrás da caixa.
         ),
         // A CAIXA por cima da conversa, alinhada ao rodapé.
         Positioned(
@@ -2339,10 +2347,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           bottom: 0,
           child: NotificationListener<SizeChangedLayoutNotification>(
             onNotification: (_) {
-              final h = _caixaKey.currentContext?.size?.height;
-              if (h != null && h != _alturaCaixa && mounted) {
-                setState(() => _alturaCaixa = h);
-              }
+              _medirCaixa();
               return true;
             },
             child: SizeChangedLayoutNotifier(
