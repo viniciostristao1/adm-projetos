@@ -68,6 +68,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // de cima) conforme há texto ou não. Sem GlobalKey, a troca desmontaria o
   // campo e o teclado fecharia a cada 1ª letra digitada.
   final _campoKey = GlobalKey();
+  // Chave da caixa de entrada inteira: mede a altura real (repouso ↔ até 6
+  // linhas) p/ a lista reservar o espaço embaixo (a caixa FLUTUA por cima).
+  final _caixaKey = GlobalKey();
+  // Altura atual da caixa (medida; nasce 0 e corrige no 1º layout).
+  double _alturaCaixa = 0;
   final _buscaCtrl = TextEditingController();
   bool _buscando = false; // modo busca na conversa
   String _busca = '';
@@ -2213,10 +2218,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // p/ a última linha da resposta subir ACIMA delas ao chegar no fim.
     final padBaixoLista = temSug ? 58.0 : 12.0;
     final fundo = Theme.of(context).scaffoldBackgroundColor;
-    return Column(
+    // Caixa FLUTUANTE (estilo Claude, V0.1.233): a lista ocupa a tela inteira
+    // até o rodapé e a caixa fica POR CIMA dela (Stack), na mesma altura de
+    // antes. O SizedBox reserva embaixo o espaço da caixa (altura real medida
+    // via _caixaKey — acompanha o crescimento ao digitar) e o padding interno
+    // garante que a última mensagem role p/ cima da caixa. Com o teclado aberto
+    // o Scaffold encolhe o Stack e a caixa sobe junto, sem ajuste manual.
+    return Stack(
       children: [
-        Expanded(
-          child: _conv.vazia
+        Positioned.fill(
+          child: Column(
+            children: [
+              Expanded(
+                child: _conv.vazia
               ? _vazio(context)
               // Scrollbar CONTIDO na lista de mensagens. O texto rola ATRÁS das
               // respostas prontas (overlay translúcido) com um fade no fim, e o
@@ -2227,7 +2241,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       controller: _scroll,
                       child: ListView.builder(
                         controller: _scroll,
-                        padding: EdgeInsets.fromLTRB(12, 6, 12, padBaixoLista),
+                        padding: EdgeInsets.fromLTRB(
+                            12, 6, 12, padBaixoLista + _alturaCaixa),
                         itemCount: _conv.mensagens.length + (_enviando ? 1 : 0),
                         itemBuilder: (c, i) {
                           // O "pensando" tem tag própria (índice n) p/ o _rolarFim mirar nele
@@ -2261,7 +2276,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       Positioned(
                         left: 0,
                         right: 0,
-                        bottom: 0,
+                        bottom: _alturaCaixa,
                         height: padBaixoLista + 8,
                         child: IgnorePointer(
                           child: DecoratedBox(
@@ -2282,13 +2297,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       Positioned(
                         left: 0,
                         right: 0,
-                        bottom: 0,
+                        bottom: _alturaCaixa,
                         child: _sugestoes(context),
                       ),
                     // Botão ↓ TRANSITÓRIO: fade suave; some sozinho ~1,5s. Fica
                     // ACIMA dos chips quando há respostas prontas.
                     Positioned(
-                      bottom: temSug ? padBaixoLista + 12 : 12,
+                      bottom: _alturaCaixa +
+                          (temSug ? padBaixoLista + 12 : 12),
                       left: 0,
                       right: 0,
                       child: Center(
@@ -2309,8 +2325,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ),
                   ],
                 ),
+              ),
+              // Espaço da caixa flutuante (altura real medida).
+              SizedBox(height: _alturaCaixa),
+            ],
+          ),
         ),
-        _barraEntrada(context),
+        // A CAIXA por cima da conversa, alinhada ao rodapé.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: NotificationListener<SizeChangedLayoutNotification>(
+            onNotification: (_) {
+              final h = _caixaKey.currentContext?.size?.height;
+              if (h != null && h != _alturaCaixa && mounted) {
+                setState(() => _alturaCaixa = h);
+              }
+              return true;
+            },
+            child: SizeChangedLayoutNotifier(
+              child: Container(
+                key: _caixaKey,
+                child: _barraEntrada(context),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -2965,13 +3006,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            // A CAIXA: borda arredondada; campo e botões se reorganizam
-            // conforme há texto ou não (estilo Claude). A borda vive no Container.
+            // A CAIXA translúcida: flutua sobre a conversa (o texto aparece por
+            // trás), fundo semitransparente (~70%) e borda suave. Sem desfoque
+            // (opção do usuário: só transparência, mais leve na rolagem). O
+            // crescimento p/ cima ao digitar segue igual (V0.1.232).
             Container(
               decoration: BoxDecoration(
-                color: cs.surface,
+                color: cs.surface.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(26),
-                border: Border.all(color: corBorda),
+                border:
+                    Border.all(color: corBorda.withValues(alpha: 0.35)),
               ),
               padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
               child: ValueListenableBuilder<TextEditingValue>(
