@@ -20,6 +20,7 @@ import '../sync_service.dart';
 import '../voz_config.dart';
 import 'chat_models.dart';
 import 'chat_actions.dart';
+import 'composer_style.dart';
 import 'chat_service.dart';
 import 'chat_store.dart';
 import 'tts_ondevice.dart';
@@ -3006,20 +3007,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            // A CAIXA translúcida: flutua sobre a conversa (o texto aparece por
-            // trás), fundo semitransparente (85%) e borda suave. Sem desfoque
-            // (opção do usuário: só transparência, mais leve na rolagem). O
-            // crescimento p/ cima ao digitar segue igual (V0.1.232).
-            // O fundo é SEMPRE este — não há ramo de foco/teclado: o visual é
-            // idêntico em repouso, tocando, digitando e com teclado aberto.
-            Container(
-              decoration: BoxDecoration(
-                color: cs.surface.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(26),
-                border:
-                    Border.all(color: corBorda.withValues(alpha: 0.35)),
-              ),
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+            // A CAIXA: estilo 100% fixo (EstiloCaixaComposer — sem ramo de
+            // foco/teclado) + vidro SEMPRE ligado. O crescimento p/ cima ao
+            // digitar segue igual (V0.1.232).
+            ClipRRect(
+              borderRadius: BorderRadius.circular(26),
+              child: BackdropFilter(
+                filter: EstiloCaixaComposer.filtroVidro(),
+                child: Container(
+                  decoration:
+                      EstiloCaixaComposer.decoracao(cs, corBorda),
+                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
               child: ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _ctrl,
                 builder: (context, v, child) {
@@ -3056,6 +3054,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ],
                   );
                 },
+              ),
+                ),
               ),
             ),
           ],
