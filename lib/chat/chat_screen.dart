@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -3007,21 +3006,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            // A CAIXA em vidro: flutua sobre a conversa (o texto aparece por
-            // trás), fundo semitransparente (~70%) com desfoque baixo e borda
-            // suave. O crescimento p/ cima ao digitar segue igual (V0.1.232).
-            ClipRRect(
-              borderRadius: BorderRadius.circular(26),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: cs.surface.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(26),
-                    border: Border.all(
-                        color: corBorda.withValues(alpha: 0.35)),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+            // A CAIXA translúcida: flutua sobre a conversa (o texto aparece por
+            // trás), fundo semitransparente (~70%) e borda suave. Sem desfoque
+            // (opção do usuário: só transparência, mais leve na rolagem). O
+            // crescimento p/ cima ao digitar segue igual (V0.1.232).
+            Container(
+              decoration: BoxDecoration(
+                color: cs.surface.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(26),
+                border:
+                    Border.all(color: corBorda.withValues(alpha: 0.35)),
+              ),
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
               child: ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _ctrl,
                 builder: (context, v, child) {
@@ -3058,8 +3054,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ],
                   );
                 },
-              ),
-                ),
               ),
             ),
           ],
