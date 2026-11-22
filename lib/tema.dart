@@ -4,10 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Tema do aplicativo.
 enum Modo {
   azul('Azul'),
-  // Tema NORDIC AZUL (V0.1.237): claro e arejado, do protótipo híbrido —
-  // fundo cinza-azulado, superfícies brancas, acento azul. Referência do novo
-  // layout (pílulas + dock + barra única).
-  nordic('Nordic Azul'),
   neumB('Dark Game'),
   onix('Ônix'),
   // Tema DARK (V0.1.199): espelha o app do Claude em modo escuro — preto quente,
@@ -78,10 +74,10 @@ class TemaController extends ChangeNotifier {
   /// true no modo Compacto (linhas/cartões mais próximos).
   bool get compacto => _densidade == Densidade.compacto;
 
-  /// Modo usado pelo [MaterialApp] — Nordic Azul, Creme e Papel são claros;
+  /// Modo usado pelo [MaterialApp] — Creme e Papel são claros;
   /// os demais escuros.
   ThemeMode get themeFlutter =>
-      (_modo == Modo.nordic || _modo == Modo.creme || _modo == Modo.papel)
+      (_modo == Modo.creme || _modo == Modo.papel)
           ? ThemeMode.light
           : ThemeMode.dark;
 

@@ -36,26 +36,6 @@ void main() {
     return p;
   }
 
-  // NOVO LAYOUT (V0.1.237): desfazer/link/centralizar saíram do topo de cada
-  // card e viraram ferramentas da BARRA ÚNICA acima do teclado, visível só com
-  // a caixinha FOCADA. Este helper foca a caixinha (se preciso), rola a barra
-  // até a ferramenta e toca. Enquanto focada usa-se pump() (pumpAndSettle
-  // travaria no cursor piscante).
-  Future<void> tocarNaBarra(WidgetTester tester, IconData icone) async {
-    final campo = find.byType(TextField).first;
-    if (!tester.widget<TextField>(campo).focusNode!.hasFocus) {
-      await tester.tap(campo);
-      await tester.pump();
-    }
-    await tester.dragUntilVisible(
-      find.byIcon(icone),
-      find.byType(SingleChildScrollView).last,
-      const Offset(-150, 0),
-    );
-    await tester.tap(find.byIcon(icone));
-    await tester.pump();
-  }
-
   testWidgets('desfazer restaura a palavra digitada e apagada',
       (tester) async {
     final p = await projetoCom('');
@@ -74,7 +54,8 @@ void main() {
         const TextEditingValue(text: ''));
     await tester.pump();
 
-    await tocarNaBarra(tester, Icons.undo);
+    await tester.tap(find.byIcon(Icons.undo));
+    await tester.pump();
 
     final tf = tester.widget<TextField>(field);
     expect(tf.controller!.text, 'palavra');
@@ -97,7 +78,8 @@ void main() {
         const TextEditingValue(text: 'uma'));
     await tester.pump();
 
-    await tocarNaBarra(tester, Icons.undo);
+    await tester.tap(find.byIcon(Icons.undo));
+    await tester.pump();
 
     final tf = tester.widget<TextField>(field);
     expect(tf.controller!.text, 'uma frase bem escrita');
@@ -110,7 +92,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
     await tester.pump();
 
-    await tocarNaBarra(tester, Icons.add_link);
+    await tester.tap(find.byIcon(Icons.add_link));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull,
@@ -124,7 +106,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
     await tester.pump();
 
-    await tocarNaBarra(tester, Icons.add_link);
+    await tester.tap(find.byIcon(Icons.add_link));
     await tester.pumpAndSettle();
     expect(find.text('Links'), findsOneWidget);
 
@@ -190,7 +172,8 @@ void main() {
     ));
     await tester.pump();
 
-    await tocarNaBarra(tester, Icons.format_align_center);
+    await tester.tap(find.byIcon(Icons.format_align_center));
+    await tester.pump();
 
     // A linha ficou centralizada (começa com espaços) e permanece no texto.
     final tf = tester.widget<TextField>(field);
@@ -204,7 +187,8 @@ void main() {
     expect(tester.takeException(), isNull);
 
     // Desfazer a ação de centralizar devolve o texto original.
-    await tocarNaBarra(tester, Icons.undo);
+    await tester.tap(find.byIcon(Icons.undo));
+    await tester.pump();
     final restaurado = tester.widget<TextField>(field);
     expect(restaurado.controller!.text, 'comprar pão\nligar para o João');
     expect(tester.takeException(), isNull);
@@ -216,7 +200,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: p)));
     await tester.pump();
 
-    await tocarNaBarra(tester, Icons.format_align_center);
+    await tester.tap(find.byIcon(Icons.format_align_center));
+    await tester.pump();
 
     expect(
       find.text('Selecione uma palavra ou frase para centralizar'),

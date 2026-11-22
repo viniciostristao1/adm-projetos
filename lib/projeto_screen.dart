@@ -90,15 +90,6 @@ class _ProjetoScreenState extends State<ProjetoScreen>
   // voltar dentro de uma pasta p/ retornar À GRADE — este flag libera o pop.
   bool _saindo = false;
 
-  // Id da caixinha em edição (última a ganhar foco). A barra única de
-  // ferramentas (acima do teclado) opera sobre ela. Não limpamos ao perder o
-  // foco: se o teclado reabrir p/ a mesma caixinha, a barra reaparece pronta.
-  String? _idBlocoAtivo;
-
-  /// Estado da caixinha atualmente em edição (ou null se nenhuma está montada).
-  _CaixaNotaState? get _blocoAtivo =>
-      _idBlocoAtivo == null ? null : _chaves[_idBlocoAtivo]?.currentState;
-
   int get _qtdAbas => widget.projeto.qtdAbas;
   String _nomeAba(int i) => widget.projeto.nomeAba(i);
 
@@ -666,18 +657,6 @@ class _ProjetoScreenState extends State<ProjetoScreen>
                               _excluir(aba, _lista(aba).indexOf(filtradas[i])),
                           onMover: () => _moverOutraAba(
                               aba, _lista(aba).indexOf(filtradas[i])),
-                          // Marca/limpa esta caixinha como a "ativa" (alvo da
-                          // barra única acima do teclado) conforme o foco.
-                          onFoco: (temFoco) {
-                            final id = filtradas[i].id;
-                            if (temFoco) {
-                              if (_idBlocoAtivo != id) {
-                                setState(() => _idBlocoAtivo = id);
-                              }
-                            } else if (_idBlocoAtivo == id) {
-                              setState(() => _idBlocoAtivo = null);
-                            }
-                          },
                         ),
                       ),
                     );
@@ -777,239 +756,6 @@ class _ProjetoScreenState extends State<ProjetoScreen>
     );
   }
 
-  // ===================================================================== //
-  //  NOVO LAYOUT (V0.1.237): pílulas do topo + barra única de ferramentas   //
-  // ===================================================================== //
-
-  /// Pílula flutuante do topo: voltar (embutido), título do projeto, atalho da
-  /// Muse e os botões pasta / PDF / copiar tudo / excluir.
-  Widget _pilulaTopo(AppCores app) {
-    final sec = app.textoUI.withValues(alpha: 0.66);
-    const danger = Color(0xFFEF4444);
-    return _Pilula(
-      padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
-      child: Row(
-        children: [
-          if (widget.embutido)
-            _IconePilula(
-              icone: Icons.chevron_left,
-              cor: app.textoUI,
-              tamanho: 24,
-              tooltip: 'Voltar',
-              onTap: _voltarEmbutido,
-            ),
-          SizedBox(width: widget.embutido ? 2 : 10),
-          Expanded(
-            child: Text(
-              widget.projeto.nome,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
-                color: app.textoUI,
-              ),
-            ),
-          ),
-          // Atalho para o Muse (só com o recurso ligado): o ROSTO da Muse.
-          if (ChatConfig.habilitado)
-            Tooltip(
-              message: 'Muse Spark (assistente)',
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: () {
-                    Navigator.of(context).popUntil((r) => r.isFirst);
-                    abrirAbaMuse?.call();
-                  },
-                  child: const SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: Center(child: MuseBlob(size: 26)),
-                  ),
-                ),
-              ),
-            ),
-          _IconePilula(
-            icone: _modoPastas
-                ? Icons.view_agenda_outlined
-                : Icons.folder_outlined,
-            cor: sec,
-            tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',
-            onTap: () => _definirModoPastas(!_modoPastas),
-          ),
-          _IconePilula(
-            icone: Icons.picture_as_pdf_outlined,
-            cor: app.fab,
-            tooltip: 'Exportar PDF do projeto',
-            onTap: () => exportarPdfProjeto(context, widget.projeto),
-          ),
-          _IconePilula(
-            icone: Icons.copy_all_outlined,
-            cor: sec,
-            tooltip: 'Copiar tudo do projeto',
-            onTap: _copiarProjeto,
-          ),
-          if (!widget.embutido)
-            _IconePilula(
-              icone: Icons.delete_outline,
-              cor: danger,
-              tooltip: 'Excluir projeto',
-              onTap: _excluirProjeto,
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// Linha de abas (Tarefas/Ideias/…) numa pílula + botões redondos de nova
-  /// aba e busca. A seleção continua pelo [TabBar] real (indicador em cápsula).
-  Widget _pilulaAbas(AppCores app) {
-    final sec = app.textoUI.withValues(alpha: 0.6);
-    final rolavel = _qtdAbas > 2;
-    return Row(
-      children: [
-        Expanded(
-          child: _Pilula(
-            padding: const EdgeInsets.all(4),
-            child: TabBar(
-              controller: _tabCtrl,
-              isScrollable: rolavel,
-              tabAlignment: rolavel ? TabAlignment.start : TabAlignment.fill,
-              indicator: BoxDecoration(
-                color: app.fab,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicatorPadding: EdgeInsets.zero,
-              dividerColor: Colors.transparent,
-              labelColor: app.fabIcone,
-              unselectedLabelColor: sec,
-              labelStyle:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              unselectedLabelStyle:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              labelPadding: const EdgeInsets.symmetric(horizontal: 14),
-              overlayColor:
-                  WidgetStateProperty.all<Color>(Colors.transparent),
-              tabs: [
-                for (var i = 0; i < _qtdAbas; i++)
-                  GestureDetector(
-                    onLongPress: () => _renomearAba(i),
-                    child: Tab(height: 34, text: _nomeAba(i)),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        _Pilula(
-          child: _IconePilula(
-            icone: Icons.add,
-            cor: sec,
-            caixa: 42,
-            tamanho: 20,
-            tooltip: 'Nova aba / ver abas',
-            onTap: _mostrarSheetAbas,
-          ),
-        ),
-        const SizedBox(width: 6),
-        _Pilula(
-          child: _IconePilula(
-            icone: _buscando ? Icons.close : Icons.search,
-            cor: sec,
-            caixa: 42,
-            tamanho: 19,
-            tooltip: _buscando ? 'Fechar busca' : 'Buscar na aba',
-            onTap: _alternarBusca,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Barra única de ferramentas, acima do teclado, operando sobre a caixinha
-  /// [ativo] (a última focada). Copiar e a caixa de seleção ficam no dock do
-  /// card; aqui vão TODAS as demais ferramentas, na ordem configurada.
-  Widget _barraInferior(AppCores app, _CaixaNotaState ativo) {
-    final corBarra = app.barraFerramentas;
-    final onBarra =
-        ThemeData.estimateBrightnessForColor(corBarra) == Brightness.dark
-            ? Colors.white
-            : Colors.black87;
-    return Material(
-      color: corBarra,
-      elevation: 0,
-      child: SafeArea(
-        top: false,
-        child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Indicador discreto do bloco em edição.
-          Container(
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: app.notaBorda)),
-            ),
-            padding: const EdgeInsets.fromLTRB(14, 5, 14, 5),
-            child: Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration:
-                      BoxDecoration(color: app.fab, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 8),
-                Text('Editando: ',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: onBarra.withValues(alpha: 0.55))),
-                Expanded(
-                  child: Text(
-                    ativo.resumoLinha,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: onBarra),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Ferramentas roláveis horizontalmente (ordem do barraController).
-          SizedBox(
-            height: 50,
-            child: ListenableBuilder(
-              listenable: barraController,
-              builder: (context, _) {
-                final botoes = <Widget>[];
-                for (final f in barraController.ordem) {
-                  // Copiar e "feito" moram no dock do card.
-                  if (f == Ferramenta.copiar || f == Ferramenta.feito) {
-                    continue;
-                  }
-                  final b = ativo.construirBotaoBarra(
-                      f, onBarra, () => setState(() {}));
-                  if (b != null) botoes.add(b);
-                }
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Row(children: botoes),
-                );
-              },
-            ),
-          ),
-        ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     // Cor do desenho = acento do tema ativo (cada tema pinta com a sua cor).
@@ -1033,47 +779,120 @@ class _ProjetoScreenState extends State<ProjetoScreen>
           }
         },
         child: Scaffold(
-        // NOVO LAYOUT (V0.1.237): barra do topo e abas viram PÍLULAS
-        // flutuantes sobre o fundo. A AppBar fica transparente e só segura o
-        // recorte da status bar; o conteúdo vem das pílulas.
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
-          automaticallyImplyLeading: false,
-          titleSpacing: 0,
-          toolbarHeight: 62,
-          systemOverlayStyle: Theme.of(context).brightness == Brightness.light
-              ? SystemUiOverlayStyle.dark
-              : SystemUiOverlayStyle.light,
-          title: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
-            child: _pilulaTopo(app),
-          ),
-          bottom: _modoPastas
-              ? null
-              : PreferredSize(
-                  preferredSize: const Size.fromHeight(60),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 2, 10, 8),
-                    child: _pilulaAbas(app),
+        titleSpacing: 8,
+        title: Row(
+          children: [
+            // Embutido (aba Estudos): seta VOLTAR à esquerda do título, no
+            // padrão ghost dos demais botões. Dentro de pasta volta à grade;
+            // na grade, volta para a aba Projetos (igual ao gesto do sistema).
+            if (widget.embutido)
+              _BotaoTopo(
+                icone: Icons.arrow_back_rounded,
+                cor: app.textoUI,
+                tooltip: 'Voltar',
+                onPressed: _voltarEmbutido,
+              ),
+            Expanded(
+              child: Text(
+                widget.projeto.nome,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ),
+            // Atalho para o Muse de dentro do projeto (só com o recurso ligado):
+            // o ROSTO da Muse (blob) tingido no acento do tema (V0.1.175).
+            if (ChatConfig.habilitado)
+              Tooltip(
+                message: 'Muse Spark (assistente)',
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    // Volta ao shell e abre a ABA Muse (com a barra inferior) —
+                    // antes empilhava a lista SEM a barra. (V0.1.181)
+                    onTap: () {
+                      Navigator.of(context).popUntil((r) => r.isFirst);
+                      abrirAbaMuse?.call();
+                    },
+                    child: const SizedBox(
+                      width: 44,
+                      height: 40,
+                      child: Center(child: MuseBlob(size: 30)),
+                    ),
                   ),
                 ),
+              ),
+            // Demais: GHOST (desenho em branco/texto da UI, sem caixa).
+            _BotaoTopo(
+              icone: _modoPastas ? Icons.view_agenda_outlined : Icons.folder_outlined,
+              cor: app.textoUI,
+              tooltip: _modoPastas ? 'Ver como abas' : 'Ver como pastas',
+              onPressed: () => _definirModoPastas(!_modoPastas),
+            ),
+            _BotaoTopo(
+              icone: Icons.picture_as_pdf_outlined,
+              cor: app.textoUI,
+              tooltip: 'Exportar PDF do projeto',
+              onPressed: () => exportarPdfProjeto(context, widget.projeto),
+            ),
+            _BotaoTopo(
+              icone: Icons.copy_all_outlined,
+              cor: app.textoUI,
+              tooltip: 'Copiar tudo do projeto',
+              onPressed: _copiarProjeto,
+            ),
+            // Projeto reservado numa aba (Estudos) não se exclui daqui.
+            if (!widget.embutido)
+              _BotaoTopo(
+                icone: Icons.delete_outline,
+                cor: app.textoUI,
+                tooltip: 'Excluir projeto',
+                onPressed: _excluirProjeto,
+              ),
+          ],
         ),
+        bottom: _modoPastas
+            ? null
+            : PreferredSize(
+          preferredSize: const Size.fromHeight(kTextTabBarHeight),
+          child: Row(
+            children: [
+              Expanded(
+                child: TabBar(
+                  controller: _tabCtrl,
+                  isScrollable: _qtdAbas > 3,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  tabs: [
+                    for (var i = 0; i < _qtdAbas; i++)
+                      GestureDetector(
+                        onLongPress: () => _renomearAba(i),
+                        child: Tab(text: _nomeAba(i)),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.add),
+                tooltip: 'Nova aba / ver abas',
+                onPressed: _mostrarSheetAbas,
+              ),
+              IconButton(
+                icon: Icon(_buscando ? Icons.close : Icons.search),
+                tooltip: _buscando ? 'Fechar busca' : 'Buscar na aba',
+                onPressed: _alternarBusca,
+              ),
+            ],
+          ),
+        ),
+      ),
       // heroTag: null — sem Hero: a tela pode estar EMBUTIDA no shell (aba
       // Estudos) ao mesmo tempo que um outro ProjetoScreen é empilhado; dois FABs
       // com a tag padrão colidiriam/animariam entre rotas. O FAB não precisa de
       // voo de Hero aqui.
       // Embutido: sobe o FAB p/ não ficar ATRÁS da barra flutuante externa
       // (78 = 64 da barra + 4 + 10 dos respiros); em rota cheia, sem padding.
-      // BARRA ÚNICA de ferramentas (V0.1.237): única, operando sobre a caixinha
-      // em EDIÇÃO (a focada). Como `bottomNavigationBar`, o Scaffold a posiciona
-      // automaticamente ACIMA do teclado (resizeToAvoidBottomInset). Só aparece
-      // enquanto há uma caixinha focada; some ao fechar o teclado (perde o foco).
-      bottomNavigationBar: (_modoPastas || _blocoAtivo == null)
-          ? null
-          : _barraInferior(app, _blocoAtivo!),
       floatingActionButton: _botaoFlutuante(),
       body: _modoPastas
           ? _gradePastas()
@@ -1099,7 +918,6 @@ class _CaixaNota extends StatefulWidget {
     required this.onCopiar,
     required this.onExcluir,
     required this.onMover,
-    this.onFoco,
     this.termoBusca = '',
   });
 
@@ -1121,11 +939,6 @@ class _CaixaNota extends StatefulWidget {
 
   /// Move a caixinha para a outra aba (Tarefas <-> Ideias).
   final VoidCallback onMover;
-
-  /// Avisado quando esta caixinha ganha (`true`) ou perde (`false`) o foco. A
-  /// tela marca a que está focada como o bloco "ativo" (alvo da barra única de
-  /// ferramentas acima do teclado) e esconde a barra quando nenhuma edita.
-  final ValueChanged<bool>? onFoco;
 
   @override
   State<_CaixaNota> createState() => _CaixaNotaState();
@@ -1307,8 +1120,6 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
   ///   fechando): derrama o texto na hora — é o sinal mais cedo de que o
   ///   usuário parou de digitar e nada pode ficar só no teclado.
   void _aoMudarFoco() {
-    // Avisa a tela: focada = alvo da barra única; desfocada = esconde a barra.
-    widget.onFoco?.call(_foco.hasFocus);
     if (_foco.hasFocus) {
       if (mounted) _insetBottomAnterior = View.of(context).viewInsets.bottom;
       return;
@@ -1336,14 +1147,14 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     Storage.instance.salvar();
   }
 
-  /// Largura reservada para o botão "•••" (expandir) da prévia minimizada.
-  /// (Copiar/arrastar/seleção ficam no dock à direita do card, sempre visível.)
-  static const double _larguraBotoesPrevia = 36;
+  /// Largura reservada para os botões da prévia minimizada (copiar + "•••").
+  static const double _larguraBotoesPrevia = 68;
 
-  /// Prévia da caixinha minimizada: as 3 primeiras linhas do texto e, no fim da
-  /// 3ª linha, o botão "•••" (expandir). Tocar na prévia também expande. O
-  /// texto é medido e cortado numa fronteira de palavra para o botão caber SEM
-  /// reticências: o próprio "•••" sinaliza que há mais conteúdo.
+  /// Prévia da caixinha minimizada: as 3 primeiras linhas do texto e, no fim
+  /// da 3ª linha, os botões copiar e "•••" (expandir) — a barra de ferramentas
+  /// fica OCULTA nesse estado. O texto é medido e cortado numa fronteira de
+  /// palavra para os botões caberem SEM reticências: o próprio "•••" sinaliza
+  /// que há mais conteúdo.
   Widget _previaMinimizada(BuildContext context, Color corTexto) {
     final estilo = (_estiloCampo ?? _estiloTexto).copyWith(color: corTexto);
     return LayoutBuilder(
@@ -1363,6 +1174,12 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
               ),
             ),
             const SizedBox(width: 4),
+            _BotaoPrevia(
+              icone: Icons.copy_all_outlined,
+              tooltip: 'Copiar',
+              onTap: widget.onCopiar,
+              cor: corTexto,
+            ),
             _BotaoPrevia(
               icone: Icons.more_horiz,
               tooltip: 'Expandir caixinha',
@@ -1814,142 +1631,208 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
     }
   }
 
-  /// Primeira linha com conteúdo da caixinha (rótulo do bloco ativo na barra
-  /// única). Vazio → "Caixa de texto".
-  String get resumoLinha {
-    for (final linha in _ctrl.text.split('\n')) {
-      final t = linha.trim();
-      if (t.isNotEmpty) return t;
-    }
-    return 'Caixa de texto';
-  }
-
-  /// Constrói o botão da ferramenta [f] para a BARRA ÚNICA (acima do teclado),
-  /// ou null quando ela não se aplica (ex.: "numerar" só na aba Tarefas).
-  /// [aoAgir] roda após a ação para a barra se reconstruir (ícones que
-  /// alternam: numerar, minimizar, comentário…). Copiar e "feito" moram no
-  /// dock do card e não passam por aqui.
-  Widget? construirBotaoBarra(Ferramenta f, Color onBarra, VoidCallback aoAgir) {
-    _BotaoMini mini(IconData icone, String tooltip, VoidCallback onTap,
-            {bool isDanger = false}) =>
-        _BotaoMini(
-          icone: icone,
-          tooltip: tooltip,
-          isDanger: isDanger,
-          cor: onBarra,
-          onTap: () {
-            onTap();
-            aoAgir();
-          },
-        );
-    switch (f) {
-      case Ferramenta.copiar:
-        return mini(Icons.copy_all_outlined, 'Copiar', widget.onCopiar);
-      case Ferramenta.desfazer:
-        return mini(Icons.undo, 'Desfazer apagar', _desfazer);
-      case Ferramenta.feito:
-        return mini(
-          widget.nota.concluida
-              ? Icons.check_box
-              : Icons.check_box_outline_blank,
-          widget.nota.concluida ? 'Desmarcar' : 'Marcar como feito',
-          _alternarConcluida,
-        );
-      case Ferramenta.numerar:
-        if (!widget.modoTarefas) return null;
-        return mini(
-          _numerado ? Icons.format_list_numbered : Icons.format_align_justify,
-          _numerado ? 'Remover número da linha' : 'Numerar linha',
-          _alternarNumero,
-        );
-      case Ferramenta.todo:
-        return mini(Icons.checklist, 'Item de to-do (☐)', _inserirTodo);
-      case Ferramenta.mover:
-        return mini(
-          widget.modoTarefas ? Icons.arrow_downward : Icons.arrow_upward,
-          widget.modoTarefas ? 'Mover para Ideias' : 'Mover para Tarefas',
-          widget.onMover,
-        );
-      case Ferramenta.extremo:
-        return mini(Icons.unfold_more, 'Topo / Pé', _irAoExtremo);
-      case Ferramenta.link:
-        return mini(Icons.add_link, 'Link', _abrirLink);
-      case Ferramenta.imagem:
-        return mini(
-            Icons.image_outlined, 'Ler texto de imagem (OCR)', _lerImagem);
-      case Ferramenta.comentario:
-        return mini(
-          _comentarioExpandido ? Icons.chat_bubble : Icons.chat_bubble_outline,
-          'Comentário',
-          () => setState(() => _comentarioExpandido = !_comentarioExpandido),
-        );
-      case Ferramenta.editar:
-        return mini(Icons.edit_outlined, 'Editar', focarNoFim);
-      case Ferramenta.centralizar:
-        return mini(Icons.format_align_center, 'Centralizar linha (seleção)',
-            _centralizarLinha);
-      case Ferramenta.minimizar:
-        return mini(
-          Icons.more_horiz,
-          widget.nota.minimizada ? 'Expandir caixinha' : 'Minimizar caixinha',
-          _alternarMinimizada,
-        );
-      case Ferramenta.limpar:
-        return mini(Icons.cleaning_services, 'Limpar conteúdo', _limpar);
-      case Ferramenta.excluir:
-        return mini(Icons.delete_outline, 'Excluir', widget.onExcluir,
-            isDanger: true);
-    }
-  }
-
-  /// Dock vertical à direita do card (V0.1.237): arrastar (reordenar), copiar e
-  /// a caixa de seleção que marca o bloco como "em andamento". As demais
-  /// ferramentas ficam na barra única acima do teclado.
-  Widget _dock(AppCores app) {
-    final sec = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+  /// Barra de ferramentas da caixinha (cor separada ou embutida na superfície
+  /// neumórfica, com linha interna sutil embaixo). Fica OCULTA quando a
+  /// caixinha está minimizada.
+  Widget _barraFerramentas(Color corFerramentas, Color onBarra) {
+    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
     return Container(
-      decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: app.notaBorda)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Tooltip(
-            message: 'Arrastar para reordenar',
-            child: ReorderableDragStartListener(
-              index: widget.indice,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(Icons.drag_indicator,
-                    size: 20, color: sec.withValues(alpha: 0.85)),
+      decoration: app.neumorfico
+          ? BoxDecoration(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(14)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: app.barraFerramentas == app.notaInicio &&
+                        app.barraFerramentas == app.notaFim
+                    ? [app.notaInicio, app.notaFim]
+                    : [app.barraFerramentas, app.barraFerramentasFim],
               ),
+              border: const Border(
+                bottom: BorderSide(color: Color(0x2E000000)),
+              ),
+            )
+          : BoxDecoration(
+              color: corFerramentas,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(14)),
+            ),
+      padding: const EdgeInsets.fromLTRB(10, 4, 6, 2),
+      child: Row(
+        children: [
+          ReorderableDragStartListener(
+            index: widget.indice,
+            child: Icon(
+              Icons.drag_indicator,
+              size: 22,
+              color: onBarra.withValues(alpha: 0.7),
             ),
           ),
-          _BotaoMini(
-            icone: Icons.copy_all_outlined,
-            tooltip: 'Copiar',
-            onTap: widget.onCopiar,
-            cor: sec,
-          ),
-          _BotaoMini(
-            icone: widget.nota.concluida
-                ? Icons.check_box
-                : Icons.check_box_outline_blank,
-            tooltip: widget.nota.concluida
-                ? 'Desmarcar (em andamento)'
-                : 'Marcar como em andamento',
-            onTap: _alternarConcluida,
-            cor: widget.nota.concluida ? app.fab : sec,
+          const SizedBox(width: 4),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              // A ORDEM dos botões vem do barraController (configurável em
+              // Configurações → "Ordem dos botões da barra"); a barra se
+              // reconstrói ao mudar a ordem.
+              child: ListenableBuilder(
+                listenable: barraController,
+                builder: (context, _) {
+                  final botoes = <Widget>[];
+                  for (final f in barraController.ordem) {
+                    final b = _botaoFerramenta(f, onBarra);
+                    if (b != null) botoes.add(b);
+                  }
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: botoes,
+                  );
+                },
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
+  /// Constrói o botão da barra para a ferramenta [f] (ou null quando ela não
+  /// se aplica — ex.: "numerar" só existe na aba Tarefas). A ordem dos botões
+  /// é decidida pelo [barraController]; este método só sabe DESENHAR cada um.
+  Widget? _botaoFerramenta(Ferramenta f, Color onBarra) {
+    switch (f) {
+      case Ferramenta.copiar:
+        return _BotaoMini(
+          icone: Icons.copy_all_outlined,
+          tooltip: 'Copiar',
+          onTap: widget.onCopiar,
+          cor: onBarra,
+        );
+      case Ferramenta.desfazer:
+        return _BotaoMini(
+          icone: Icons.undo,
+          tooltip: 'Desfazer apagar',
+          onTap: _desfazer,
+          cor: onBarra,
+        );
+      case Ferramenta.feito:
+        return _BotaoMini(
+          icone: widget.nota.concluida
+              ? Icons.check_box
+              : Icons.check_box_outline_blank,
+          tooltip: widget.nota.concluida ? 'Desmarcar' : 'Marcar como feito',
+          onTap: _alternarConcluida,
+          cor: onBarra,
+        );
+      case Ferramenta.numerar:
+        if (!widget.modoTarefas) return null;
+        return _BotaoMini(
+          icone: _numerado
+              ? Icons.format_list_numbered
+              : Icons.format_align_justify,
+          tooltip: _numerado ? 'Remover número da linha' : 'Numerar linha',
+          onTap: _alternarNumero,
+          cor: onBarra,
+        );
+      case Ferramenta.todo:
+        return _BotaoMini(
+          icone: Icons.checklist,
+          tooltip: 'Item de to-do (☐)',
+          onTap: _inserirTodo,
+          cor: onBarra,
+        );
+      case Ferramenta.mover:
+        return _BotaoMini(
+          icone: widget.modoTarefas
+              ? Icons.arrow_downward
+              : Icons.arrow_upward,
+          tooltip: widget.modoTarefas
+              ? 'Mover para Ideias'
+              : 'Mover para Tarefas',
+          onTap: widget.onMover,
+          cor: onBarra,
+        );
+      case Ferramenta.extremo:
+        return _BotaoMini(
+          icone: Icons.unfold_more,
+          tooltip: 'Topo / Pé',
+          onTap: _irAoExtremo,
+          cor: onBarra,
+        );
+      case Ferramenta.link:
+        return _BotaoMini(
+          icone: Icons.add_link,
+          tooltip: 'Link',
+          onTap: _abrirLink,
+          cor: onBarra,
+        );
+      case Ferramenta.imagem:
+        return _BotaoMini(
+          icone: Icons.image_outlined,
+          tooltip: 'Ler texto de imagem (OCR)',
+          onTap: _lerImagem,
+          cor: onBarra,
+        );
+      case Ferramenta.comentario:
+        return _BotaoMini(
+          icone: _comentarioExpandido
+              ? Icons.chat_bubble
+              : Icons.chat_bubble_outline,
+          tooltip: 'Comentário',
+          onTap: () =>
+              setState(() => _comentarioExpandido = !_comentarioExpandido),
+          cor: onBarra,
+        );
+      case Ferramenta.editar:
+        return _BotaoMini(
+          icone: Icons.edit_outlined,
+          tooltip: 'Editar',
+          onTap: focarNoFim,
+          cor: onBarra,
+        );
+      case Ferramenta.centralizar:
+        return _BotaoMini(
+          icone: Icons.format_align_center,
+          tooltip: 'Centralizar linha (seleção)',
+          onTap: _centralizarLinha,
+          cor: onBarra,
+        );
+      case Ferramenta.minimizar:
+        return _BotaoMini(
+          icone: Icons.more_horiz,
+          tooltip: widget.nota.minimizada
+              ? 'Expandir caixinha'
+              : 'Minimizar caixinha',
+          onTap: _alternarMinimizada,
+          cor: onBarra,
+        );
+      case Ferramenta.limpar:
+        return _BotaoMini(
+          icone: Icons.cleaning_services,
+          tooltip: 'Limpar conteúdo',
+          onTap: _limpar,
+          cor: onBarra,
+        );
+      case Ferramenta.excluir:
+        return _BotaoMini(
+          icone: Icons.delete_outline,
+          tooltip: 'Excluir',
+          isDanger: true,
+          onTap: widget.onExcluir,
+          cor: onBarra,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
+    final corFerramentas = app.barraFerramentas;
+    final onBarra = ThemeData.estimateBrightnessForColor(corFerramentas) ==
+            Brightness.dark
+        ? Colors.white
+        : Colors.black87;
 
     // Mesma fonte do tema + fallback com os glifos ☐/☑ em TEXTO (Noto Sans
     // Symbols 2, subset embutido): sem ele alguns celulares renderizam o ☑
@@ -1988,27 +1871,24 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // NOVO LAYOUT (V0.1.237): o texto ocupa a esquerda e o DOCK vertical
-          // (arrastar, copiar, caixa de seleção) fica à direita. A barra de
-          // ferramentas antiga (topo do card) virou a barra ÚNICA acima do
-          // teclado — ver _ProjetoScreenState._barraInferior.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: mostrarMinimizada
-                    // Prévia minimizada: as 3 primeiras linhas do texto; tocar
-                    // (ou o "•••") expande de volta. Com busca ativa aparece
-                    // expandida (o grifo fica correto lá).
-                    ? GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _alternarMinimizada,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 10, 10, 12),
-                          child: _previaMinimizada(context, corTexto),
-                        ),
-                      )
-                    : Listener(
+          // Barra de ferramentas (oculta na minimizada — o fim da 3ª linha
+          // traz os botões copiar e "•••"; ver _previaMinimizada).
+          if (!mostrarMinimizada) _barraFerramentas(corFerramentas, onBarra),
+          if (mostrarMinimizada)
+            // Prévia minimizada: as 3 primeiras linhas do texto e, no fim da
+            // 3ª, os botões copiar e "•••" (expandir), com a barra de
+            // ferramentas oculta. Tocar na prévia também expande. Com busca
+            // ativa a caixinha aparece expandida (o grifo fica correto lá).
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _alternarMinimizada,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 4, 10, 12),
+                child: _previaMinimizada(context, corTexto),
+              ),
+            )
+          else
+            Listener(
               behavior: HitTestBehavior.translucent,
               onPointerDown: _pointerDown,
               onPointerUp: _pointerUp,
@@ -2048,10 +1928,6 @@ class _CaixaNotaState extends State<_CaixaNota> with WidgetsBindingObserver {
                 ),
               ),
             ),
-              ),
-              _dock(app),
-            ],
-          ),
           // Subcaixinha inline: títulos dos links (SEMPRE visíveis quando há
           // links — ex.: título do vídeo do YouTube) + comentário manual.
           if (widget.nota.links.isNotEmpty || _comentarioVisivel)
@@ -2542,53 +2418,17 @@ Widget _menuSelecao(
 /// Pastas/PDF/Copiar/Excluir/Voltar com `cor` = texto da UI. (V0.1.222: os
 /// glifos desenhados à mão — `_TopoPainter` — pareciam fora do padrão; trocados
 /// por ícones Material.) Vale em todos os temas (a cor vem do tema).
-/// Superfície "pílula" flutuante do novo layout (V0.1.237): barra do topo,
-/// linha de abas e botões redondos. Usa as cores do tema (branca nos claros,
-/// navy/preta nos escuros), borda sutil e uma sombra leve.
-class _Pilula extends StatelessWidget {
-  const _Pilula({required this.child, this.padding});
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-
-  @override
-  Widget build(BuildContext context) {
-    final app = Theme.of(context).extension<AppCores>() ?? AppCores.azul;
-    final escuro = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: app.notaInicio,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: app.notaBorda),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: escuro ? 0.22 : 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
-/// Botão-ícone fino (sem caixa) usado dentro das pílulas do topo/abas.
-class _IconePilula extends StatelessWidget {
-  const _IconePilula({
+class _BotaoTopo extends StatelessWidget {
+  const _BotaoTopo({
     required this.icone,
     required this.cor,
     required this.tooltip,
-    required this.onTap,
-    this.tamanho = 18,
-    this.caixa = 36,
+    required this.onPressed,
   });
   final IconData icone;
   final Color cor;
   final String tooltip;
-  final VoidCallback onTap;
-  final double tamanho;
-  final double caixa;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -2597,16 +2437,15 @@ class _IconePilula extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          onTap: onPressed,
           child: SizedBox(
-            width: caixa,
-            height: caixa,
-            child: Center(child: Icon(icone, size: tamanho, color: cor)),
+            width: 42,
+            height: 40,
+            child: Center(child: Icon(icone, size: 22, color: cor)),
           ),
         ),
       ),
     );
   }
 }
-
