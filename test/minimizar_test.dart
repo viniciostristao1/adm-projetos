@@ -43,7 +43,28 @@ void main() {
     });
   });
 
-  testWidgets('botão ••• minimiza (3 linhas com reticências) e expande',
+  // NOVO LAYOUT (V0.1.237): "minimizar" (•••) saiu do topo de cada card e
+  // virou uma ferramenta da BARRA ÚNICA acima do teclado — só aparece com a
+  // caixinha FOCADA. Para minimizar, foca-se a caixinha e toca-se no "•••" da
+  // barra; a prévia minimizada traz o "•••" (expandir) e o DOCK (arrastar/
+  // copiar/seleção) continua visível mesmo minimizada.
+  Future<void> minimizarPelaBarra(WidgetTester tester) async {
+    // Foca a caixinha → a barra única (com o "•••") aparece acima do teclado.
+    // (Enquanto focada, usa-se pump() — pumpAndSettle travaria no cursor
+    // piscante.) A barra rola na horizontal; revela o "•••" e toca.
+    await tester.tap(find.byType(TextField).first);
+    await tester.pump();
+    await tester.dragUntilVisible(
+      find.byIcon(Icons.more_horiz),
+      find.byType(SingleChildScrollView).last,
+      const Offset(-120, 0),
+    );
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    // O minimizar desfoca a caixinha → pumpAndSettle volta a ser seguro.
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('••• (barra) minimiza (3 linhas) e a prévia expande',
       (tester) async {
     await Storage.instance.carregar();
     final nota = Nota(
@@ -60,11 +81,7 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
     expect(nota.minimizada, isFalse);
 
-    final botao = find.byIcon(Icons.more_horiz);
-    await tester.ensureVisible(botao);
-    await tester.pumpAndSettle();
-    await tester.tap(botao);
-    await tester.pumpAndSettle();
+    await minimizarPelaBarra(tester);
 
     // Minimizada: o campo some e aparece a prévia de 3 linhas com reticências.
     expect(find.byType(TextField), findsNothing);
@@ -74,14 +91,14 @@ void main() {
     expect(previa, isNotEmpty, reason: 'prévia com maxLines 3 + ellipsis');
     expect(nota.minimizada, isTrue, reason: 'estado salvo no modelo');
 
-    // Tocar de novo (no botão) expande.
-    await tester.tap(botao);
+    // Tocar no "•••" da prévia expande.
+    await tester.tap(find.byIcon(Icons.more_horiz));
     await tester.pumpAndSettle();
     expect(find.byType(TextField), findsOneWidget);
     expect(nota.minimizada, isFalse);
   });
 
-  testWidgets('minimizada oculta a barra e põe copiar + ••• no fim da 3ª linha',
+  testWidgets('dock segue visível na minimizada; copiar leva o texto inteiro',
       (tester) async {
     await Storage.instance.carregar();
     final nota = Nota(
@@ -109,16 +126,16 @@ void main() {
         of: find.byType(TabBarView),
         matching: find.byIcon(Icons.copy_all_outlined));
 
-    // Expandida: barra de ferramentas visível (pino de arrastar + copiar).
+    // Expandida: dock visível à direita (arrastar + copiar).
     expect(find.byIcon(Icons.drag_indicator), findsOneWidget);
     expect(copiarCaixa, findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.more_horiz));
-    await tester.pumpAndSettle();
+    await minimizarPelaBarra(tester);
 
-    // Minimizada: barra OCULTA e botões copiar + "•••" no fim do texto.
-    expect(find.byIcon(Icons.drag_indicator), findsNothing,
-        reason: 'a barra de ferramentas some na minimizada');
+    // Minimizada: o DOCK continua visível (arrastar/copiar) e a prévia traz
+    // o "•••" (expandir).
+    expect(find.byIcon(Icons.drag_indicator), findsOneWidget,
+        reason: 'o dock continua à direita mesmo na minimizada');
     expect(copiarCaixa, findsOneWidget);
     expect(find.byIcon(Icons.more_horiz), findsOneWidget);
 
@@ -129,7 +146,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(copiado, contains('linha 12'));
 
-    // "•••" expande: o campo de texto e a barra voltam.
+    // "•••" da prévia expande: o campo de texto volta.
     await tester.tap(find.byIcon(Icons.more_horiz));
     await tester.pumpAndSettle();
     expect(find.byType(TextField), findsOneWidget);
@@ -149,8 +166,7 @@ void main() {
 
     await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: projeto)));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.more_horiz));
-    await tester.pumpAndSettle();
+    await minimizarPelaBarra(tester);
 
     final previa = tester
         .widgetList<Text>(find.byType(Text))
@@ -175,11 +191,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: ProjetoScreen(projeto: projeto)));
     await tester.pumpAndSettle();
 
-    final botao = find.byIcon(Icons.more_horiz);
-    await tester.ensureVisible(botao);
-    await tester.pumpAndSettle();
-    await tester.tap(botao);
-    await tester.pumpAndSettle();
+    await minimizarPelaBarra(tester);
 
     expect(find.text('Vídeo legal'), findsOneWidget,
         reason: 'título do link continua visível na minimizada');

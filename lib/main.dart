@@ -393,6 +393,20 @@ class AdmProjetosApp extends StatelessWidget {
     );
   }
 
+  /// Tema Nordic Azul (V0.1.237) — claro e arejado, do protótipo híbrido:
+  /// fundo cinza-azulado, superfícies brancas, acento azul (#2563EB) usado em
+  /// FAB/abas/chips. Sem serifa (sans padrão). É a referência do novo layout.
+  ThemeData _temaNordic() => _temaClaroCalis(
+        bg: const Color(0xFFF4F6FA),
+        surface: const Color(0xFFFFFFFF),
+        surface2: const Color(0xFFF8FAFC),
+        text: const Color(0xFF0F172A),
+        accent: const Color(0xFF2563EB),
+        onAccent: const Color(0xFFFFFFFF),
+        app: AppCores.nordic,
+        appBarColor: const Color(0xFFF4F6FA),
+      );
+
   /// Tema Creme — fundo bege, botões pretos, detalhe terracota.
   ThemeData _temaCreme() => _temaCremePapel(
         bg: const Color(0xFFF5F0E6),
@@ -720,10 +734,12 @@ class AdmProjetosApp extends StatelessWidget {
       builder: (context, _) {
         final modo = temaController.modo;
         final scale = temaController.fonte.scale;
-        // Creme e Papel são os claros; demais escuros.
-        final claro = modo == Modo.creme || modo == Modo.papel;
+        // Nordic, Creme e Papel são os claros; demais escuros.
+        final claro =
+            modo == Modo.nordic || modo == Modo.creme || modo == Modo.papel;
         final theme = switch (modo) {
           Modo.azul => _temaAzul(),
+          Modo.nordic => _temaNordic(),
           Modo.neumB => _temaNeumB(),
           Modo.onix => _temaOnix(),
           Modo.creme => _temaCreme(),

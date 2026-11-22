@@ -7,6 +7,7 @@ import 'package:adm_projetos/tema.dart';
 
 AppCores _coresDe(Modo m) => switch (m) {
       Modo.azul => AppCores.azul,
+      Modo.nordic => AppCores.nordic,
       Modo.neumB => AppCores.neumB,
       Modo.onix => AppCores.onix,
       Modo.dark => AppCores.dark,
@@ -15,12 +16,13 @@ AppCores _coresDe(Modo m) => switch (m) {
     };
 
 void main() {
-  test('Modo tem exatamente 6 temas (Azul, Dark Game, Ônix, Dark, Creme, Papel)',
-      () {
-    expect(Modo.values.length, 6);
+  test(
+      'Modo tem exatamente 7 temas (Azul, Nordic Azul, Dark Game, Ônix, Dark, '
+      'Creme, Papel)', () {
+    expect(Modo.values.length, 7);
     expect(
       Modo.values.map((m) => m.rotulo).toList(),
-      ['Azul', 'Dark Game', 'Ônix', 'Dark', 'Creme', 'Papel'],
+      ['Azul', 'Nordic Azul', 'Dark Game', 'Ônix', 'Dark', 'Creme', 'Papel'],
     );
   });
 

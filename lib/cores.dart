@@ -142,6 +142,27 @@ class AppCores extends ThemeExtension<AppCores> {
     textoUI: Color(0xFFECECEC),
   );
 
+  /// Tema Nordic Azul (V0.1.237) — claro e arejado, do protótipo híbrido: fundo
+  /// cinza-azulado (#F4F6FA), superfícies brancas flutuantes com borda sutil
+  /// (#E2E8F0), texto slate (#0F172A) e acento azul (#2563EB). É o tema de
+  /// referência do NOVO layout (pílulas no topo, dock à direita dos blocos e
+  /// barra única acima do teclado). Plano. Roda em `ThemeMode.light`.
+  static const AppCores nordic = AppCores(
+    notaInicio: Color(0xFFFFFFFF),
+    notaFim: Color(0xFFFFFFFF),
+    notaBorda: Color(0xFFE2E8F0),
+    projetoCard: Color(0xFFFFFFFF),
+    projetoCardFim: Color(0xFFFFFFFF),
+    projetoTxt: Color(0xFF0F172A),
+    fab: Color(0xFF2563EB),
+    fabIcone: Color(0xFFFFFFFF),
+    barraFerramentas: Color(0xFFF8FAFC),
+    barraFerramentasFim: Color(0xFFF8FAFC),
+    fundoInicio: Color(0xFFF4F6FA),
+    fundoFim: Color(0xFFEDF1F7),
+    textoUI: Color(0xFF0F172A),
+  );
+
   /// Preto das intervenções/botões nos temas claros novos (contraste com o
   /// bege/off-white — vindo das refs estilo Claude do Nestwallet, V0.1.195).
   static const kPretoCremePapel = Color(0xFF1B1B1B);
